@@ -237,6 +237,29 @@
   </div>
 
   <script>
+    // Feste Reihenfolge fuer die Truppen-Aufschluesselung (.breakdown) -
+    // Europaeisch vor Arabisch vor Moenchen vor Baumeister (Rolle: baut nur,
+    // kaempft nicht). Belagerungsgeraete-Einzeltypen sind hier bewusst NICHT
+    // gelistet (nicht auffindbar, siehe project_shc_overlay_status.md) -
+    // wuerden aber, wenn irgendwann gefunden, direkt nach Baumeister
+    // einsortiert werden. Unbekannte/neue Keys fallen ans Ende.
+    const UNIT_BREAKDOWN_ORDER = [
+      "unit_archer", "unit_crossbowman", "unit_spearman", "unit_pikeman", "unit_maceman",
+      "unit_swordsman", "unit_knight", "unit_laddercarrier", "unit_tunneler",
+      "unit_arab_archer", "unit_horse_archer", "unit_slave", "unit_assassin",
+      "unit_slinger", "unit_fire_thrower", "unit_arab_swordsman",
+      "unit_monk",
+      "unit_builder",
+    ];
+
+    function sortUnitEntries(entries) {
+      return entries.slice().sort((a, b) => {
+        const ia = UNIT_BREAKDOWN_ORDER.indexOf(a[0]);
+        const ib = UNIT_BREAKDOWN_ORDER.indexOf(b[0]);
+        return (ia === -1 ? UNIT_BREAKDOWN_ORDER.length : ia) - (ib === -1 ? UNIT_BREAKDOWN_ORDER.length : ib);
+      });
+    }
+
     const STAT_DEFS = [
       { flag: "show_gold",         key: "gold",                img: "/icons/resource_gold.png" },
       { flag: "show_wood",         key: "wood",                img: "/icons/resource_wood.png" },
@@ -371,7 +394,7 @@
     function breakdownHtml(p) {
       let items = "";
       if (cfg.show_troop_breakdown && p.units) {
-        const entries = Object.entries(p.units).filter(([, v]) => v && v > 0);
+        const entries = sortUnitEntries(Object.entries(p.units).filter(([, v]) => v && v > 0));
         items = entries
           .map(([key, val]) => `
             <div class="unit">

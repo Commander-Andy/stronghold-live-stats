@@ -338,6 +338,31 @@
     const POLL_MS = 500;
     const CONFIG_POLL_MS = 200;
 
+    // Feste Reihenfolge fuer die Truppen-Aufschluesselung (.breakdown) -
+    // Europaeisch vor Arabisch vor Moenchen vor Baumeister (Rolle: baut nur,
+    // kaempft nicht - siehe Kommentar bei show_lord_hp fuer eine aehnliche
+    // "eigene Rolle"-Logik). Belagerungsgeraete-Einzeltypen sind hier bewusst
+    // NICHT gelistet (nicht auffindbar, siehe project_shc_overlay_status.md)
+    // - wuerden aber, wenn irgendwann gefunden, direkt nach Baumeister
+    // einsortiert werden. Unbekannte/neue Keys fallen ans Ende, statt den
+    // ganzen Sortiervorgang zu brechen.
+    const UNIT_BREAKDOWN_ORDER = [
+      "unit_archer", "unit_crossbowman", "unit_spearman", "unit_pikeman", "unit_maceman",
+      "unit_swordsman", "unit_knight", "unit_laddercarrier", "unit_tunneler",
+      "unit_arab_archer", "unit_horse_archer", "unit_slave", "unit_assassin",
+      "unit_slinger", "unit_fire_thrower", "unit_arab_swordsman",
+      "unit_monk",
+      "unit_builder",
+    ];
+
+    function sortUnitEntries(entries) {
+      return entries.slice().sort((a, b) => {
+        const ia = UNIT_BREAKDOWN_ORDER.indexOf(a[0]);
+        const ib = UNIT_BREAKDOWN_ORDER.indexOf(b[0]);
+        return (ia === -1 ? UNIT_BREAKDOWN_ORDER.length : ia) - (ib === -1 ? UNIT_BREAKDOWN_ORDER.length : ib);
+      });
+    }
+
     // Reihenfolge bestimmt Anzeige-Reihenfolge in der Zeile.
     const STAT_DEFS = [
       { flag: "show_gold",         key: "gold",                img: "/icons/resource_gold.png" },
@@ -355,6 +380,7 @@
       { flag: "show_wheat",        key: "wheat",               img: "/icons/resource_wheat.png" },
       { flag: "show_flour",        key: "flour",               img: "/icons/resource_flour.png" },
       { flag: "show_troops_total", key: "troops",              icon: "&#9876;&#65039;" },
+      { flag: "show_monks_trained", key: "monks_trained",      img: "/icons/unit_monk.png" },
       { flag: "show_bows",         key: "bows",                img: "/icons/resource_bows.png" },
       { flag: "show_crossbows",    key: "crossbows",           img: "/icons/resource_crossbows.png" },
       { flag: "show_spears",       key: "spears",              img: "/icons/resource_spears.png" },
@@ -366,7 +392,6 @@
       { flag: "show_popularity",   key: "popularity",          img: "/icons/resource_popularity.png", isPop: true },
       { flag: "show_tax_rate",     key: "tax_rate",            isTaxRate: true },
       { flag: "show_population",   key: "population",          img: "/icons/population.png", isPopulation: true },
-      { flag: "show_monks_trained", key: "monks_trained",      img: "/icons/unit_monk.png" },
       { flag: "show_lord_hp",      key: "lord_hp_percent",     icon: "&#10084;&#65039;", isLordHp: true },
     ];
 
@@ -460,7 +485,7 @@
       const display = cfg.display || {};
       let items = "";
       if (display.show_troop_breakdown && p.units) {
-        const entries = Object.entries(p.units).filter(([, v]) => v && v > 0);
+        const entries = sortUnitEntries(Object.entries(p.units).filter(([, v]) => v && v > 0));
         items = entries
           .map(([key, val]) => `
             <div class="unit">
