@@ -261,6 +261,11 @@
     color: #a89478;
     margin-top: 4px;
   }
+  .cat-count {
+    font-size: 11px;
+    font-weight: 400;
+    color: #a89478;
+  }
   code {
     background: #1b140c;
     padding: 2px 5px;
@@ -607,7 +612,7 @@
       container.innerHTML = DISPLAY_CATEGORIES.map((cat, idx) => `
         <details class="card" open>
           <summary style="cursor:pointer; color:#c6a15b; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <span><span class="disclosure-arrow">&#9654;</span>${cat.name}</span>
+            <span><span class="disclosure-arrow">&#9654;</span>${cat.name} <span class="cat-count" data-cat-badge="${idx}"></span></span>
             <span>
               <button type="button" data-cat="${idx}" data-mode="1">Alle an</button>
               <button type="button" data-cat="${idx}" data-mode="0">Alle aus</button>
@@ -618,6 +623,8 @@
           </div>
         </details>
       `).join("");
+
+      updateCategoryCounts();
 
       // preventDefault/stopPropagation, damit ein Klick auf die Knoepfe nicht
       // zugleich die <summary> auf-/zuklappt (natives Verhalten sonst).
@@ -633,6 +640,21 @@
         });
       });
     }
+
+    // Zeigt "(x/y)" neben jedem Rubrik-Namen, damit der eingeklappte
+    // Zustand ("x an") trotzdem auf einen Blick erkennbar bleibt, statt
+    // extra aufklappen zu muessen - Idee aus der Layout-Review, guenstiger
+    // als ein Dropdown (siehe project_shc_overlay_status.md).
+    function updateCategoryCounts() {
+      const display = (currentConfig && currentConfig.display) || {};
+      DISPLAY_CATEGORIES.forEach((cat, idx) => {
+        const badge = document.querySelector(`[data-cat-badge="${idx}"]`);
+        if (!badge) return;
+        const on = cat.items.filter(([key]) => display[key]).length;
+        badge.textContent = `(${on}/${cat.items.length})`;
+      });
+    }
+
     // Muss vor dem generischen data-key-Checkbox-Handler weiter unten
     // laufen, damit dieser die hier neu erzeugten Checkboxen auch findet.
     renderDisplayCategories();
@@ -767,6 +789,7 @@
       document.querySelectorAll("input[type=checkbox][data-key]").forEach((el) => {
         el.checked = !!cfg.display[el.dataset.key];
       });
+      updateCategoryCounts();
       document.getElementById("aic-path-box").textContent = cfg.aic_file_path || "- keine ausgewaehlt -";
       document.getElementById("logo-path-box").textContent = cfg.display.logo_path || "- kein Logo ausgewaehlt -";
       document.getElementById("port-input").value = cfg.http_port;

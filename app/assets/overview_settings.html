@@ -40,6 +40,11 @@
     color: #a89478;
     margin: -4px 0 12px 0;
   }
+  .cat-count {
+    font-size: 11px;
+    font-weight: 400;
+    color: #a89478;
+  }
   .card {
     background: #241a10;
     border: 1px solid #c6a15b;
@@ -318,7 +323,7 @@
       container.innerHTML = DISPLAY_CATEGORIES.map((cat, idx) => `
         <details class="card" open>
           <summary style="cursor:pointer; color:#c6a15b; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <span><span class="disclosure-arrow">&#9654;</span>${cat.name}</span>
+            <span><span class="disclosure-arrow">&#9654;</span>${cat.name} <span class="cat-count" data-cat-badge="${idx}"></span></span>
             <span>
               <button type="button" data-cat="${idx}" data-mode="1">Alle an</button>
               <button type="button" data-cat="${idx}" data-mode="0">Alle aus</button>
@@ -329,6 +334,8 @@
           </div>
         </details>
       `).join("");
+
+      updateCategoryCounts();
 
       container.querySelectorAll("button[data-cat]").forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -342,6 +349,21 @@
         });
       });
     }
+
+    // Zeigt "(x/y)" neben jedem Rubrik-Namen, damit der eingeklappte
+    // Zustand ("x an") trotzdem auf einen Blick erkennbar bleibt, statt
+    // extra aufklappen zu muessen - Idee aus der Layout-Review, guenstiger
+    // als ein Dropdown (siehe project_shc_overlay_status.md).
+    function updateCategoryCounts() {
+      const cfg = currentConfig || {};
+      DISPLAY_CATEGORIES.forEach((cat, idx) => {
+        const badge = document.querySelector(`[data-cat-badge="${idx}"]`);
+        if (!badge) return;
+        const on = cat.items.filter(([key]) => cfg[key]).length;
+        badge.textContent = `(${on}/${cat.items.length})`;
+      });
+    }
+
     // Muss vor dem generischen data-key-Checkbox-Handler weiter unten
     // laufen, damit dieser die hier neu erzeugten Checkboxen auch findet.
     renderDisplayCategories();
@@ -482,6 +504,7 @@
       document.querySelectorAll("input[type=checkbox][data-key]").forEach((el) => {
         el.checked = !!cfg[el.dataset.key];
       });
+      updateCategoryCounts();
       document.getElementById("side-mode-input").value = cfg.side_mode;
       document.getElementById("theme-input").value = cfg.theme || "rgb";
       document.getElementById("row-gap-input").value = cfg.row_gap_px;
