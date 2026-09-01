@@ -313,11 +313,6 @@
     right: 0;
   }
 
-  .breakdown .unit.siege-combo .icon {
-    font-size: var(--icon-size);
-    line-height: 1;
-  }
-
   #empty-msg {
     position: fixed;
     bottom: 12px;
@@ -478,10 +473,14 @@
       // Belagerungsgeraete-Summe als eigener, immer ganz rechts sitzender
       // Platzhalter-Eintrag (siehe .siege-combo CSS) - unabhaengig vom
       // "echten" Aufschluesselungs-Haken, da hier eh nur die Summe existiert.
+      // Katapult-Icon extra eng zugeschnitten (unit_catapult_large.png,
+      // ohne den transparenten Rand des Original-Sprites) statt des
+      // normalen unit_catapult.png, damit es trotz gleicher --icon-size
+      // wie die anderen Icons den Rahmen sichtbar mehr ausfuellt.
       if (display.show_siege_movable && p.siege_movable_total) {
         items += `
           <div class="unit siege-combo">
-            <span class="icon">&#127984;</span>
+            <img src="/icons/unit_catapult_large.png" alt="">
             <span>${p.siege_movable_total}</span>
           </div>
         `;

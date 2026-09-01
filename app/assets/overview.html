@@ -139,10 +139,6 @@
     top: 8px;
     right: 0;
   }
-  .breakdown .unit.siege-combo .icon {
-    font-size: var(--breakdown-icon-size, 22px);
-    line-height: 1;
-  }
 
   /* Steuersatz-Icon: Stimmungsgesicht mit einer kleinen Gold-Muenze als
      Abzeichen dahinter versetzt (unten rechts). */
@@ -387,10 +383,14 @@
       }
       // Unabhaengig vom Aufschluesselungs-Haken, da hier eh nur die Summe
       // existiert (siehe .siege-combo CSS - immer rechts, kein Einzeltyp).
+      // Katapult-Icon extra eng zugeschnitten (unit_catapult_large.png,
+      // ohne den transparenten Rand des Original-Sprites), damit es trotz
+      // gleicher --breakdown-icon-size wie die anderen Icons den Rahmen
+      // sichtbar mehr ausfuellt.
       if (cfg.show_siege_movable && p.siege_movable_total) {
         items += `
           <div class="unit siege-combo">
-            <span class="icon">&#127984;</span>
+            <img src="/icons/unit_catapult_large.png" alt="">
             <span>${p.siege_movable_total}</span>
           </div>
         `;
