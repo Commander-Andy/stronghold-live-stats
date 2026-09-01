@@ -54,16 +54,34 @@
     max-width: 1152px;
     aspect-ratio: 16 / 9;
     background-color: #0a0a0a;
-    background-image: url('/bg/preview.png');
-    background-position: center;
-    background-size: cover;
-    background-repeat: no-repeat;
     border: 2px solid #444;
     border-radius: 4px;
     overflow: hidden;
     position: relative;
   }
+  /* Hintergrundbild (Spiel-Screenshot als Ausrichtungshilfe, z.B. das
+     Bevoelkerungsbuch-Symbol) liegt als eigenes <img> - exakt in
+     derselben 1920x1080-Leinwandgroesse und mit demselben transform-
+     origin wie die iframe darueber - statt als CSS background-image auf
+     .preview-box. So bekommt es in apply() denselben Zoom/Pan-Transform
+     wie die iframe und bleibt beim Zoomen/Verschieben exakt darunter
+     ausgerichtet - sonst waere Zoomen fuers Feinjustieren nutzlos, weil
+     sich nur der Overlay-Inhalt bewegt haette, nicht die Referenz
+     dahinter. */
+  .preview-box img.preview-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1920px;
+    height: 1080px;
+    object-fit: cover;
+    transform-origin: top left;
+    display: block;
+  }
   .preview-box iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 1920px;
     height: 1080px;
     border: 0;
@@ -76,7 +94,8 @@
        (eigenes Fenster, eingebettet im Uebersichtsmodus-Panel, etc.),
        statt eine feste Pixelgroesse vorauszusetzen. Zoom/Pan (siehe
        .preview-overlay) haengt sich mit einem zusaetzlichen Faktor bzw.
-       einer Verschiebung oben auf dieselbe transform-Eigenschaft dran. */
+       einer Verschiebung oben auf dieselbe transform-Eigenschaft dran -
+       und wird 1:1 auch auf .preview-bg angewendet, siehe apply(). */
   }
   /* Transparente Ebene ueber der iframe - noetig weil Maus-Events (wheel/
      drag) auf einem iframe NICHT zum Elternfenster durchgereicht werden,
@@ -488,6 +507,7 @@
   <div class="right-col">
     <p class="preview-label">Live-Vorschau (aktualisiert laufend) - Mausrad: Zoom, Ziehen: Verschieben</p>
     <div class="preview-box">
+      <img class="preview-bg" id="preview-bg-img" src="/bg/preview.png" alt="">
       <iframe id="preview-frame" src="/overlay.html"></iframe>
       <div class="preview-overlay" id="preview-overlay" title="Mausrad: Zoom - Ziehen: Verschieben (bei Zoom) - Doppelklick: Zuruecksetzen"></div>
       <button type="button" class="preview-reset-btn" id="preview-reset-btn" title="Zoom zuruecksetzen">&#128269;</button>
@@ -1115,6 +1135,7 @@
       const frame = document.getElementById("preview-frame");
       const overlay = document.getElementById("preview-overlay");
       const resetBtn = document.getElementById("preview-reset-btn");
+      const bgImg = document.getElementById("preview-bg-img");
 
       const CANVAS_W = 1920;
       const CANVAS_H = 1080;
@@ -1146,7 +1167,9 @@
 
       function apply() {
         clampPan();
-        frame.style.transform = `scale(${effScale()}) translate(${panX}px, ${panY}px)`;
+        const t = `scale(${effScale()}) translate(${panX}px, ${panY}px)`;
+        frame.style.transform = t;
+        bgImg.style.transform = t;
         overlay.classList.toggle("zoomed", zoom > 1.001);
       }
 
