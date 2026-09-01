@@ -74,7 +74,41 @@
        tatsaechlichen, ggf. schwankenden Kastengroesse gesetzt - dadurch
        passt sich die Vorschau automatisch an jede verfuegbare Breite an
        (eigenes Fenster, eingebettet im Uebersichtsmodus-Panel, etc.),
-       statt eine feste Pixelgroesse vorauszusetzen. */
+       statt eine feste Pixelgroesse vorauszusetzen. Zoom/Pan (siehe
+       .preview-overlay) haengt sich mit einem zusaetzlichen Faktor bzw.
+       einer Verschiebung oben auf dieselbe transform-Eigenschaft dran. */
+  }
+  /* Transparente Ebene ueber der iframe - noetig weil Maus-Events (wheel/
+     drag) auf einem iframe NICHT zum Elternfenster durchgereicht werden,
+     sobald der Zeiger ueber dem iframe-Inhalt selbst steht. Faengt Zoom/
+     Pan-Gesten ab, ohne dass man versehentlich mit der Vorschau selbst
+     interagiert (die ist eh nur zur Anzeige gedacht). */
+  .preview-overlay {
+    position: absolute;
+    inset: 0;
+    cursor: zoom-in;
+  }
+  .preview-overlay.zoomed {
+    cursor: grab;
+  }
+  .preview-overlay.zoomed.dragging {
+    cursor: grabbing;
+  }
+  .preview-reset-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 14px;
+    line-height: 1;
+    padding: 4px 6px;
+    background: rgba(10, 10, 10, 0.55);
+    border: 1px solid rgba(198, 161, 91, 0.5);
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.7;
+  }
+  .preview-reset-btn:hover {
+    opacity: 1;
   }
   .dropzone {
     position: relative;
@@ -452,9 +486,11 @@
   </div><!-- /left-col -->
 
   <div class="right-col">
-    <p class="preview-label">Live-Vorschau (aktualisiert laufend)</p>
+    <p class="preview-label">Live-Vorschau (aktualisiert laufend) - Mausrad: Zoom, Ziehen: Verschieben</p>
     <div class="preview-box">
       <iframe id="preview-frame" src="/overlay.html"></iframe>
+      <div class="preview-overlay" id="preview-overlay" title="Mausrad: Zoom - Ziehen: Verschieben (bei Zoom) - Doppelklick: Zuruecksetzen"></div>
+      <button type="button" class="preview-reset-btn" id="preview-reset-btn" title="Zoom zuruecksetzen">&#128269;</button>
     </div>
 
   </div><!-- /right-col -->
@@ -511,7 +547,7 @@
           ["show_troops_total", "Truppen gesamt"],
           ["show_troop_breakdown", "Truppen-Aufschluesselung nach Typ (Icons)"],
           ["show_monks_trained", "Moenche (seit Tool-Start trainiert, kein Live-Bestand)"],
-          ["show_siege_movable", "Belagerungsgeraete gesamt"],
+          ["show_siege_movable", "Belagerungsgeraete gesamt (Sammelwert ganz rechts in der Truppen-Zeile, kein Einzeltyp moeglich)"],
         ],
       },
       {
@@ -1069,15 +1105,112 @@
     // der Vorschau-Box - reagiert auch auf Groessenaenderungen (z.B. wenn
     // diese Seite in einem schmaleren/breiteren Panel eingebettet wird,
     // etwa im Uebersichtsmodus).
+    // Vorschau: Basis-Skalierung passt die virtuelle 1920x1080-Leinwand
+    // immer in den verfuegbaren Kasten ein (wie bisher); zusaetzlich kann
+    // per Mausrad hineingezoomt und dann per Ziehen verschoben werden, um
+    // Rahmen/Abstaende genauer einstellen zu koennen. Zoom-Faktor 1 =
+    // exakt eingepasst (Ausgangszustand), > 1 = zusaetzlich hineingezoomt.
     function setupResponsivePreview() {
       const box = document.querySelector(".preview-box");
       const frame = document.getElementById("preview-frame");
-      const apply = () => {
-        const scale = box.getBoundingClientRect().width / 1920;
-        frame.style.transform = `scale(${scale})`;
-      };
-      apply();
-      new ResizeObserver(apply).observe(box);
+      const overlay = document.getElementById("preview-overlay");
+      const resetBtn = document.getElementById("preview-reset-btn");
+
+      const CANVAS_W = 1920;
+      const CANVAS_H = 1080;
+      const MIN_ZOOM = 1;
+      const MAX_ZOOM = 6;
+
+      let baseScale = 1;
+      let zoom = 1;
+      // panX/panY in unskalierten Leinwand-Pixeln (0..1920 / 0..1080),
+      // NICHT in sichtbaren Kasten-Pixeln - siehe effScale()-Rechnungen.
+      let panX = 0;
+      let panY = 0;
+      let dragging = false;
+      let dragStartClientX = 0;
+      let dragStartClientY = 0;
+      let dragStartPanX = 0;
+      let dragStartPanY = 0;
+
+      const effScale = () => baseScale * zoom;
+
+      function clampPan() {
+        const s = effScale();
+        const rect = box.getBoundingClientRect();
+        const minPanX = Math.min(0, rect.width / s - CANVAS_W);
+        const minPanY = Math.min(0, rect.height / s - CANVAS_H);
+        panX = Math.min(0, Math.max(minPanX, panX));
+        panY = Math.min(0, Math.max(minPanY, panY));
+      }
+
+      function apply() {
+        clampPan();
+        frame.style.transform = `scale(${effScale()}) translate(${panX}px, ${panY}px)`;
+        overlay.classList.toggle("zoomed", zoom > 1.001);
+      }
+
+      function updateBaseScale() {
+        baseScale = box.getBoundingClientRect().width / CANVAS_W;
+        apply();
+      }
+
+      updateBaseScale();
+      new ResizeObserver(updateBaseScale).observe(box);
+
+      function resetZoom() {
+        zoom = 1;
+        panX = 0;
+        panY = 0;
+        apply();
+      }
+
+      overlay.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const rect = box.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const oldScale = effScale();
+        // Leinwand-Punkt unter dem Mauszeiger merken, damit genau dieser
+        // Punkt nach dem Zoomen weiterhin unter dem Zeiger liegt (Zoom
+        // "zum Cursor hin", nicht zur Kasten-Mitte).
+        const localX = mouseX / oldScale - panX;
+        const localY = mouseY / oldScale - panY;
+        const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
+        const newScale = effScale();
+        panX = mouseX / newScale - localX;
+        panY = mouseY / newScale - localY;
+        apply();
+      }, { passive: false });
+
+      overlay.addEventListener("mousedown", (e) => {
+        if (zoom <= 1.001) return;
+        dragging = true;
+        overlay.classList.add("dragging");
+        dragStartClientX = e.clientX;
+        dragStartClientY = e.clientY;
+        dragStartPanX = panX;
+        dragStartPanY = panY;
+        e.preventDefault();
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        const s = effScale();
+        panX = dragStartPanX + (e.clientX - dragStartClientX) / s;
+        panY = dragStartPanY + (e.clientY - dragStartClientY) / s;
+        apply();
+      });
+
+      window.addEventListener("mouseup", () => {
+        if (!dragging) return;
+        dragging = false;
+        overlay.classList.remove("dragging");
+      });
+
+      overlay.addEventListener("dblclick", resetZoom);
+      resetBtn.addEventListener("click", resetZoom);
     }
     setupResponsivePreview();
 

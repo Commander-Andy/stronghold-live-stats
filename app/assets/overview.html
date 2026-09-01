@@ -113,11 +113,13 @@
      Zeile), kleinere Icons als die Haupt-Stats, da hier bis zu 17 Typen
      gleichzeitig auftauchen koennen. */
   .breakdown {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     flex: 1 0 100%;
     padding-top: 8px;
+    padding-right: 40px;
     border-top: 1px solid rgba(198, 161, 91, 0.35);
     font-size: 16px;
   }
@@ -126,6 +128,20 @@
     width: var(--breakdown-icon-size, 22px);
     height: var(--breakdown-icon-size, 22px);
     object-fit: contain;
+  }
+
+  /* Belagerungsgeraete-Summe als eigener, immer ganz rechts (oben, per
+     position:absolute statt Flex-Reihenfolge) sitzender Platzhalter-
+     Eintrag - kein Einzeltyp auffindbar, siehe Recherche. Gleiches
+     Kastensymbol wie beim Sonstiges-Einzelwert "siege_movable_total". */
+  .breakdown .unit.siege-combo {
+    position: absolute;
+    top: 8px;
+    right: 0;
+  }
+  .breakdown .unit.siege-combo .icon {
+    font-size: var(--breakdown-icon-size, 22px);
+    line-height: 1;
   }
 
   /* Steuersatz-Icon: Stimmungsgesicht mit einer kleinen Gold-Muenze als
@@ -242,7 +258,6 @@
       { flag: "show_flour",        key: "flour",               img: "/icons/resource_flour.png" },
       { flag: "show_troops_total", key: "troops",              icon: "&#9876;&#65039;" },
       { flag: "show_monks_trained", key: "monks_trained",      img: "/icons/unit_monk.png" },
-      { flag: "show_siege_movable", key: "siege_movable_total", icon: "&#127984;" },
       { flag: "show_bows",         key: "bows",                img: "/icons/resource_bows.png" },
       { flag: "show_crossbows",    key: "crossbows",           img: "/icons/resource_crossbows.png" },
       { flag: "show_spears",       key: "spears",              img: "/icons/resource_spears.png" },
@@ -358,17 +373,29 @@
     }
 
     function breakdownHtml(p) {
-      if (!cfg.show_troop_breakdown || !p.units) return "";
-      const entries = Object.entries(p.units).filter(([, v]) => v && v > 0);
-      if (entries.length === 0) return "";
-      const items = entries
-        .map(([key, val]) => `
-          <div class="unit">
-            <img src="/icons/${key}.png" alt="">
-            <span>${val}</span>
+      let items = "";
+      if (cfg.show_troop_breakdown && p.units) {
+        const entries = Object.entries(p.units).filter(([, v]) => v && v > 0);
+        items = entries
+          .map(([key, val]) => `
+            <div class="unit">
+              <img src="/icons/${key}.png" alt="">
+              <span>${val}</span>
+            </div>
+          `)
+          .join("");
+      }
+      // Unabhaengig vom Aufschluesselungs-Haken, da hier eh nur die Summe
+      // existiert (siehe .siege-combo CSS - immer rechts, kein Einzeltyp).
+      if (cfg.show_siege_movable && p.siege_movable_total) {
+        items += `
+          <div class="unit siege-combo">
+            <span class="icon">&#127984;</span>
+            <span>${p.siege_movable_total}</span>
           </div>
-        `)
-        .join("");
+        `;
+      }
+      if (!items) return "";
       return `<div class="breakdown">${items}</div>`;
     }
 

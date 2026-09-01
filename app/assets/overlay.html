@@ -270,6 +270,7 @@
   .pop-good { color: #9be89b; }
 
   .breakdown {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -295,6 +296,26 @@
     width: var(--icon-size);
     height: var(--icon-size);
     object-fit: contain;
+  }
+
+  /* Belagerungsgeraete-Sammelwert (kein Einzeltyp auffindbar, siehe
+     Recherche) als eigener Platzhalter-Eintrag in der Truppen-Zeile -
+     bewusst per position:absolute statt Flex-Reihenfolge/margin-left:auto
+     gesetzt, damit er NIE mit den echten Einheiten-Icons um den Zeilen-
+     umbruch konkurriert (waere sonst bei vielen aktiven Truppentypen
+     unsichtbar auf eine zweite, abgeschnittene Zeile gerutscht - vom
+     layout-invariant-checker-Agent so gefunden). Dasselbe Kastensymbol
+     wie beim Sonstiges-Einzelwert "siege_movable_total" oben, damit klar
+     ist: gleicher Sammelwert, keine echte Typ-Aufschluesselung. */
+  .breakdown .unit.siege-combo {
+    position: absolute;
+    top: 2px;
+    right: 0;
+  }
+
+  .breakdown .unit.siege-combo .icon {
+    font-size: var(--icon-size);
+    line-height: 1;
   }
 
   #empty-msg {
@@ -339,7 +360,6 @@
       { flag: "show_wheat",        key: "wheat",               img: "/icons/resource_wheat.png" },
       { flag: "show_flour",        key: "flour",               img: "/icons/resource_flour.png" },
       { flag: "show_troops_total", key: "troops",              icon: "&#9876;&#65039;" },
-      { flag: "show_siege_movable", key: "siege_movable_total", icon: "&#127984;" },
       { flag: "show_bows",         key: "bows",                img: "/icons/resource_bows.png" },
       { flag: "show_crossbows",    key: "crossbows",           img: "/icons/resource_crossbows.png" },
       { flag: "show_spears",       key: "spears",              img: "/icons/resource_spears.png" },
@@ -363,7 +383,7 @@
       "show_gold", "show_wood", "show_stone", "show_iron", "show_ale", "show_pitch", "show_hops", "show_wheat", "show_flour",
       "show_food_total", "show_bread", "show_cheese", "show_meat", "show_apples",
       "show_bows", "show_crossbows", "show_spears", "show_pikes", "show_maces", "show_swords", "show_leather_armor", "show_metal_armor",
-      "show_troops_total", "show_monks_trained", "show_siege_movable",
+      "show_troops_total", "show_monks_trained",
       "show_popularity", "show_tax_rate", "show_population", "show_lord_hp",
     ];
 
@@ -454,6 +474,17 @@
             </div>
           `)
           .join("");
+      }
+      // Belagerungsgeraete-Summe als eigener, immer ganz rechts sitzender
+      // Platzhalter-Eintrag (siehe .siege-combo CSS) - unabhaengig vom
+      // "echten" Aufschluesselungs-Haken, da hier eh nur die Summe existiert.
+      if (display.show_siege_movable && p.siege_movable_total) {
+        items += `
+          <div class="unit siege-combo">
+            <span class="icon">&#127984;</span>
+            <span>${p.siege_movable_total}</span>
+          </div>
+        `;
       }
       return `<div class="breakdown">${items}</div>`;
     }
