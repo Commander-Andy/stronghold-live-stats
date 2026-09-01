@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>SHC Live Stats - Einstellungen</title>
+<link rel="icon" href="/icons/app_logo.png">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background-color: #1b140c;
+    background-image: url('/bg/program.png');
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: #f2e9d8;
+    font-family: "Segoe UI", Trebuchet MS, Arial, sans-serif;
+  }
+  /* Abdunkelung ueber dem Hintergrundbild, damit der Text lesbar bleibt */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 10, 5, 0.72);
+    z-index: -1;
+  }
+  .page {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .left-col {
+    max-width: 640px;
+    flex: 1 1 480px;
+  }
+  .right-col {
+    flex: 1 1 320px;
+    max-width: 1152px;
+    position: sticky;
+    top: 24px;
+  }
+  /* Die Vorschau rendert overlay.html auf einer virtuellen 1920x1080-
+     Leinwand (dieselbe Pixelgroesse, die overlay.html auch in OBS bei
+     Full-HD-Ausgabe haette) und wird dann maßstabsgetreu auf die sichtbare
+     Kastengroesse herunterskaliert - overlay.html arbeitet mit festen
+     Pixelwerten, ohne diesen Trick waere die Vorschau bei einer kleineren
+     Box faelschlich "zu groß" statt originalgetreu. */
+  .preview-box {
+    width: 100%;
+    max-width: 1152px;
+    aspect-ratio: 16 / 9;
+    background-color: #0a0a0a;
+    background-image: url('/bg/preview.png');
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    border: 2px solid #444;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .preview-box iframe {
+    width: 1920px;
+    height: 1080px;
+    border: 0;
+    display: block;
+    background: transparent;
+    transform-origin: top left;
+    /* Skalierungsfaktor wird per JS (ResizeObserver) passend zur
+       tatsaechlichen, ggf. schwankenden Kastengroesse gesetzt - dadurch
+       passt sich die Vorschau automatisch an jede verfuegbare Breite an
+       (eigenes Fenster, eingebettet im Uebersichtsmodus-Panel, etc.),
+       statt eine feste Pixelgroesse vorauszusetzen. */
+  }
+  .dropzone {
+    position: relative;
+    transition: background 0.15s, border-color 0.15s;
+    border: 1px dashed transparent;
+    border-radius: 4px;
+  }
+  .dropzone.drag-over {
+    background: rgba(198, 161, 91, 0.18);
+    border-color: #c6a15b;
+  }
+  .dropzone .drop-hint {
+    font-size: 11px;
+    color: #a89478;
+    margin-top: 2px;
+  }
+  .preview-label {
+    font-size: 12px;
+    color: #a89478;
+    margin: 0 0 6px 0;
+  }
+  h1 {
+    font-size: 20px;
+    border-bottom: 1px solid #c6a15b;
+    padding-bottom: 8px;
+  }
+  h2 {
+    font-size: 15px;
+    color: #c6a15b;
+    margin-top: 28px;
+  }
+  .card {
+    background: #241a10;
+    border: 1px solid #c6a15b;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+  }
+  .row label {
+    flex: 1;
+    font-size: 14px;
+  }
+  .path-box {
+    font-size: 12px;
+    color: #d8c9a8;
+    word-break: break-all;
+    margin-top: 4px;
+  }
+  button {
+    background: #c6a15b;
+    color: #1b140c;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:hover { background: #d8b878; }
+  /* Zeigt, welcher Knopf gerade dem aktuellen Zustand entspricht (aktive
+     Anzeige-Vorlage, volle "Alle an/aus"-Kategorie, geladener Speicherplatz)
+     - sieht aus wie hineingedrueckt statt nur farblich markiert. */
+  button.active-preset {
+    background: #8a6d3f;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
+    transform: translateY(1px);
+  }
+  button.active-preset:hover { background: #8a6d3f; }
+  input[type="checkbox"] { width: 18px; height: 18px; }
+  input[type="number"], input[type="text"], select {
+    background: #1b140c;
+    color: #f2e9d8;
+    border: 1px solid #c6a15b;
+    border-radius: 4px;
+    padding: 4px 6px;
+    width: 80px;
+  }
+  select { width: auto; min-width: 160px; }
+  input[type="color"] {
+    width: 44px;
+    height: 28px;
+    padding: 2px;
+    background: #1b140c;
+    border: 1px solid #c6a15b;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  input[type="range"] {
+    flex: 1;
+    max-width: 180px;
+    accent-color: #c6a15b;
+  }
+  .row input[type="number"] {
+    width: 64px;
+  }
+  #status-line {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+  .dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .dot-ok { background: #9be89b; }
+  .dot-waiting { background: #e6c34a; }
+  .dot-error { background: #ff8a7a; }
+  /* Eigener Pfeil statt des Browser-Standard-Markers, da <summary> hier oft
+     als Flex-Container (Name + Knoepfe) gestylt ist - der native Marker
+     wuerde dabei kaum sichtbar/falsch ausgerichtet erscheinen. */
+  summary { list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  .disclosure-arrow {
+    display: inline-block;
+    transition: transform 0.15s ease;
+    margin-right: 6px;
+  }
+  details[open] > summary .disclosure-arrow {
+    transform: rotate(90deg);
+  }
+  .hint {
+    font-size: 12px;
+    color: #a89478;
+    margin-top: 4px;
+  }
+  code {
+    background: #1b140c;
+    padding: 2px 5px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+  <h1>Stronghold Crusader - Live Stats</h1>
+
+  <div class="page">
+  <div class="left-col">
+
+  <div id="status-line"><span class="dot dot-waiting"></span>Status wird geladen &hellip;</div>
+
+  <h2>KI-Personalities (fuer Angriffs-Warnung)</h2>
+  <div class="card dropzone" id="aic-dropzone">
+    <div class="row">
+      <label>.aic-Datei (z.B. vanilla.json aus deiner Spiel-Installation)</label>
+      <button id="pick-aic-btn">Datei waehlen</button>
+    </div>
+    <div class="path-box" id="aic-path-box">- keine ausgewaehlt -</div>
+    <div class="drop-hint">... oder Datei einfach hier reinziehen</div>
+  </div>
+
+  <h2>Speicherplaetze</h2>
+  <div class="card">
+    <div id="saved-layouts-list"></div>
+    <p class="hint">Speichert das komplette Aussehen (Design, Farben, Zeilen/Breite, Logo, Pro-Spieler-Farben) unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.</p>
+  </div>
+
+  <h2>Anzeige-Vorlagen</h2>
+  <div class="card">
+    <div class="row" style="flex-wrap:wrap; gap:8px;">
+      <button type="button" data-preset="standard">Standard</button>
+      <button type="button" data-preset="minimal">Minimal</button>
+      <button type="button" data-preset="militaer">Militaer</button>
+      <button type="button" data-preset="alles">Alles an</button>
+    </div>
+    <p class="hint">Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben (siehe "Ausrichtung" rechts) oder die Haeckchen unter "Sonstiges".</p>
+  </div>
+
+  <details id="display-section" open>
+    <summary style="cursor:pointer; color:#c6a15b; font-size:15px; font-weight:600; margin-top:28px;"><span class="disclosure-arrow">&#9654;</span>Was soll angezeigt werden?</summary>
+    <div id="display-categories" style="margin-top:10px;"></div>
+  </details>
+
+  <h2>Logo</h2>
+  <div class="card dropzone" id="logo-dropzone">
+    <div class="row">
+      <label>Logo-Bild anzeigen</label>
+      <input type="checkbox" data-key="show_logo">
+    </div>
+    <div class="row">
+      <label>Bilddatei</label>
+      <button id="pick-logo-btn">Bild waehlen</button>
+    </div>
+    <div class="path-box" id="logo-path-box">- kein Logo ausgewaehlt -</div>
+    <div class="drop-hint">... oder Bild einfach hier reinziehen</div>
+    <div class="row">
+      <label>Ecke</label>
+      <select id="logo-corner-input">
+        <option value="bottom-left">unten links</option>
+        <option value="bottom-right">unten rechts</option>
+        <option value="top-left">oben links</option>
+        <option value="top-right">oben rechts</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Abstand X (px)</label>
+      <input type="range" id="logo-offset-x-range" min="0" max="600" step="1">
+      <input type="number" id="logo-offset-x-input" min="0" max="600" step="1">
+    </div>
+    <div class="row">
+      <label>Abstand Y (px)</label>
+      <input type="range" id="logo-offset-y-range" min="0" max="400" step="1">
+      <input type="number" id="logo-offset-y-input" min="0" max="400" step="1">
+    </div>
+    <div class="row">
+      <label>Breite (px, Hoehe passt sich proportional an)</label>
+      <input type="range" id="logo-width-range" min="10" max="500" step="1">
+      <input type="number" id="logo-width-input" min="10" max="500" step="1">
+    </div>
+  </div>
+
+  <h2>OBS-Einrichtung</h2>
+  <div class="card">
+    <p style="font-size:13px;">In OBS eine neue <b>Browser-Quelle</b> hinzufuegen mit dieser URL:</p>
+    <div class="path-box"><code id="overlay-url">http://127.0.0.1:8765/overlay.html</code></div>
+    <p class="hint">Breite/Hoehe grosszuegig waehlen (z.B. deine Stream-Aufloesung), Hintergrund der Quelle ist transparent.</p>
+  </div>
+
+  <h2>Uebersichtsmodus</h2>
+  <div class="card">
+    <p style="font-size:13px;">Grosse, gut lesbare Ansicht aller Werte - nicht fuers Overlay/OBS gedacht, sondern zum selbst Draufschauen waehrend des Castens (z.B. auf einem zweiten Monitor).</p>
+    <button id="open-overview-btn" type="button">Uebersicht in neuem Tab oeffnen</button>
+  </div>
+
+  <h2>Erweitert</h2>
+  <div class="card">
+    <div class="row">
+      <label>Lokaler Port</label>
+      <input type="number" id="port-input">
+    </div>
+    <p class="hint">Aenderung wird erst nach einem Neustart der App wirksam.</p>
+    <div class="row">
+      <label>Automatisch beenden nach (Sekunden ohne Einstellungs-Seite UND ohne OBS-Zugriff)</label>
+      <input type="number" id="idle-shutdown-input" min="0" max="3600" step="5">
+    </div>
+    <p class="hint">0 = nie automatisch beenden (dann nur noch ueber "Beenden" im Tray-Symbol unten rechts in der Taskleiste).</p>
+  </div>
+
+    <h2>Ausrichtung</h2>
+    <div class="card">
+      <div class="row">
+        <label>Design</label>
+        <select id="theme-input">
+          <option value="rgb">RGB (frei einstellbare Farben)</option>
+          <option value="shc_single">SHC Single (ein Pergament je Seite)</option>
+          <option value="shc_multi">SHC Multi (Pergament pro Rahmen)</option>
+        </select>
+      </div>
+      <p class="hint">Bei SHC Single/Multi bekommen die Rahmen ein Pergament als Hintergrund (ersetzt die Hintergrundfarbe/Bilder unten); Rahmenfarben bleiben weiterhin aktiv.</p>
+      <div class="row">
+        <label>Abstand links (px)</label>
+        <input type="range" id="left-offset-range" min="0" max="600" step="1">
+        <input type="number" id="left-offset-input" min="0" max="600" step="1">
+      </div>
+      <div class="row">
+        <label>Abstand rechts (px)</label>
+        <input type="range" id="right-offset-range" min="0" max="600" step="1">
+        <input type="number" id="right-offset-input" min="0" max="600" step="1">
+      </div>
+      <div class="row">
+        <label>Abstand unten (px)</label>
+        <input type="range" id="bottom-offset-range" min="0" max="300" step="1">
+        <input type="number" id="bottom-offset-input" min="0" max="300" step="1">
+      </div>
+      <p class="hint">Bezieht sich auf die rechte Stats-Spalte (Abstand zum Bevoelkerungs-Buch im Spiel-UI) bzw. den Abstand aller Zeilen zum unteren Bildschirmrand.</p>
+      <div class="row">
+        <label>Abstand zwischen den Zeilen (px)</label>
+        <input type="range" id="row-gap-range" min="0" max="40" step="1">
+        <input type="number" id="row-gap-input" min="0" max="40" step="1">
+      </div>
+      <div class="row">
+        <label>Seiten-Aufteilung</label>
+        <select id="side-mode-input">
+          <option value="split">Geteilt (links/rechts)</option>
+          <option value="left">Alle links</option>
+          <option value="right">Alle rechts</option>
+          <option value="teams">Nach Team (siehe "Teams" unten)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Rahmenfarbe (Standard fuer alle, siehe unten fuer Ausnahmen pro Spieler)</label>
+        <input type="color" id="border-color-input">
+      </div>
+      <div class="row">
+        <label>Textfarbe (Beschriftung/Werte)</label>
+        <input type="color" id="text-color-input">
+      </div>
+      <div class="row">
+        <label>Farbe fuer dein eigenes Feld</label>
+        <input type="color" id="you-color-input">
+      </div>
+      <div class="row">
+        <label>Angriffs-Warnung farblich hervorheben</label>
+        <input type="checkbox" data-key="highlight_attack_status">
+      </div>
+      <div class="row">
+        <label>Farbe bei Angriffs-Warnung</label>
+        <input type="color" id="attack-color-input">
+      </div>
+      <div class="row">
+        <label>Angriffs-Warnung pulsierend leuchten lassen</label>
+        <input type="checkbox" id="attack-pulse-input">
+      </div>
+      <div class="row">
+        <label>Angriffs-Status zusaetzlich als Text-Badge auf dem Rahmen anzeigen</label>
+        <input type="checkbox" data-key="show_attack_badge">
+      </div>
+      <div class="row">
+        <label>Werte pro Zeile (teilt die feste Zeilenbreite auf)</label>
+        <input type="range" id="stats-per-line-range" min="1" max="25" step="1">
+        <input type="number" id="stats-per-line-input" min="1" max="25" step="1">
+      </div>
+      <div class="row">
+        <label>Zeilen (bestimmt die Kartenhoehe)</label>
+        <input type="range" id="line-count-range" min="1" max="10" step="1">
+        <input type="number" id="line-count-input" min="1" max="10" step="1">
+      </div>
+      <p class="hint">Die Kartenbreite ist IMMER exakt "Breite pro Anzeige (px)" (siehe unten) - das aendert sich nie, egal was du an-/ausschaltest. "Werte pro Zeile" teilt diese feste Breite nur in entsprechend viele gleich grosse Felder auf: mehr Werte pro Zeile = kleinere Icons/Zahlen, nicht mehr Breite. Werden die Icons dadurch zu klein zum Erkennen, erhoehe stattdessen "Breite pro Anzeige" oder fuege eine weitere Zeile hinzu, statt "Werte pro Zeile" zu senken. Passt bei sehr vielen Werten pro Zeile trotzdem nicht mehr alles lesbar rein, wird das bewusst in Kauf genommen (Ueberlauf), statt die Breite zu veraendern.</p>
+      <div class="row">
+        <label>Verteilung bei freien Zeilen</label>
+        <select id="line-distribution-input">
+          <option value="category">Nach Rubrik (Rohstoffe, Nahrung, Waffen, ...)</option>
+          <option value="even">Gleichmaessig (Anzeige-Reihenfolge)</option>
+        </select>
+      </div>
+      <p class="hint">"Nach Rubrik" sortiert Werte vor der Verteilung nach Kategorie, damit z.B. Rohstoffe immer vor Waffen stehen - ein Wert landet dadurch an einer vorhersagbaren Stelle, egal was du sonst an-/ausschaltest.</p>
+      <div class="row">
+        <label>Icon-Groesse (px)</label>
+        <input type="range" id="icon-size-range" min="8" max="40" step="1">
+        <input type="number" id="icon-size-input" min="8" max="40" step="1">
+      </div>
+      <div class="row">
+        <label>Zeilenhoehe (px)</label>
+        <input type="range" id="line-height-range" min="8" max="60" step="1">
+        <input type="number" id="line-height-input" min="8" max="60" step="1">
+      </div>
+      <p class="hint">Unabhaengig von der Icon-Groesse - z.B. etwas Luft ueber/unter kleinen Icons, ohne die Icons selbst zu vergroessern. Bleibt ebenfalls immer exakt gleich, egal was an-/ausgeschaltet ist.</p>
+      <div class="row">
+        <label>Breite pro Anzeige (px)</label>
+        <input type="range" id="stat-width-range" min="20" max="2000" step="1">
+        <input type="number" id="stat-width-input" min="20" max="2000" step="1">
+      </div>
+      <p class="hint">Mehr Breite verteilt Icon und Zahl gleichmaessiger - nuetzlich bei groesseren Zahlen oder mehr Platz auf dem Bildschirm.</p>
+    </div>
+
+    <h2>Teams</h2>
+    <details class="card" id="team-assignment-details">
+      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Team-Zuordnung pro Slot ausklappen (0 = Du)</summary>
+      <div id="team-assignment-list" style="margin-top:10px;"></div>
+      <p class="hint">Keine Live-Erkennung im Spielspeicher moeglich (ausfuehrlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Slot 0) links, alle anderen rechts. Gilt gemeinsam fuer Overlay und Uebersicht.</p>
+    </details>
+
+    <h2>Individuelle Spieler-Farben</h2>
+    <details class="card" id="player-colors-details">
+      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Pro Spieler-Slot ausklappen (0 = Du)</summary>
+      <div id="player-colors-list" style="margin-top:10px;"></div>
+      <p class="hint">Leer/zurueckgesetzt = uebernimmt die globale Rahmenfarbe bzw. die Standard-Zeilenfarbe. Ein Hintergrundbild pro Spieler kannst du hier ebenfalls reinziehen (wird zugeschnitten/gestreckt auf die Zeile gelegt).</p>
+    </details>
+
+  </div><!-- /left-col -->
+
+  <div class="right-col">
+    <p class="preview-label">Live-Vorschau (aktualisiert laufend)</p>
+    <div class="preview-box">
+      <iframe id="preview-frame" src="/overlay.html"></iframe>
+    </div>
+
+  </div><!-- /right-col -->
+
+  </div><!-- /page -->
+
+  <script>
+    let currentConfig = null;
+
+    // Anzeige-Haeckchen in aufklappbare Kategorien gruppiert (statt einer
+    // langen flachen Liste) - jede Kategorie bekommt eigene "Alle an/aus"-
+    // Knoepfe. Wird per JS aus dieser Liste gebaut, siehe renderDisplayCategories().
+    const DISPLAY_CATEGORIES = [
+      {
+        name: "Rohstoffe",
+        items: [
+          ["show_gold", "Gold"],
+          ["show_wood", "Holz"],
+          ["show_stone", "Stein"],
+          ["show_iron", "Eisen"],
+          ["show_ale", "Bier"],
+          ["show_pitch", "Pech"],
+          ["show_hops", "Hopfen"],
+          ["show_wheat", "Getreide"],
+          ["show_flour", "Mehl"],
+        ],
+      },
+      {
+        name: "Nahrung",
+        items: [
+          ["show_food_total", "Nahrung gesamt"],
+          ["show_bread", "Brot"],
+          ["show_cheese", "Kaese"],
+          ["show_meat", "Fleisch"],
+          ["show_apples", "Aepfel"],
+        ],
+      },
+      {
+        name: "Waffen & Ruestung",
+        items: [
+          ["show_bows", "Boegen"],
+          ["show_crossbows", "Armbrueste"],
+          ["show_spears", "Speere"],
+          ["show_pikes", "Piken"],
+          ["show_maces", "Keulen"],
+          ["show_swords", "Schwerter"],
+          ["show_leather_armor", "Lederruestung"],
+          ["show_metal_armor", "Metallruestung"],
+        ],
+      },
+      {
+        name: "Militaer",
+        items: [
+          ["show_troops_total", "Truppen gesamt"],
+          ["show_troop_breakdown", "Truppen-Aufschluesselung nach Typ (Icons)"],
+          ["show_monks_trained", "Moenche (seit Tool-Start trainiert, kein Live-Bestand)"],
+          ["show_siege_movable", "Belagerungsgeraete gesamt"],
+        ],
+      },
+      {
+        name: "Sonstiges",
+        items: [
+          ["show_popularity", "Popularity"],
+          ["show_population", "Bevoelkerung (aktuell/Kapazitaet)"],
+          ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
+          ["show_lord_hp", "Burgherr-HP (noch nicht funktional)"],
+          ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel laeuft"],
+        ],
+      },
+    ];
+
+    // Nur "echte" Anzeige-Werte - keine Verhaltens-Schalter wie Demo-Daten
+    // oder die Angriffs-Hervorhebung (die stehen bewusst nicht unter den
+    // Vorlagen-Knoepfen, sondern bleiben manuell in ihren eigenen Karten).
+    const STAT_PRESET_KEYS = DISPLAY_CATEGORIES.flatMap((cat) => cat.items.map(([key]) => key)).filter(
+      (key) => key !== "show_demo_data"
+    );
+
+    function presetFrom(trueKeys) {
+      const obj = {};
+      STAT_PRESET_KEYS.forEach((key) => { obj[key] = trueKeys.includes(key); });
+      return obj;
+    }
+
+    const DISPLAY_PRESETS = {
+      standard: presetFrom(["show_gold", "show_wood", "show_stone", "show_iron", "show_troops_total", "show_popularity"]),
+      minimal: presetFrom(["show_gold", "show_troops_total", "show_popularity"]),
+      militaer: presetFrom(["show_troops_total", "show_troop_breakdown", "show_siege_movable"]),
+      alles: presetFrom(STAT_PRESET_KEYS),
+    };
+
+    function renderDisplayCategories() {
+      const container = document.getElementById("display-categories");
+      container.innerHTML = DISPLAY_CATEGORIES.map((cat, idx) => `
+        <details class="card" open>
+          <summary style="cursor:pointer; color:#c6a15b; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span><span class="disclosure-arrow">&#9654;</span>${cat.name}</span>
+            <span>
+              <button type="button" data-cat="${idx}" data-mode="1">Alle an</button>
+              <button type="button" data-cat="${idx}" data-mode="0">Alle aus</button>
+            </span>
+          </summary>
+          <div style="margin-top:8px;">
+            ${cat.items.map(([key, label]) => `<div class="row"><label>${label}</label><input type="checkbox" data-key="${key}"></div>`).join("")}
+          </div>
+        </details>
+      `).join("");
+
+      // preventDefault/stopPropagation, damit ein Klick auf die Knoepfe nicht
+      // zugleich die <summary> auf-/zuklappt (natives Verhalten sonst).
+      container.querySelectorAll("button[data-cat]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const cat = DISPLAY_CATEGORIES[parseInt(btn.dataset.cat, 10)];
+          const value = btn.dataset.mode === "1";
+          const patch = {};
+          cat.items.forEach(([key]) => { patch[key] = value; });
+          saveConfigPatch({ display: patch });
+        });
+      });
+    }
+    // Muss vor dem generischen data-key-Checkbox-Handler weiter unten
+    // laufen, damit dieser die hier neu erzeugten Checkboxen auch findet.
+    renderDisplayCategories();
+
+    document.querySelectorAll("button[data-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        saveConfigPatch({ display: DISPLAY_PRESETS[btn.dataset.preset] });
+      });
+    });
+
+    function deepEqual(a, b) {
+      if (a === b) return true;
+      if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+      const keysA = Object.keys(a);
+      const keysB = Object.keys(b);
+      if (keysA.length !== keysB.length) return false;
+      return keysA.every((k) => deepEqual(a[k], b[k]));
+    }
+
+    // 5 komplette Speicherplaetze fuers ganze Aussehen (nicht nur die
+    // Anzeige-Haeckchen wie bei den Vorlagen oben) - Design, Farben, Zeilen/
+    // Breite, Logo, Pro-Spieler-Farben zusammen.
+    function currentLookSnapshot() {
+      return {
+        display: JSON.parse(JSON.stringify(currentConfig.display)),
+        layout: JSON.parse(JSON.stringify(currentConfig.layout)),
+        logo: JSON.parse(JSON.stringify(currentConfig.logo)),
+        player_colors: JSON.parse(JSON.stringify(currentConfig.player_colors)),
+      };
+    }
+
+    function renderSavedLayouts() {
+      const list = document.getElementById("saved-layouts-list");
+      const slots = (currentConfig && currentConfig.saved_layouts) || [];
+      list.innerHTML = slots.map((slot, i) => `
+        <div class="row" style="flex-wrap:wrap;">
+          <label>${slot ? escapeHtmlAttr(slot.name) : `Speicherplatz ${i + 1} (leer)`}</label>
+          <button type="button" data-load-slot="${i}" ${slot ? "" : "disabled"}>Laden</button>
+          <button type="button" data-save-slot="${i}">Speichern</button>
+          ${slot ? `<button type="button" data-clear-slot="${i}">Loeschen</button>` : ""}
+        </div>
+      `).join("");
+
+      list.querySelectorAll("button[data-load-slot]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const slot = currentConfig.saved_layouts[parseInt(btn.dataset.loadSlot, 10)];
+          if (!slot) return;
+          saveConfigPatch({
+            display: slot.display,
+            layout: slot.layout,
+            logo: slot.logo,
+            player_colors: slot.player_colors,
+          });
+        });
+      });
+      list.querySelectorAll("button[data-save-slot]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = parseInt(btn.dataset.saveSlot, 10);
+          const existing = currentConfig.saved_layouts[i];
+          const name = prompt("Name fuer diesen Speicherplatz:", existing ? existing.name : `Setup ${i + 1}`);
+          if (!name) return;
+          const slots = currentConfig.saved_layouts.slice();
+          slots[i] = { name, ...currentLookSnapshot() };
+          saveConfigPatch({ saved_layouts: slots });
+        });
+      });
+      list.querySelectorAll("button[data-clear-slot]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = parseInt(btn.dataset.clearSlot, 10);
+          const slots = currentConfig.saved_layouts.slice();
+          slots[i] = null;
+          saveConfigPatch({ saved_layouts: slots });
+        });
+      });
+    }
+
+    function escapeHtmlAttr(s) {
+      const div = document.createElement("div");
+      div.textContent = s == null ? "" : s;
+      return div.innerHTML;
+    }
+
+    // Markiert, welcher Knopf gerade dem aktuellen Zustand entspricht (sieht
+    // wie hineingedrueckt aus) - bei Anzeige-Vorlagen, den "Alle an/aus"-
+    // Knoepfen je Kategorie, und geladenen Speicherplaetzen.
+    function updateActiveHighlights() {
+      document.querySelectorAll("button[data-preset]").forEach((btn) => {
+        const preset = DISPLAY_PRESETS[btn.dataset.preset];
+        const matches = STAT_PRESET_KEYS.every((key) => !!currentConfig.display[key] === !!preset[key]);
+        btn.classList.toggle("active-preset", matches);
+      });
+      document.querySelectorAll("button[data-cat]").forEach((btn) => {
+        const cat = DISPLAY_CATEGORIES[parseInt(btn.dataset.cat, 10)];
+        const wantOn = btn.dataset.mode === "1";
+        const matches = cat.items.every(([key]) => !!currentConfig.display[key] === wantOn);
+        btn.classList.toggle("active-preset", matches);
+      });
+      const snapshot = currentLookSnapshot();
+      document.querySelectorAll("button[data-load-slot]").forEach((btn) => {
+        const slot = currentConfig.saved_layouts[parseInt(btn.dataset.loadSlot, 10)];
+        const matches = !!slot && deepEqual(
+          { display: slot.display, layout: slot.layout, logo: slot.logo, player_colors: slot.player_colors },
+          snapshot
+        );
+        btn.classList.toggle("active-preset", matches);
+      });
+    }
+
+    function setStatus(dotClass, text) {
+      document.getElementById("status-line").innerHTML =
+        `<span class="dot ${dotClass}"></span>${text}`;
+    }
+
+    async function refreshStatus() {
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        const s = await res.json();
+        if (s.connected) {
+          setStatus("dot-ok", `Verbunden - ${s.player_count} Spieler aktiv` + (s.aic_loaded ? "" : " (keine .aic-Datei geladen)"));
+        } else if (s.last_error) {
+          setStatus("dot-error", s.last_error);
+        } else {
+          setStatus("dot-waiting", "Warte auf laufendes Spiel (Stronghold Crusader.exe) &hellip;");
+        }
+      } catch (e) {
+        setStatus("dot-error", "Server nicht erreichbar.");
+      }
+    }
+
+    function applyConfigToForm(cfg) {
+      currentConfig = cfg;
+      document.querySelectorAll("input[type=checkbox][data-key]").forEach((el) => {
+        el.checked = !!cfg.display[el.dataset.key];
+      });
+      document.getElementById("aic-path-box").textContent = cfg.aic_file_path || "- keine ausgewaehlt -";
+      document.getElementById("logo-path-box").textContent = cfg.display.logo_path || "- kein Logo ausgewaehlt -";
+      document.getElementById("port-input").value = cfg.http_port;
+      document.getElementById("overlay-url").textContent = `http://127.0.0.1:${cfg.http_port}/overlay.html`;
+      document.getElementById("left-offset-input").value = cfg.layout.left_offset_px;
+      document.getElementById("right-offset-input").value = cfg.layout.right_offset_px;
+      document.getElementById("bottom-offset-input").value = cfg.layout.bottom_offset_px;
+      document.getElementById("row-gap-input").value = cfg.layout.row_gap_px;
+      document.getElementById("side-mode-input").value = cfg.layout.side_mode;
+      document.getElementById("theme-input").value = cfg.layout.theme || "rgb";
+      document.getElementById("border-color-input").value = cfg.layout.border_color;
+      document.getElementById("text-color-input").value = cfg.layout.text_color;
+      document.getElementById("you-color-input").value = cfg.layout.you_color;
+      document.getElementById("attack-color-input").value = cfg.layout.attack_color;
+      document.getElementById("attack-pulse-input").checked = !!cfg.layout.attack_pulse;
+      document.getElementById("idle-shutdown-input").value = cfg.idle_shutdown_seconds;
+      document.getElementById("logo-corner-input").value = cfg.logo.corner;
+      document.getElementById("logo-offset-x-input").value = cfg.logo.offset_x_px;
+      document.getElementById("logo-offset-y-input").value = cfg.logo.offset_y_px;
+      document.getElementById("logo-width-input").value = cfg.logo.width_px;
+      document.getElementById("stats-per-line-input").value = cfg.layout.stats_per_line;
+      document.getElementById("line-count-input").value = cfg.layout.line_count;
+      document.getElementById("line-distribution-input").value = cfg.layout.line_distribution || "category";
+      document.getElementById("icon-size-input").value = cfg.layout.icon_size_px;
+      document.getElementById("line-height-input").value = cfg.layout.line_height_px;
+      document.getElementById("stat-width-input").value = cfg.layout.stat_width_px;
+      renderTeamAssignmentRows(cfg);
+      renderPlayerColorRows(cfg);
+      renderSavedLayouts();
+      updateActiveHighlights();
+      syncRangesFromNumbers();
+    }
+
+    // Jedes [Schieberegler, Zahlenfeld]-Paar fuer Groessen-/Abstands-Werte.
+    // Der Schieberegler ist rein visuell/bequem - das Speichern uebernimmt
+    // weiterhin das jeweilige Zahlenfeld ueber seine bestehenden Listener.
+    const SLIDER_PAIRS = [
+      ["left-offset-range", "left-offset-input"],
+      ["right-offset-range", "right-offset-input"],
+      ["bottom-offset-range", "bottom-offset-input"],
+      ["row-gap-range", "row-gap-input"],
+      ["stats-per-line-range", "stats-per-line-input"],
+      ["line-count-range", "line-count-input"],
+      ["icon-size-range", "icon-size-input"],
+      ["line-height-range", "line-height-input"],
+      ["stat-width-range", "stat-width-input"],
+      ["logo-offset-x-range", "logo-offset-x-input"],
+      ["logo-offset-y-range", "logo-offset-y-input"],
+      ["logo-width-range", "logo-width-input"],
+    ];
+
+    function syncRangesFromNumbers() {
+      SLIDER_PAIRS.forEach(([rangeId, numberId]) => {
+        document.getElementById(rangeId).value = document.getElementById(numberId).value;
+      });
+    }
+
+    SLIDER_PAIRS.forEach(([rangeId, numberId]) => {
+      const range = document.getElementById(rangeId);
+      const number = document.getElementById(numberId);
+      range.addEventListener("input", () => {
+        number.value = range.value;
+        number.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      number.addEventListener("input", () => {
+        range.value = number.value;
+      });
+    });
+
+    function renderTeamAssignmentRows(cfg) {
+      const list = document.getElementById("team-assignment-list");
+      const assign = cfg.team_assignment || {};
+      list.innerHTML = "";
+      for (let i = 0; i < 8; i++) {
+        const val = assign[String(i)];
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `
+          <label style="flex:0 0 90px;">${i === 0 ? "Du (Slot 0)" : "Slot " + i}</label>
+          <span class="team-live-name" data-slot="${i}" style="flex:1; font-size:11px; color:#a89478;"></span>
+          <span style="font-size:11px; color:#a89478;">Team</span>
+          <input type="number" data-team-slot="${i}" min="1" max="8" step="1" style="width:60px;" value="${val === null || val === undefined ? "" : val}" placeholder="-">
+        `;
+        list.appendChild(row);
+      }
+      list.querySelectorAll("input[data-team-slot]").forEach((el) => {
+        el.addEventListener("change", () => {
+          const slot = el.dataset.teamSlot;
+          const raw = el.value.trim();
+          const val = raw === "" ? null : parseInt(raw, 10);
+          saveConfigPatch({ team_assignment: { [slot]: val } });
+        });
+      });
+      refreshLiveTeamNames();
+    }
+
+    async function refreshLiveTeamNames() {
+      try {
+        const res = await fetch("/overlay.json?t=" + Date.now(), { cache: "no-store" });
+        const data = await res.json();
+        const bySlot = {};
+        (data.players || []).forEach((p) => { bySlot[p.slot] = p.label; });
+        document.querySelectorAll(".team-live-name").forEach((el) => {
+          const slot = Number(el.dataset.slot);
+          el.textContent = bySlot[slot] || "(leer)";
+        });
+      } catch (e) {
+        // stiller Retry
+      }
+    }
+
+    function renderPlayerColorRows(cfg) {
+      const list = document.getElementById("player-colors-list");
+      const defaultBorder = cfg.layout.border_color || "#c6a15b";
+      list.innerHTML = "";
+      for (let i = 0; i < 8; i++) {
+        const pc = (cfg.player_colors && cfg.player_colors[String(i)]) || {};
+        const row = document.createElement("div");
+        row.className = "row";
+        row.style.cssText = "flex-wrap:wrap; border-bottom:1px solid rgba(198,161,91,0.3); padding-bottom:8px; margin-bottom:8px;";
+        row.innerHTML = `
+          <label style="flex:0 0 90px;">${i === 0 ? "Du (Slot 0)" : "Slot " + i}</label>
+          <span style="font-size:11px; color:#a89478;">Rahmen</span>
+          <input type="color" data-slot="${i}" data-field="border_color" value="${pc.border_color || defaultBorder}">
+          <span style="font-size:11px; color:#a89478;">Hintergrund</span>
+          <input type="color" data-slot="${i}" data-field="bg_color" value="${pc.bg_color || "#241a10"}">
+          <button type="button" data-clear-slot="${i}">Zuruecksetzen</button>
+          <div class="dropzone" data-slot-drop="${i}" style="flex-basis:100%; font-size:11px; padding:6px; text-align:center; border:1px dashed #574;">Hintergrundbild fuer diesen Slot hier reinziehen</div>
+        `;
+        list.appendChild(row);
+      }
+
+      list.querySelectorAll("input[type=color][data-slot]").forEach((el) => {
+        el.addEventListener("input", () => {
+          const slot = el.dataset.slot;
+          const field = el.dataset.field;
+          const patch = { player_colors: { [slot]: { [field]: el.value } } };
+          savePlayerColorDebounced(patch);
+        });
+      });
+      list.querySelectorAll("button[data-clear-slot]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const slot = btn.dataset.clearSlot;
+          await saveConfigPatch({ player_colors: { [slot]: { border_color: null, bg_color: null } } });
+          await fetch(`/api/clear-player-bg?slot=${slot}`, { method: "POST" });
+        });
+      });
+      list.querySelectorAll("[data-slot-drop]").forEach((el) => {
+        setupDropzoneEl(el, `/api/upload-player-bg?slot=${el.dataset.slotDrop}`, () => {});
+      });
+    }
+
+    let playerColorDebounceTimer = null;
+    let pendingPlayerColorPatch = {};
+    function savePlayerColorDebounced(patch) {
+      pendingPlayerColorPatch = mergeDeep(pendingPlayerColorPatch, patch);
+      clearTimeout(playerColorDebounceTimer);
+      playerColorDebounceTimer = setTimeout(() => {
+        const toSend = pendingPlayerColorPatch;
+        pendingPlayerColorPatch = {};
+        saveConfigPatch(toSend);
+      }, 120);
+    }
+
+    function mergeDeep(a, b) {
+      const out = { ...a };
+      for (const k in b) {
+        if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k])) {
+          out[k] = mergeDeep(out[k] || {}, b[k]);
+        } else {
+          out[k] = b[k];
+        }
+      }
+      return out;
+    }
+
+    async function loadConfig() {
+      const res = await fetch("/api/config", { cache: "no-store" });
+      applyConfigToForm(await res.json());
+    }
+
+    async function saveConfigPatch(patch) {
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      applyConfigToForm(await res.json());
+    }
+
+    document.querySelectorAll("input[type=checkbox][data-key]").forEach((el) => {
+      el.addEventListener("change", () => {
+        saveConfigPatch({ display: { [el.dataset.key]: el.checked } });
+      });
+    });
+
+    document.getElementById("port-input").addEventListener("change", (e) => {
+      saveConfigPatch({ http_port: parseInt(e.target.value, 10) || 8765 });
+    });
+
+    document.getElementById("idle-shutdown-input").addEventListener("change", (e) => {
+      const v = parseInt(e.target.value, 10);
+      saveConfigPatch({ idle_shutdown_seconds: isNaN(v) || v < 0 ? 60 : v });
+    });
+
+    let layoutDebounceTimer = null;
+    function saveLayoutDebounced() {
+      clearTimeout(layoutDebounceTimer);
+      layoutDebounceTimer = setTimeout(() => {
+        saveConfigPatch({
+          layout: {
+            left_offset_px: parseInt(document.getElementById("left-offset-input").value, 10) || 0,
+            right_offset_px: parseInt(document.getElementById("right-offset-input").value, 10) || 0,
+            bottom_offset_px: parseInt(document.getElementById("bottom-offset-input").value, 10) || 0,
+            row_gap_px: parseInt(document.getElementById("row-gap-input").value, 10) || 0,
+            border_color: document.getElementById("border-color-input").value,
+            text_color: document.getElementById("text-color-input").value,
+            you_color: document.getElementById("you-color-input").value,
+            attack_color: document.getElementById("attack-color-input").value,
+          },
+        });
+      }, 80);
+    }
+    ["left-offset-input", "right-offset-input", "bottom-offset-input", "row-gap-input"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", saveLayoutDebounced);
+    });
+    ["text-color-input", "you-color-input", "attack-color-input"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", saveLayoutDebounced);
+    });
+    document.getElementById("attack-pulse-input").addEventListener("change", (e) => {
+      saveConfigPatch({ layout: { attack_pulse: e.target.checked } });
+    });
+    document.getElementById("border-color-input").addEventListener("input", saveLayoutDebounced);
+    document.getElementById("side-mode-input").addEventListener("change", (e) => {
+      saveConfigPatch({ layout: { side_mode: e.target.value } });
+    });
+    document.getElementById("theme-input").addEventListener("change", (e) => {
+      saveConfigPatch({ layout: { theme: e.target.value } });
+    });
+    document.getElementById("stats-per-line-input").addEventListener("input", () => {
+      clearTimeout(layoutDebounceTimer);
+      layoutDebounceTimer = setTimeout(() => {
+        saveConfigPatch({ layout: { stats_per_line: parseInt(document.getElementById("stats-per-line-input").value, 10) || 6 } });
+      }, 80);
+    });
+    document.getElementById("line-count-input").addEventListener("input", () => {
+      clearTimeout(layoutDebounceTimer);
+      layoutDebounceTimer = setTimeout(() => {
+        saveConfigPatch({ layout: { line_count: parseInt(document.getElementById("line-count-input").value, 10) || 1 } });
+      }, 80);
+    });
+    document.getElementById("line-distribution-input").addEventListener("change", (e) => {
+      saveConfigPatch({ layout: { line_distribution: e.target.value } });
+    });
+    document.getElementById("icon-size-input").addEventListener("input", () => {
+      clearTimeout(layoutDebounceTimer);
+      layoutDebounceTimer = setTimeout(() => {
+        saveConfigPatch({ layout: { icon_size_px: parseInt(document.getElementById("icon-size-input").value, 10) || 16 } });
+      }, 80);
+    });
+    document.getElementById("line-height-input").addEventListener("input", () => {
+      clearTimeout(layoutDebounceTimer);
+      layoutDebounceTimer = setTimeout(() => {
+        saveConfigPatch({ layout: { line_height_px: parseInt(document.getElementById("line-height-input").value, 10) || 16 } });
+      }, 80);
+    });
+    document.getElementById("stat-width-input").addEventListener("input", () => {
+      clearTimeout(layoutDebounceTimer);
+      layoutDebounceTimer = setTimeout(() => {
+        saveConfigPatch({ layout: { stat_width_px: parseInt(document.getElementById("stat-width-input").value, 10) || 312 } });
+      }, 80);
+    });
+
+    let logoDebounceTimer = null;
+    function saveLogoDebounced() {
+      clearTimeout(logoDebounceTimer);
+      logoDebounceTimer = setTimeout(() => {
+        saveConfigPatch({
+          logo: {
+            offset_x_px: parseInt(document.getElementById("logo-offset-x-input").value, 10) || 0,
+            offset_y_px: parseInt(document.getElementById("logo-offset-y-input").value, 10) || 0,
+            width_px: parseInt(document.getElementById("logo-width-input").value, 10) || 90,
+          },
+        });
+      }, 80);
+    }
+    ["logo-offset-x-input", "logo-offset-y-input", "logo-width-input"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", saveLogoDebounced);
+    });
+    document.getElementById("logo-corner-input").addEventListener("change", (e) => {
+      saveConfigPatch({ logo: { corner: e.target.value } });
+    });
+
+    document.getElementById("pick-aic-btn").addEventListener("click", async () => {
+      const res = await fetch("/api/pick-aic-file", { method: "POST" });
+      const { path } = await res.json();
+      if (path) {
+        await saveConfigPatch({ aic_file_path: path });
+      }
+    });
+
+    document.getElementById("open-overview-btn").addEventListener("click", () => {
+      window.open("/overview.html", "_blank");
+    });
+
+    document.getElementById("pick-logo-btn").addEventListener("click", async () => {
+      const res = await fetch("/api/pick-logo-file", { method: "POST" });
+      const { path } = await res.json();
+      if (path) {
+        await saveConfigPatch({ display: { logo_path: path, show_logo: true } });
+      }
+    });
+
+    function heartbeat() {
+      fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
+    }
+
+    function setupDropzoneEl(el, uploadUrl, onDone) {
+      ["dragenter", "dragover"].forEach((evt) =>
+        el.addEventListener(evt, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          el.classList.add("drag-over");
+        })
+      );
+      ["dragleave", "dragend"].forEach((evt) =>
+        el.addEventListener(evt, (e) => {
+          e.preventDefault();
+          el.classList.remove("drag-over");
+        })
+      );
+      el.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.classList.remove("drag-over");
+        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!file) return;
+        const buf = await file.arrayBuffer();
+        const res = await fetch(uploadUrl, { method: "POST", body: buf });
+        const data = await res.json();
+        onDone(data);
+      });
+    }
+
+    function setupDropzone(elId, uploadUrl, onDone) {
+      setupDropzoneEl(document.getElementById(elId), uploadUrl, (data) => {
+        if (data.path) onDone(data.path);
+      });
+    }
+
+    setupDropzone("aic-dropzone", "/api/upload-aic", () => loadConfig());
+    setupDropzone("logo-dropzone", "/api/upload-logo", () => loadConfig());
+
+    // Skaliert die eingebettete overlay.html (die intern feste 1920x1080-
+    // Pixelwerte annimmt) passend zur tatsaechlichen, ggf. variablen Breite
+    // der Vorschau-Box - reagiert auch auf Groessenaenderungen (z.B. wenn
+    // diese Seite in einem schmaleren/breiteren Panel eingebettet wird,
+    // etwa im Uebersichtsmodus).
+    function setupResponsivePreview() {
+      const box = document.querySelector(".preview-box");
+      const frame = document.getElementById("preview-frame");
+      const apply = () => {
+        const scale = box.getBoundingClientRect().width / 1920;
+        frame.style.transform = `scale(${scale})`;
+      };
+      apply();
+      new ResizeObserver(apply).observe(box);
+    }
+    setupResponsivePreview();
+
+    loadConfig();
+    refreshStatus();
+    heartbeat();
+    setInterval(refreshStatus, 3000);
+    setInterval(refreshLiveTeamNames, 3000);
+    setInterval(heartbeat, 5000);
+  </script>
+</body>
+</html>

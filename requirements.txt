@@ -1,0 +1,4 @@
+pymem==1.14.0
+pyinstaller==6.22.0
+pystray
+Pillow

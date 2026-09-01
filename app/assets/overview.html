@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>SHC Live Stats - Uebersicht</title>
+<link rel="icon" href="/icons/app_logo.png">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #14100a;
+    color: var(--text-color, #f2e9d8);
+    font-family: "Segoe UI", Trebuchet MS, Arial, sans-serif;
+    height: 100%;
+  }
+  #wrap {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #rows {
+    display: flex;
+    flex-direction: column;
+    gap: var(--row-gap, 14px);
+  }
+  #rows.split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-rows: min-content;
+    align-items: start;
+  }
+  h1 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+    color: #c6a15b;
+  }
+  .row {
+    --row-bg: #241a10;
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 22px;
+    background: var(--row-bg);
+    border: 2px solid #c6a15b;
+    border-radius: 8px;
+    padding: 14px 22px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+    min-width: 0;
+  }
+  .row.you { border-color: var(--you-color, #78c8ff); }
+  .row.attacking {
+    border-color: var(--attack-color, #e6463c);
+    --row-bg: #3c0c0a;
+  }
+  .row.attacking.pulse {
+    animation: pulse 1s ease-in-out infinite;
+  }
+  /* Theme "SHC Single": ein gemeinsames Pergament liegt hinter allen
+     Rahmen (siehe #rows.theme-single-bg / .side-backdrop) - die einzelnen
+     Zeilen werden dafuer komplett transparent, damit es unveraendert
+     durchscheint (genauso hell wie bei "SHC Multi", wo jede Zeile direkt
+     dasselbe Pergament als eigenes Bild bekommt). */
+  .row.theme-shc {
+    --row-bg: transparent;
+  }
+  #rows.theme-single-bg,
+  .side-backdrop {
+    background-image: url('/bg/frame-parchment.png');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+  }
+  .side-backdrop {
+    /* #rows.split nutzt align-items:start (siehe oben), sonst wuerde dieser
+       leere Platzhalter-Div auf Hoehe 0 zusammenschrumpfen statt die volle
+       Grid-Zeilenspanne auszufuellen. */
+    align-self: stretch;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 8px 2px var(--attack-color, #e6463c); }
+    50% { box-shadow: 0 0 24px 8px var(--attack-color, #e6463c); }
+  }
+  .label {
+    flex: 0 0 220px;
+    min-width: 0;
+    font-size: 26px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 26px;
+    flex: 1;
+    min-width: 0;
+  }
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 26px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat img { width: 30px; height: 30px; object-fit: contain; }
+  .stat .icon { font-size: 26px; }
+
+  /* Truppen-Aufschluesselung nach Typ: eigene Zeile unter den Haupt-Werten
+     (flex-basis:100% zwingt sie im Flex-Wrap-Layout der .row auf eine neue
+     Zeile), kleinere Icons als die Haupt-Stats, da hier bis zu 17 Typen
+     gleichzeitig auftauchen koennen. */
+  .breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    flex: 1 0 100%;
+    padding-top: 8px;
+    border-top: 1px solid rgba(198, 161, 91, 0.35);
+    font-size: 16px;
+  }
+  .breakdown .unit { display: flex; align-items: center; gap: 4px; }
+  .breakdown .unit img {
+    width: var(--breakdown-icon-size, 22px);
+    height: var(--breakdown-icon-size, 22px);
+    object-fit: contain;
+  }
+
+  /* Steuersatz-Icon: Stimmungsgesicht mit einer kleinen Gold-Muenze als
+     Abzeichen dahinter versetzt (unten rechts). */
+  .stat .tax-combo-icon { position: relative; width: 30px; height: 30px; flex: 0 0 30px; }
+  .stat .tax-combo-icon .tax-gold-icon {
+    position: absolute;
+    width: 60%;
+    height: 60%;
+    bottom: -12%;
+    right: -12%;
+    object-fit: contain;
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+  }
+  .stat .tax-combo-icon .tax-mood-icon {
+    position: absolute;
+    width: 78%;
+    height: 78%;
+    top: 0;
+    left: 0;
+    object-fit: contain;
+  }
+  .status {
+    /* Sitzt mittig auf der oberen Rahmenlinie der Karte (halb drueber/halb
+       drunter), statt eine eigene Zeile im Layout zu belegen. */
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background: #1b140c;
+    border: 2px solid #c6a15b;
+    white-space: nowrap;
+  }
+  .status.attack { color: #ff8a7a; border-color: var(--attack-color, #e6463c); }
+  #empty-msg {
+    font-size: 18px;
+    color: #a89478;
+  }
+  #settings-toggle {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10;
+    background: #c6a15b;
+    color: #1b140c;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 18px;
+    cursor: pointer;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  #settings-toggle:hover { background: #d8b878; }
+  #settings-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    /* Die Uebersicht-Einstellungen sind nur ein einfaches Formular (kein
+       Vorschaupanel wie bei den normalen Einstellungen) - daher reicht ein
+       schmalerer Ausschnitt, der nicht fast die ganze Seite verdeckt. */
+    width: min(640px, 92vw);
+    height: 100%;
+    overflow: auto;
+    background: #14100a;
+    border-left: 3px solid #c6a15b;
+    box-shadow: -6px 0 20px rgba(0,0,0,0.6);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    z-index: 9;
+  }
+  #settings-panel.open {
+    transform: translateX(0);
+  }
+  #settings-panel iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+</style>
+</head>
+<body>
+  <button id="settings-toggle" type="button">&#9881; Einstellungen</button>
+  <div id="settings-panel">
+    <iframe id="settings-frame" src="about:blank"></iframe>
+  </div>
+
+  <div id="wrap">
+    <h1>Stronghold Crusader - Live Uebersicht</h1>
+    <div id="rows"></div>
+    <div id="empty-msg" style="display:none;">Warte auf Spieldaten &hellip;</div>
+  </div>
+
+  <script>
+    const STAT_DEFS = [
+      { flag: "show_gold",         key: "gold",                img: "/icons/resource_gold.png" },
+      { flag: "show_wood",         key: "wood",                img: "/icons/resource_wood.png" },
+      { flag: "show_stone",        key: "stone",               img: "/icons/resource_stone.png" },
+      { flag: "show_iron",         key: "iron",                img: "/icons/resource_iron.png" },
+      { flag: "show_food_total",   key: "food_total",          img: "/icons/resource_food_total.png" },
+      { flag: "show_bread",        key: "bread",               img: "/icons/resource_bread.png" },
+      { flag: "show_cheese",       key: "cheese",              img: "/icons/resource_cheese.png" },
+      { flag: "show_meat",         key: "meat",                img: "/icons/resource_meat.png" },
+      { flag: "show_apples",       key: "apples",              img: "/icons/resource_apples.png" },
+      { flag: "show_ale",          key: "ale",                 img: "/icons/resource_ale.png" },
+      { flag: "show_pitch",        key: "pitch",               img: "/icons/resource_pitch.png" },
+      { flag: "show_hops",         key: "hops",                img: "/icons/resource_hops.png" },
+      { flag: "show_wheat",        key: "wheat",               img: "/icons/resource_wheat.png" },
+      { flag: "show_flour",        key: "flour",               img: "/icons/resource_flour.png" },
+      { flag: "show_troops_total", key: "troops",              icon: "&#9876;&#65039;" },
+      { flag: "show_monks_trained", key: "monks_trained",      img: "/icons/unit_monk.png" },
+      { flag: "show_siege_movable", key: "siege_movable_total", icon: "&#127984;" },
+      { flag: "show_bows",         key: "bows",                img: "/icons/resource_bows.png" },
+      { flag: "show_crossbows",    key: "crossbows",           img: "/icons/resource_crossbows.png" },
+      { flag: "show_spears",       key: "spears",              img: "/icons/resource_spears.png" },
+      { flag: "show_pikes",        key: "pikes",               img: "/icons/resource_pikes.png" },
+      { flag: "show_maces",        key: "maces",               img: "/icons/resource_maces.png" },
+      { flag: "show_swords",       key: "swords",              img: "/icons/resource_swords.png" },
+      { flag: "show_leather_armor", key: "leather_armor",      img: "/icons/resource_leather_armor.png" },
+      { flag: "show_metal_armor",  key: "metal_armor",         img: "/icons/resource_metal_armor.png" },
+      { flag: "show_popularity",   key: "popularity",          img: "/icons/resource_popularity.png", isPercent: true },
+      { flag: "show_population",   key: "population",          img: "/icons/population.png", isPopulation: true },
+      { flag: "show_tax_rate",     key: "tax_rate",            isTaxRate: true },
+      { flag: "show_lord_hp",      key: "lord_hp_percent",     icon: "&#10084;&#65039;", isLordHp: true },
+    ];
+
+    let cfg = {};
+
+    function fmt(v) {
+      return (v === null || v === undefined) ? "-" : v;
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s == null ? "" : s;
+      return div.innerHTML;
+    }
+
+    function statValueText(def, p) {
+      if (def.isTaxRate) {
+        const tax = p.tax_rate;
+        return (tax === null || tax === undefined) ? "-" : `${tax + 1}/12`;
+      }
+      if (def.isPercent) {
+        return (p.popularity === null || p.popularity === undefined) ? "-" : p.popularity.toFixed(0);
+      }
+      if (def.isPopulation) {
+        return (p.population === null || p.population === undefined) ? "-" : `${p.population}/${fmt(p.population_capacity)}`;
+      }
+      if (def.isLordHp) {
+        const pct = p.lord_hp_percent;
+        return (pct === null || pct === undefined) ? "-" : pct + "%";
+      }
+      return fmt(p[def.key]);
+    }
+
+    function taxIconSrc(tax) {
+      // <=3 (Spende bis "Keine Steuern", Standard, +1 Beliebtheit) = gute
+      // Laune, darueber (echte Steuern) = schlechte Laune. Neutral bleibt
+      // ungenutzt fuer unbekannte Werte reserviert.
+      if (tax === null || tax === undefined) return "/icons/mood_neutral.png";
+      return tax > 3 ? "/icons/mood_bad.png" : "/icons/mood_good.png";
+    }
+
+    function statHtml(def, p) {
+      const val = statValueText(def, p);
+      if (def.isTaxRate) {
+        return `<div class="stat"><span class="tax-combo-icon"><img class="tax-gold-icon" src="/icons/resource_gold.png" alt=""><img class="tax-mood-icon" src="${taxIconSrc(p.tax_rate)}" alt=""></span><span>${val}</span></div>`;
+      }
+      const icon = def.img ? `<img src="${def.img}" alt="">` : `<span class="icon">${def.icon}</span>`;
+      return `<div class="stat">${icon}<span>${val}</span></div>`;
+    }
+
+    function rowHtml(p, gridCol, gridRow) {
+      const classes = ["row"];
+      if (p.is_you) classes.push("you");
+      const theme = cfg.theme || "rgb";
+      if (theme !== "rgb") classes.push("theme-shc");
+      const isAttacking = cfg.highlight_attack_status && p.attack_status === "ANGRIFF MOEGLICH";
+      const styleParts = [];
+      if (gridCol && gridRow) {
+        // Explizite Grid-Position statt zweier unabhaengiger Flex-Spalten:
+        // so landen linke und rechte Spalte in derselben Grid-ZEILE und
+        // werden von CSS automatisch auf dieselbe Hoehe gebracht, auch wenn
+        // eine Seite durch einen Status-Badge ("baut auf" etc.) hoeher ist
+        // als die andere - sonst rutschen die beiden Spalten gegeneinander.
+        styleParts.push(`grid-column:${gridCol}`, `grid-row:${gridRow}`);
+      }
+      if (theme === "shc_multi") {
+        // Jeder Rahmen bekommt das gemeinsame Pergament als eigenes Bild -
+        // "Pergament gewinnt immer". Kein Farbschleier darueber: die PNG ist
+        // mit echter Transparenz gespeichert (Schriftrollen-Form statt
+        // Rechteck) - ein Schleier wuerde diese Transparenz zupflastern.
+        // Angriffs-Status bleibt weiterhin ueber Rahmenfarbe/Puls sichtbar.
+        styleParts.push("background-image:url(/bg/frame-parchment.png)");
+        styleParts.push("background-size:100% 100%");
+      }
+      if (isAttacking) {
+        classes.push("attacking");
+        if (cfg.attack_pulse !== false) {
+          classes.push("pulse");
+          // Negativer Delay, synchronisiert auf die echte Uhrzeit, damit die
+          // Puls-Animation nach jedem innerHTML-Neuaufbau (alle 500ms) nicht
+          // sichtbar von vorne startet, sondern nahtlos weiterlaeuft.
+          const cycleMs = 1000;
+          const offset = Date.now() % cycleMs;
+          styleParts.push(`animation-delay:-${offset}ms`);
+        }
+      }
+      const styleAttr = styleParts.length ? ` style="${styleParts.join(';')}"` : "";
+      const defs = STAT_DEFS.filter((d) => cfg[d.flag]);
+      const stats = defs.map((d) => statHtml(d, p)).join("");
+      let statusHtml = "";
+      if (cfg.highlight_attack_status && p.attack_status && p.attack_status !== "?") {
+        statusHtml = `<div class="status${isAttacking ? " attack" : ""}">${escapeHtml(p.attack_status)}</div>`;
+      }
+      return `
+        <div class="${classes.join(' ')}" data-slot="${p.slot}"${styleAttr}>
+          ${statusHtml}
+          <div class="label">${escapeHtml(p.label)}</div>
+          <div class="stats">${stats}</div>
+          ${breakdownHtml(p)}
+        </div>
+      `;
+    }
+
+    function breakdownHtml(p) {
+      if (!cfg.show_troop_breakdown || !p.units) return "";
+      const entries = Object.entries(p.units).filter(([, v]) => v && v > 0);
+      if (entries.length === 0) return "";
+      const items = entries
+        .map(([key, val]) => `
+          <div class="unit">
+            <img src="/icons/${key}.png" alt="">
+            <span>${val}</span>
+          </div>
+        `)
+        .join("");
+      return `<div class="breakdown">${items}</div>`;
+    }
+
+    const DEMO_UNITS = { unit_archer: 12, unit_swordsman: 8, unit_knight: 3 };
+    const DEMO_FOOD = { bread: 40, cheese: 15, meat: 10, apples: 25, ale: 8, pitch: 18, hops: 22, wheat: 60, flour: 35, food_total: 90 };
+    const DEMO_WEAPONS = { bows: 12, crossbows: 6, spears: 20, pikes: 4, maces: 3, swords: 9, leather_armor: 14, metal_armor: 5 };
+    const DEMO_PLAYERS = [
+      { slot: 0, label: "Du", gold: 3200, wood: 145, stone: 60, iron: 20, troops: 42, siege_movable_total: 2, popularity: 78, population: 34, population_capacity: 42, tax_rate: 3, monks_trained: 4, lord_hp: 150000, lord_hp_percent: 100, is_you: true, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 1, label: "Gegner 1", gold: 1800, wood: 90, stone: 30, iron: 5, troops: 27, siege_movable_total: 0, popularity: 55, population: 21, population_capacity: 26, tax_rate: 7, monks_trained: 0, lord_hp: 132000, lord_hp_percent: 88, is_you: false, units: DEMO_UNITS, attack_status: "baut auf", ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 2, label: "Gegner 2", gold: 640, wood: 55, stone: 12, iron: 0, troops: 61, siege_movable_total: 4, popularity: 40, population: 15, population_capacity: 18, tax_rate: 1, monks_trained: 2, lord_hp: 98000, lord_hp_percent: 65, is_you: false, units: DEMO_UNITS, attack_status: "ANGRIFF MOEGLICH", attack_base: 55, ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 3, label: "Gegner 3", gold: 12500, wood: 310, stone: 180, iron: 90, troops: 15, siege_movable_total: 0, popularity: 92, population: 58, population_capacity: 66, tax_rate: 10, monks_trained: 7, lord_hp: 150000, lord_hp_percent: 100, is_you: false, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
+    ];
+
+    // Statt bei JEDEM Poll (alle 500ms) das komplette Zeilen-HTML (inkl.
+    // aller <img>-Tags) neu einzusetzen - was den Browser dazu bringt, jedes
+    // Icon kurz neu aufzubauen ("Blinken") - wird hier nur bei einer echten
+    // STRUKTUR-Aenderung (andere Spieleranzahl/-reihenfolge, andere aktive
+    // Werte, anderes Layout/Theme) komplett neu gebaut. Bei reinen
+    // Werte-Aenderungen (der Normalfall bei jedem Poll) wird stattdessen nur
+    // der Text in den vorhandenen <span>-Elementen aktualisiert - die
+    // <img>-Elemente selbst bleiben unangetastet, kein Blinken mehr.
+    let lastStructKey = null;
+    const rowIndex = new Map(); // slot -> Zeilen-Element
+
+    // side_mode "teams": eigenes Team (inkl. Slot 0) links, alle anderen
+    // rechts. Faellt auf die alte "split"-Haelftelung zurueck, wenn Slot 0
+    // keinem Team zugeordnet ist (z.B. team_assignment noch nicht gepflegt).
+    // KEIN Live-Team-Feld gefunden (ausfuehrlich gesucht, siehe
+    // project_shc_overlay_status.md) - laeuft komplett ueber die manuelle
+    // team_assignment-Zuordnung aus den Einstellungen.
+    function splitByTeam(players) {
+      const assign = cfg.team_assignment || {};
+      const myTeam = assign["0"];
+      if (myTeam === null || myTeam === undefined) {
+        const mid = Math.ceil(players.length / 2);
+        return [players.slice(0, mid), players.slice(mid)];
+      }
+      const left = players.filter((p) => assign[String(p.slot)] === myTeam);
+      const right = players.filter((p) => assign[String(p.slot)] !== myTeam);
+      return [left, right];
+    }
+
+    function computeSides(players, sideMode) {
+      if (sideMode === "teams") return splitByTeam(players);
+      const mid = Math.ceil(players.length / 2);
+      return [players.slice(0, mid), players.slice(mid)];
+    }
+
+    function structKeyFor(players, defs) {
+      return [
+        cfg.side_mode || "split",
+        cfg.theme || "rgb",
+        defs.map((d) => d.flag).join(","),
+        players.map((p) => p.slot).join(","),
+        // team_assignment beeinflusst bei side_mode "teams" die Links/Rechts-
+        // Zuordnung, ohne dass sich die Spielerliste selbst aendert - muss
+        // deshalb explizit mit in den Struktur-Schluessel, sonst bleibt eine
+        // Team-Aenderung bis zum naechsten "echten" Strukturwechsel unsichtbar.
+        JSON.stringify(cfg.team_assignment || {}),
+      ].join("|");
+    }
+
+    function patchRow(rowEl, p, defs, gridCol, gridRow) {
+      const isAttacking = cfg.highlight_attack_status && p.attack_status === "ANGRIFF MOEGLICH";
+
+      const labelEl = rowEl.querySelector(".label");
+      if (labelEl && labelEl.textContent !== p.label) labelEl.textContent = p.label;
+
+      const statEls = rowEl.querySelectorAll(".stats .stat");
+      defs.forEach((def, i) => {
+        const statEl = statEls[i];
+        if (!statEl) return;
+        const valEl = statEl.lastElementChild;
+        const newVal = statValueText(def, p);
+        if (valEl && valEl.textContent !== newVal) valEl.textContent = newVal;
+        if (def.isTaxRate) {
+          const iconEl = statEl.querySelector(".tax-mood-icon");
+          const newSrc = taxIconSrc(p.tax_rate);
+          if (iconEl && !iconEl.getAttribute("src").endsWith(newSrc)) {
+            iconEl.setAttribute("src", newSrc);
+          }
+        }
+      });
+
+      // Truppen-Aufschluesselung: seltener genutztes Extra, wird bei
+      // Aenderung einfach komplett neu eingesetzt statt einzeln gepatcht.
+      const oldBreakdownEl = rowEl.querySelector(".breakdown");
+      const newBreakdownOuter = breakdownHtml(p);
+      const oldBreakdownOuter = oldBreakdownEl ? oldBreakdownEl.outerHTML : "";
+      if (newBreakdownOuter !== oldBreakdownOuter) {
+        if (oldBreakdownEl) oldBreakdownEl.remove();
+        if (newBreakdownOuter) {
+          const tmp = document.createElement("div");
+          tmp.innerHTML = newBreakdownOuter;
+          rowEl.appendChild(tmp.firstElementChild);
+        }
+      }
+
+      const shouldShowStatus = cfg.highlight_attack_status && p.attack_status && p.attack_status !== "?";
+      let statusEl = rowEl.querySelector(".status");
+      if (shouldShowStatus) {
+        if (!statusEl) {
+          statusEl = document.createElement("div");
+          rowEl.insertBefore(statusEl, rowEl.firstChild);
+        }
+        statusEl.className = `status${isAttacking ? " attack" : ""}`;
+        if (statusEl.textContent !== p.attack_status) statusEl.textContent = p.attack_status;
+      } else if (statusEl) {
+        statusEl.remove();
+      }
+
+      const classes = ["row"];
+      if (p.is_you) classes.push("you");
+      const theme = cfg.theme || "rgb";
+      if (theme !== "rgb") classes.push("theme-shc");
+      const wasAttacking = rowEl.classList.contains("attacking");
+      if (isAttacking) classes.push("attacking");
+      const wantsPulse = isAttacking && cfg.attack_pulse !== false;
+      if (wantsPulse) classes.push("pulse");
+      rowEl.className = classes.join(" ");
+
+      const styleParts = [];
+      if (gridCol && gridRow) styleParts.push(`grid-column:${gridCol}`, `grid-row:${gridRow}`);
+      if (theme === "shc_multi") {
+        styleParts.push("background-image:url(/bg/frame-parchment.png)");
+        styleParts.push("background-size:100% 100%");
+      }
+      if (wantsPulse) {
+        if (!wasAttacking) rowEl.dataset.animDelay = `-${Date.now() % 1000}ms`;
+        styleParts.push(`animation-delay:${rowEl.dataset.animDelay || "0ms"}`);
+      }
+      rowEl.style.cssText = styleParts.join(";");
+    }
+
+    function render(data) {
+      const rows = document.getElementById("rows");
+      const emptyMsg = document.getElementById("empty-msg");
+      let players = (data && data.players) || [];
+
+      if (players.length === 0) {
+        if (cfg.show_demo_data === false) {
+          rows.innerHTML = "";
+          rows.classList.remove("split");
+          rowIndex.clear();
+          lastStructKey = null;
+          emptyMsg.style.display = "block";
+          return;
+        }
+        players = DEMO_PLAYERS;
+      }
+      emptyMsg.style.display = "none";
+
+      const sideMode = cfg.side_mode || "split";
+      const isSingle = (cfg.theme || "rgb") === "shc_single";
+      const defs = STAT_DEFS.filter((d) => cfg[d.flag]);
+      const structKey = structKeyFor(players, defs) + "|" + sideMode;
+
+      if (structKey !== lastStructKey) {
+        rebuildRows(players, sideMode, isSingle, rows);
+        rowIndex.clear();
+        [...rows.children].forEach((el) => {
+          if (el.dataset.slot !== undefined) rowIndex.set(Number(el.dataset.slot), el);
+        });
+        lastStructKey = structKey;
+        return;
+      }
+
+      if (sideMode === "split" || sideMode === "teams") {
+        const [leftPlayers, rightPlayers] = computeSides(players, sideMode);
+        const mid = Math.max(leftPlayers.length, rightPlayers.length);
+        for (let i = 0; i < mid; i++) {
+          if (leftPlayers[i]) {
+            const el1 = rowIndex.get(leftPlayers[i].slot);
+            if (el1) patchRow(el1, leftPlayers[i], defs, 1, i + 1);
+          }
+          if (rightPlayers[i]) {
+            const el2 = rowIndex.get(rightPlayers[i].slot);
+            if (el2) patchRow(el2, rightPlayers[i], defs, 2, i + 1);
+          }
+        }
+      } else {
+        players.forEach((p) => {
+          const el = rowIndex.get(p.slot);
+          if (el) patchRow(el, p, defs, null, null);
+        });
+      }
+    }
+
+    function rebuildRows(players, sideMode, isSingle, rows) {
+      if (sideMode === "split" || sideMode === "teams") {
+        const [leftPlayers, rightPlayers] = computeSides(players, sideMode);
+        const mid = Math.max(leftPlayers.length, rightPlayers.length);
+        // Linke und rechte Seite werden paarweise in dieselbe Grid-Zeile
+        // gesetzt (statt als zwei unabhaengige Spalten aneinandergereiht),
+        // damit ungleich hohe Karten (z.B. durch einen Angriffs-Badge) beide
+        // Seiten nicht gegeneinander verschieben - siehe rowHtml().
+        // Bei Theme "SHC Single" bekommt jede Seite zusaetzlich ein eigenes
+        // Pergament, das ueber die volle Grid-Hoehe dieser Spalte reicht
+        // (hinter allen Rahmen dieser Seite liegt, siehe .side-backdrop).
+        // "-1" wuerde hier auf das Ende des EXPLIZITEN Grids zeigen (das es
+        // nicht gibt, nur grid-auto-rows) und faellt ohne grid-template-rows
+        // auf Zeile 1 zurueck. Eine grosszuegig hohe Endzeile (z.B. 999)
+        // funktioniert auch nicht: der Grid muss dann wirklich 999 implizite
+        // Zeilen anlegen, und row-gap zwischen all diesen (leeren) Zeilen
+        // summiert sich zu einer riesigen Gesamthoehe. Also die tatsaechliche
+        // Zeilenzahl je Seite verwenden.
+        const rowEnd = mid + 1;
+        let html = isSingle
+          ? `<div class="side-backdrop" style="grid-column:1;grid-row:1/${rowEnd}"></div><div class="side-backdrop" style="grid-column:2;grid-row:1/${rowEnd}"></div>`
+          : "";
+        for (let i = 0; i < mid; i++) {
+          html += rowHtml(leftPlayers[i], 1, i + 1);
+          if (rightPlayers[i]) html += rowHtml(rightPlayers[i], 2, i + 1);
+        }
+        rows.classList.add("split");
+        rows.classList.remove("theme-single-bg");
+        rows.innerHTML = html;
+      } else {
+        rows.classList.remove("split");
+        // Nur eine Liste (kein Split) - das Pergament kommt direkt als
+        // Hintergrund des Listen-Containers selbst, analog zu einer Seite.
+        rows.classList.toggle("theme-single-bg", isSingle);
+        rows.innerHTML = players.map((p) => rowHtml(p)).join("");
+      }
+    }
+
+    async function pollData() {
+      try {
+        const res = await fetch("/overlay.json?t=" + Date.now(), { cache: "no-store" });
+        render(await res.json());
+      } catch (e) {
+        // stiller Retry
+      }
+    }
+
+    function applyLayout() {
+      const root = document.documentElement.style;
+      root.setProperty("--you-color", cfg.you_color || "#78c8ff");
+      root.setProperty("--attack-color", cfg.attack_color || "#e6463c");
+      root.setProperty("--row-gap", (cfg.row_gap_px ?? 14) + "px");
+      root.setProperty("--text-color", cfg.text_color || "#f2e9d8");
+      root.setProperty("--breakdown-icon-size", (cfg.breakdown_icon_size_px ?? 22) + "px");
+    }
+
+    async function pollConfig() {
+      try {
+        const res = await fetch("/api/overview-config?t=" + Date.now(), { cache: "no-store" });
+        cfg = await res.json();
+        applyLayout();
+      } catch (e) {
+        // stiller Retry
+      }
+    }
+
+    pollConfig().then(pollData);
+    setInterval(pollData, 500);
+    setInterval(pollConfig, 1000);
+
+    const settingsPanel = document.getElementById("settings-panel");
+    const settingsFrame = document.getElementById("settings-frame");
+    const settingsToggle = document.getElementById("settings-toggle");
+    let settingsLoaded = false;
+    settingsToggle.addEventListener("click", () => {
+      if (!settingsLoaded) {
+        settingsFrame.src = "/overview-settings.html";
+        settingsLoaded = true;
+      }
+      settingsPanel.classList.toggle("open");
+    });
+  </script>
+</body>
+</html>

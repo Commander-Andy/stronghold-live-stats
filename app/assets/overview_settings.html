@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>SHC Live Stats - Uebersicht-Einstellungen</title>
+<link rel="icon" href="/icons/app_logo.png">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background-color: #1b140c;
+    background-image: url('/bg/program.png');
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: #f2e9d8;
+    font-family: "Segoe UI", Trebuchet MS, Arial, sans-serif;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 10, 5, 0.72);
+    z-index: -1;
+  }
+  h1 {
+    font-size: 20px;
+    border-bottom: 1px solid #c6a15b;
+    padding-bottom: 8px;
+  }
+  h2 {
+    font-size: 15px;
+    color: #c6a15b;
+    margin-top: 28px;
+  }
+  .hint {
+    font-size: 12px;
+    color: #a89478;
+    margin: -4px 0 12px 0;
+  }
+  .card {
+    background: #241a10;
+    border: 1px solid #c6a15b;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    max-width: 560px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+  }
+  .row label {
+    flex: 1;
+    font-size: 14px;
+  }
+  button {
+    background: #c6a15b;
+    color: #1b140c;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:hover { background: #d8b878; }
+  /* Zeigt, welcher Knopf gerade dem aktuellen Zustand entspricht (aktive
+     Anzeige-Vorlage, volle "Alle an/aus"-Kategorie, geladener Speicherplatz)
+     - sieht aus wie hineingedrueckt statt nur farblich markiert. */
+  button.active-preset {
+    background: #8a6d3f;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
+    transform: translateY(1px);
+  }
+  button.active-preset:hover { background: #8a6d3f; }
+  input[type="checkbox"] { width: 18px; height: 18px; }
+  input[type="number"], select {
+    background: #1b140c;
+    color: #f2e9d8;
+    border: 1px solid #c6a15b;
+    border-radius: 4px;
+    padding: 4px 6px;
+    width: 80px;
+  }
+  select { width: auto; min-width: 160px; }
+  input[type="color"] {
+    width: 44px;
+    height: 28px;
+    padding: 2px;
+    background: #1b140c;
+    border: 1px solid #c6a15b;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  input[type="range"] {
+    flex: 1;
+    max-width: 180px;
+    accent-color: #c6a15b;
+  }
+  .row input[type="number"] {
+    width: 64px;
+  }
+  #status-line {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+  .dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .dot-ok { background: #9be89b; }
+  .dot-waiting { background: #e6c34a; }
+  .dot-error { background: #ff8a7a; }
+  /* Eigener Pfeil statt des Browser-Standard-Markers, da <summary> hier oft
+     als Flex-Container (Name + Knoepfe) gestylt ist - der native Marker
+     wuerde dabei kaum sichtbar/falsch ausgerichtet erscheinen. */
+  summary { list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  .disclosure-arrow {
+    display: inline-block;
+    transition: transform 0.15s ease;
+    margin-right: 6px;
+  }
+  details[open] > summary .disclosure-arrow {
+    transform: rotate(90deg);
+  }
+</style>
+</head>
+<body>
+  <h1>Uebersicht - eigene Einstellungen</h1>
+  <p class="hint">Diese Einstellungen gelten nur fuer den Uebersichtsmodus (diese Seite hier) - das OBS-Overlay im Stream bleibt davon unberuehrt und hat seine eigene Konfiguration.</p>
+
+  <div id="status-line"><span class="dot dot-waiting"></span>Status wird geladen &hellip;</div>
+
+  <h2>Speicherplaetze</h2>
+  <div class="card">
+    <div id="saved-layouts-list"></div>
+    <p class="hint">Speichert das komplette Aussehen dieser Uebersicht unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.</p>
+  </div>
+
+  <h2>Anzeige-Vorlagen</h2>
+  <div class="card">
+    <div class="row" style="flex-wrap:wrap; gap:8px;">
+      <button type="button" data-preset="standard">Standard</button>
+      <button type="button" data-preset="minimal">Minimal</button>
+      <button type="button" data-preset="militaer">Militaer</button>
+      <button type="button" data-preset="alles">Alles an</button>
+    </div>
+    <p class="hint">Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben (siehe "Ausrichtung") oder die Haeckchen unter "Sonstiges".</p>
+  </div>
+
+  <div class="card">
+    <div class="row" style="flex-wrap:wrap; gap:8px; align-items:center;">
+      <button type="button" id="sync-overlay-btn">Mit Overlay synchronisieren</button>
+    </div>
+    <p class="hint">Uebernimmt einmalig die Anzeige-Auswahl und Farb-/Design-Einstellungen vom Overlay in die Uebersicht. Sobald danach hier irgendetwas geaendert wird, gilt der Abgleich als ueberholt (Knopf springt zurueck).</p>
+  </div>
+
+  <details id="display-section" open>
+    <summary style="cursor:pointer; color:#c6a15b; font-size:15px; font-weight:600; margin-top:28px;"><span class="disclosure-arrow">&#9654;</span>Was soll angezeigt werden?</summary>
+    <div id="display-categories" style="margin-top:10px;"></div>
+  </details>
+
+  <h2>Ausrichtung</h2>
+  <div class="card">
+    <div class="row">
+      <label>Design</label>
+      <select id="theme-input">
+        <option value="rgb">RGB (frei einstellbare Farben)</option>
+        <option value="shc_single">SHC Single (ein Pergament je Seite)</option>
+        <option value="shc_multi">SHC Multi (Pergament pro Rahmen)</option>
+      </select>
+    </div>
+    <p class="hint">Bei SHC Single/Multi bekommen die Karten ein Pergament als Hintergrund; Rahmenfarben bleiben weiterhin aktiv.</p>
+    <div class="row">
+      <label>Seiten-Aufteilung</label>
+      <select id="side-mode-input">
+        <option value="split">Geteilt (links/rechts)</option>
+        <option value="left">Alle links</option>
+        <option value="right">Alle rechts</option>
+        <option value="teams">Nach Team (siehe "Teams" unten)</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Abstand zwischen den Zeilen (px)</label>
+      <input type="range" id="row-gap-range" min="0" max="60" step="1">
+      <input type="number" id="row-gap-input" min="0" max="60" step="1">
+    </div>
+    <div class="row">
+      <label>Truppen-Icon-Groesse (px)</label>
+      <input type="range" id="breakdown-icon-range" min="10" max="60" step="1">
+      <input type="number" id="breakdown-icon-input" min="10" max="60" step="1">
+    </div>
+    <div class="row">
+      <label>Textfarbe (Beschriftung/Werte)</label>
+      <input type="color" id="text-color-input">
+    </div>
+    <div class="row">
+      <label>Farbe fuer dein eigenes Feld</label>
+      <input type="color" id="you-color-input">
+    </div>
+    <div class="row">
+      <label>Farbe bei Angriffs-Warnung</label>
+      <input type="color" id="attack-color-input">
+    </div>
+    <div class="row">
+      <label>Angriffs-Warnung pulsierend leuchten lassen</label>
+      <input type="checkbox" id="attack-pulse-input">
+    </div>
+  </div>
+
+  <h2>Teams</h2>
+  <div class="card">
+    <div id="team-assignment-list" style="margin-top:4px;"></div>
+    <p class="hint">Keine Live-Erkennung im Spielspeicher moeglich (ausfuehrlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Slot 0) links, alle anderen rechts. Gilt gemeinsam fuer Overlay und Uebersicht.</p>
+  </div>
+
+  <script>
+    let currentConfig = null;
+
+    // Anzeige-Haeckchen in aufklappbare Kategorien gruppiert (statt einer
+    // langen flachen Liste) - jede Kategorie bekommt eigene "Alle an/aus"-
+    // Knoepfe. Wird per JS aus dieser Liste gebaut, siehe renderDisplayCategories().
+    const DISPLAY_CATEGORIES = [
+      {
+        name: "Rohstoffe",
+        items: [
+          ["show_gold", "Gold"],
+          ["show_wood", "Holz"],
+          ["show_stone", "Stein"],
+          ["show_iron", "Eisen"],
+          ["show_ale", "Bier"],
+          ["show_pitch", "Pech"],
+          ["show_hops", "Hopfen"],
+          ["show_wheat", "Getreide"],
+          ["show_flour", "Mehl"],
+        ],
+      },
+      {
+        name: "Nahrung",
+        items: [
+          ["show_food_total", "Nahrung gesamt"],
+          ["show_bread", "Brot"],
+          ["show_cheese", "Kaese"],
+          ["show_meat", "Fleisch"],
+          ["show_apples", "Aepfel"],
+        ],
+      },
+      {
+        name: "Waffen & Ruestung",
+        items: [
+          ["show_bows", "Boegen"],
+          ["show_crossbows", "Armbrueste"],
+          ["show_spears", "Speere"],
+          ["show_pikes", "Piken"],
+          ["show_maces", "Keulen"],
+          ["show_swords", "Schwerter"],
+          ["show_leather_armor", "Lederruestung"],
+          ["show_metal_armor", "Metallruestung"],
+        ],
+      },
+      {
+        name: "Militaer",
+        items: [
+          ["show_troops_total", "Truppen gesamt"],
+          ["show_troop_breakdown", "Truppen-Aufschluesselung nach Typ (Icons)"],
+          ["show_monks_trained", "Moenche (seit Tool-Start trainiert, kein Live-Bestand)"],
+          ["show_siege_movable", "Belagerungsgeraete gesamt"],
+        ],
+      },
+      {
+        name: "Sonstiges",
+        items: [
+          ["show_popularity", "Popularity"],
+          ["show_population", "Bevoelkerung (aktuell/Kapazitaet)"],
+          ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
+          ["show_lord_hp", "Burgherr-HP (noch nicht funktional)"],
+          ["highlight_attack_status", "Angriffs-Warnung farblich hervorheben"],
+          ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel laeuft"],
+        ],
+      },
+    ];
+
+    const STAT_PRESET_KEYS = DISPLAY_CATEGORIES.flatMap((cat) => cat.items.map(([key]) => key)).filter(
+      (key) => !["show_demo_data", "highlight_attack_status"].includes(key)
+    );
+
+    function presetFrom(trueKeys) {
+      const obj = {};
+      STAT_PRESET_KEYS.forEach((key) => { obj[key] = trueKeys.includes(key); });
+      return obj;
+    }
+
+    const DISPLAY_PRESETS = {
+      standard: presetFrom(["show_gold", "show_wood", "show_stone", "show_iron", "show_troops_total", "show_popularity"]),
+      minimal: presetFrom(["show_gold", "show_troops_total", "show_popularity"]),
+      militaer: presetFrom(["show_troops_total", "show_troop_breakdown", "show_siege_movable"]),
+      alles: presetFrom(STAT_PRESET_KEYS),
+    };
+
+    function renderDisplayCategories() {
+      const container = document.getElementById("display-categories");
+      container.innerHTML = DISPLAY_CATEGORIES.map((cat, idx) => `
+        <details class="card" open>
+          <summary style="cursor:pointer; color:#c6a15b; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span><span class="disclosure-arrow">&#9654;</span>${cat.name}</span>
+            <span>
+              <button type="button" data-cat="${idx}" data-mode="1">Alle an</button>
+              <button type="button" data-cat="${idx}" data-mode="0">Alle aus</button>
+            </span>
+          </summary>
+          <div style="margin-top:8px;">
+            ${cat.items.map(([key, label]) => `<div class="row"><label>${label}</label><input type="checkbox" data-key="${key}"></div>`).join("")}
+          </div>
+        </details>
+      `).join("");
+
+      container.querySelectorAll("button[data-cat]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const cat = DISPLAY_CATEGORIES[parseInt(btn.dataset.cat, 10)];
+          const value = btn.dataset.mode === "1";
+          const patch = {};
+          cat.items.forEach(([key]) => { patch[key] = value; });
+          savePatch(patch);
+        });
+      });
+    }
+    // Muss vor dem generischen data-key-Checkbox-Handler weiter unten
+    // laufen, damit dieser die hier neu erzeugten Checkboxen auch findet.
+    renderDisplayCategories();
+
+    document.querySelectorAll("button[data-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        savePatch(DISPLAY_PRESETS[btn.dataset.preset]);
+      });
+    });
+
+    function deepEqual(a, b) {
+      if (a === b) return true;
+      if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+      const keysA = Object.keys(a);
+      const keysB = Object.keys(b);
+      if (keysA.length !== keysB.length) return false;
+      return keysA.every((k) => deepEqual(a[k], b[k]));
+    }
+
+    // 5 komplette Speicherplaetze fuers ganze Aussehen dieser Uebersicht -
+    // hier ist die Config flach (keine display/layout-Unterbereiche wie im
+    // Overlay), also einfach eine Kopie von allem AUSSER saved_layouts
+    // selbst (sonst wuerde ein Speicherplatz sich selbst mit-speichern).
+    function currentLookSnapshot() {
+      const { saved_layouts, ...rest } = currentConfig;
+      return JSON.parse(JSON.stringify(rest));
+    }
+
+    function escapeHtmlAttr(s) {
+      const div = document.createElement("div");
+      div.textContent = s == null ? "" : s;
+      return div.innerHTML;
+    }
+
+    function renderSavedLayouts() {
+      const list = document.getElementById("saved-layouts-list");
+      const slots = (currentConfig && currentConfig.saved_layouts) || [];
+      list.innerHTML = slots.map((slot, i) => `
+        <div class="row" style="flex-wrap:wrap;">
+          <label>${slot ? escapeHtmlAttr(slot.name) : `Speicherplatz ${i + 1} (leer)`}</label>
+          <button type="button" data-load-slot="${i}" ${slot ? "" : "disabled"}>Laden</button>
+          <button type="button" data-save-slot="${i}">Speichern</button>
+          ${slot ? `<button type="button" data-clear-slot="${i}">Loeschen</button>` : ""}
+        </div>
+      `).join("");
+
+      list.querySelectorAll("button[data-load-slot]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const slot = currentConfig.saved_layouts[parseInt(btn.dataset.loadSlot, 10)];
+          if (!slot) return;
+          const { name, ...rest } = slot;
+          savePatch(rest);
+        });
+      });
+      list.querySelectorAll("button[data-save-slot]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = parseInt(btn.dataset.saveSlot, 10);
+          const existing = currentConfig.saved_layouts[i];
+          const name = prompt("Name fuer diesen Speicherplatz:", existing ? existing.name : `Setup ${i + 1}`);
+          if (!name) return;
+          const slots = currentConfig.saved_layouts.slice();
+          slots[i] = { name, ...currentLookSnapshot() };
+          savePatch({ saved_layouts: slots });
+        });
+      });
+      list.querySelectorAll("button[data-clear-slot]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = parseInt(btn.dataset.clearSlot, 10);
+          const slots = currentConfig.saved_layouts.slice();
+          slots[i] = null;
+          savePatch({ saved_layouts: slots });
+        });
+      });
+    }
+
+    // Markiert, welcher Knopf gerade dem aktuellen Zustand entspricht (sieht
+    // wie hineingedrueckt aus) - bei Anzeige-Vorlagen, den "Alle an/aus"-
+    // Knoepfen je Kategorie, und geladenen Speicherplaetzen.
+    function updateActiveHighlights() {
+      document.querySelectorAll("button[data-preset]").forEach((btn) => {
+        const preset = DISPLAY_PRESETS[btn.dataset.preset];
+        const matches = STAT_PRESET_KEYS.every((key) => !!currentConfig[key] === !!preset[key]);
+        btn.classList.toggle("active-preset", matches);
+      });
+      document.querySelectorAll("button[data-cat]").forEach((btn) => {
+        const cat = DISPLAY_CATEGORIES[parseInt(btn.dataset.cat, 10)];
+        const wantOn = btn.dataset.mode === "1";
+        const matches = cat.items.every(([key]) => !!currentConfig[key] === wantOn);
+        btn.classList.toggle("active-preset", matches);
+      });
+      const snapshot = currentLookSnapshot();
+      document.querySelectorAll("button[data-load-slot]").forEach((btn) => {
+        const slot = currentConfig.saved_layouts[parseInt(btn.dataset.loadSlot, 10)];
+        const matches = !!slot && deepEqual((({ name, ...rest }) => rest)(slot), snapshot);
+        btn.classList.toggle("active-preset", matches);
+      });
+    }
+
+    function setStatus(dotClass, text) {
+      document.getElementById("status-line").innerHTML =
+        `<span class="dot ${dotClass}"></span>${text}`;
+    }
+
+    async function refreshStatus() {
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        const s = await res.json();
+        if (s.connected) {
+          setStatus("dot-ok", `Verbunden - ${s.player_count} Spieler aktiv` + (s.aic_loaded ? "" : " (keine .aic-Datei geladen)"));
+        } else if (s.last_error) {
+          setStatus("dot-error", s.last_error);
+        } else {
+          setStatus("dot-waiting", "Warte auf laufendes Spiel (Stronghold Crusader.exe) &hellip;");
+        }
+      } catch (e) {
+        setStatus("dot-error", "Server nicht erreichbar.");
+      }
+    }
+
+    const SLIDER_PAIRS = [
+      ["row-gap-range", "row-gap-input"],
+      ["breakdown-icon-range", "breakdown-icon-input"],
+    ];
+    SLIDER_PAIRS.forEach(([rangeId, numberId]) => {
+      const range = document.getElementById(rangeId);
+      const number = document.getElementById(numberId);
+      range.addEventListener("input", () => {
+        number.value = range.value;
+        number.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      number.addEventListener("input", () => {
+        range.value = number.value;
+      });
+    });
+
+    function applyConfigToForm(cfg) {
+      currentConfig = cfg;
+      document.querySelectorAll("input[type=checkbox][data-key]").forEach((el) => {
+        el.checked = !!cfg[el.dataset.key];
+      });
+      document.getElementById("side-mode-input").value = cfg.side_mode;
+      document.getElementById("theme-input").value = cfg.theme || "rgb";
+      document.getElementById("row-gap-input").value = cfg.row_gap_px;
+      document.getElementById("breakdown-icon-input").value = cfg.breakdown_icon_size_px ?? 22;
+      document.getElementById("text-color-input").value = cfg.text_color;
+      document.getElementById("you-color-input").value = cfg.you_color;
+      document.getElementById("attack-color-input").value = cfg.attack_color;
+      document.getElementById("attack-pulse-input").checked = !!cfg.attack_pulse;
+      SLIDER_PAIRS.forEach(([rangeId, numberId]) => {
+        document.getElementById(rangeId).value = document.getElementById(numberId).value;
+      });
+      renderTeamAssignmentRows(cfg);
+      renderSavedLayouts();
+      updateActiveHighlights();
+    }
+
+    function renderTeamAssignmentRows(cfg) {
+      const list = document.getElementById("team-assignment-list");
+      const assign = cfg.team_assignment || {};
+      list.innerHTML = "";
+      for (let i = 0; i < 8; i++) {
+        const val = assign[String(i)];
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `
+          <label style="flex:0 0 90px;">${i === 0 ? "Du (Slot 0)" : "Slot " + i}</label>
+          <span class="team-live-name" data-slot="${i}" style="flex:1; font-size:11px; color:#a89478;"></span>
+          <span style="font-size:11px; color:#a89478;">Team</span>
+          <input type="number" data-team-slot="${i}" min="1" max="8" step="1" style="width:60px;" value="${val === null || val === undefined ? "" : val}" placeholder="-">
+        `;
+        list.appendChild(row);
+      }
+      list.querySelectorAll("input[data-team-slot]").forEach((el) => {
+        el.addEventListener("change", () => {
+          const slot = el.dataset.teamSlot;
+          const raw = el.value.trim();
+          const val = raw === "" ? null : parseInt(raw, 10);
+          savePatch({ team_assignment: { [slot]: val } });
+        });
+      });
+      refreshLiveTeamNames();
+    }
+
+    async function refreshLiveTeamNames() {
+      try {
+        const res = await fetch("/overlay.json?t=" + Date.now(), { cache: "no-store" });
+        const data = await res.json();
+        const bySlot = {};
+        (data.players || []).forEach((p) => { bySlot[p.slot] = p.label; });
+        document.querySelectorAll(".team-live-name").forEach((el) => {
+          const slot = Number(el.dataset.slot);
+          el.textContent = bySlot[slot] || "(leer)";
+        });
+      } catch (e) {
+        // stiller Retry
+      }
+    }
+
+    async function loadConfig() {
+      const res = await fetch("/api/overview-config", { cache: "no-store" });
+      applyConfigToForm(await res.json());
+    }
+
+    async function savePatch(patch, opts) {
+      opts = opts || {};
+      const res = await fetch("/api/overview-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      applyConfigToForm(await res.json());
+      // Jede Aenderung AUSSER dem Sync-Vorgang selbst macht den Abgleich
+      // ungueltig - der Knopf zeigt dann wieder den unsynchronisierten
+      // Zustand.
+      if (!opts.fromSync) {
+        setSyncButtonState(false);
+      }
+    }
+
+    // Welche Felder beim Sync vom Overlay (display/layout) in die
+    // Uebersicht (flacher Aufbau) uebernommen werden - nur Felder, die es
+    // in BEIDEN Config-Bereichen unter demselben Namen gibt. Overlay-
+    // spezifische Sachen ohne Uebersicht-Entsprechung (Logo, Angriffs-
+    // Badge, Zeilen/Breite-Layout, Rahmenfarbe, Versaetze) werden bewusst
+    // NICHT uebernommen.
+    const SYNC_DISPLAY_KEYS = [
+      "show_gold", "show_wood", "show_stone", "show_iron",
+      "show_troops_total", "show_troop_breakdown", "show_siege_movable",
+      "show_popularity", "show_population", "show_tax_rate",
+      "show_monks_trained", "show_lord_hp",
+      "highlight_attack_status", "show_demo_data",
+      "show_food_total", "show_bread", "show_cheese", "show_meat", "show_apples",
+      "show_ale", "show_pitch", "show_hops", "show_wheat", "show_flour",
+      "show_bows", "show_crossbows", "show_spears", "show_pikes", "show_maces", "show_swords",
+      "show_leather_armor", "show_metal_armor",
+    ];
+    const SYNC_LAYOUT_KEYS = ["side_mode", "theme", "row_gap_px", "you_color", "attack_color", "attack_pulse", "text_color"];
+
+    function setSyncButtonState(synced) {
+      const btn = document.getElementById("sync-overlay-btn");
+      if (!btn) return;
+      btn.classList.toggle("active-preset", synced);
+      btn.textContent = synced ? "✓ Mit Overlay synchronisiert" : "Mit Overlay synchronisieren";
+    }
+
+    async function syncWithOverlay() {
+      const res = await fetch("/api/config", { cache: "no-store" });
+      const fullConfig = await res.json();
+      const display = fullConfig.display || {};
+      const layout = fullConfig.layout || {};
+      const patch = {};
+      SYNC_DISPLAY_KEYS.forEach((k) => { if (k in display) patch[k] = display[k]; });
+      SYNC_LAYOUT_KEYS.forEach((k) => { if (k in layout) patch[k] = layout[k]; });
+      await savePatch(patch, { fromSync: true });
+      setSyncButtonState(true);
+    }
+
+    document.getElementById("sync-overlay-btn").addEventListener("click", syncWithOverlay);
+
+    document.querySelectorAll("input[type=checkbox][data-key]").forEach((el) => {
+      el.addEventListener("change", () => {
+        savePatch({ [el.dataset.key]: el.checked });
+      });
+    });
+
+    document.getElementById("side-mode-input").addEventListener("change", (e) => {
+      savePatch({ side_mode: e.target.value });
+    });
+    document.getElementById("theme-input").addEventListener("change", (e) => {
+      savePatch({ theme: e.target.value });
+    });
+    document.getElementById("attack-pulse-input").addEventListener("change", (e) => {
+      savePatch({ attack_pulse: e.target.checked });
+    });
+
+    let debounceTimer = null;
+    function saveDebounced() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        savePatch({
+          row_gap_px: parseInt(document.getElementById("row-gap-input").value, 10) || 0,
+          text_color: document.getElementById("text-color-input").value,
+          you_color: document.getElementById("you-color-input").value,
+          attack_color: document.getElementById("attack-color-input").value,
+          breakdown_icon_size_px: parseInt(document.getElementById("breakdown-icon-input").value, 10) || 22,
+        });
+      }, 80);
+    }
+    ["row-gap-input", "text-color-input", "you-color-input", "attack-color-input", "breakdown-icon-input"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", saveDebounced);
+    });
+
+    function heartbeat() {
+      fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
+    }
+
+    loadConfig();
+    refreshStatus();
+    heartbeat();
+    setInterval(refreshStatus, 3000);
+    setInterval(refreshLiveTeamNames, 3000);
+    setInterval(heartbeat, 5000);
+  </script>
+</body>
+</html>

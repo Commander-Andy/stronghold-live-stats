@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>SHC Live Overlay</title>
+<style>
+  :root {
+    /* Die Wehrmauer-Leiste unten ist in HD nur dekorativer Luecken-Fueller
+       (altes 4:3-Layout auf 16:9 gestreckt) - das Overlay darf also direkt
+       ganz unten drauf liegen, kein Abstand noetig. */
+    --bottom-offset: 6px;
+    /* Rechts: Abstand zum Bevoelkerungs-Buch (echtes Spiel-UI, bleibt aussen). */
+    --right-offset: 110px;
+    --left-offset: 6px;
+    --row-gap: 4px;
+    --border-color: #c6a15b;
+    --icon-size: 16px;
+    /* --line-width = feste GESAMTBREITE einer Werte-Zeile (aus "Breite pro
+       Anzeige (px)"), --items-per-line = Anzahl Slots darin ("Werte pro
+       Zeile") - die Breite EINES einzelnen Wertes ergibt sich daraus per
+       calc() (siehe .stat). Beides bleibt IMMER exakt bei diesen Werten,
+       unabhaengig davon wie viele Werte gerade an/aus sind - keine
+       Ein-/Ausgabe darf die Breite verschieben (siehe .stats-line/.stat
+       unten). Ueberlauf/nicht mehr lesbare Icons bei sehr vielen Werten pro
+       Zeile sind bewusst in Kauf genommen statt die Breite zu veraendern. */
+    --line-width: 312px;
+    --items-per-line: 6;
+    --stat-line-height: 16px;
+    --you-color: #78c8ff;
+    --attack-color: #e6463c;
+    --text-color: #f2e9d8;
+  }
+
+  @keyframes attack-pulse {
+    0%, 100% { box-shadow: 0 0 4px 1px var(--attack-color), 0 2px 5px rgba(0, 0, 0, 0.6); }
+    50% { box-shadow: 0 0 16px 5px var(--attack-color), 0 2px 5px rgba(0, 0, 0, 0.6); }
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-family: "Segoe UI", Trebuchet MS, Arial, sans-serif;
+    color: var(--text-color);
+    overflow: hidden;
+  }
+
+  .side {
+    position: fixed;
+    bottom: var(--bottom-offset);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--row-gap);
+  }
+
+  .side.left {
+    left: var(--left-offset);
+    align-items: flex-start;
+  }
+
+  .side.right {
+    right: var(--right-offset);
+  }
+
+  /* Theme "SHC Single": ein gemeinsames Pergament liegt hinter allen
+     Rahmen dieser Seite - die einzelnen Zeilen (.theme-shc) werden dafuer
+     fast transparent, siehe unten. */
+  .side.theme-single {
+    background-image: url('/bg/frame-parchment.png');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+  }
+
+  .player-row.theme-shc {
+    /* Komplett transparent, damit das gemeinsame Pergament der Seite
+       (.side.theme-single) unveraendert durchscheint - genauso hell wie bei
+       "SHC Multi", wo jede Zeile direkt dasselbe (unveraenderte) Pergament
+       als eigenes Bild bekommt. Angriffs-Status bleibt wie bei Multi ueber
+       Rahmenfarbe/Puls sichtbar, kein zusaetzlicher Farbschleier. */
+    --row-bg: transparent;
+  }
+
+  #logo {
+    position: fixed;
+    display: none;
+  }
+
+  #logo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .player-row {
+    --row-bg: #241a10;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: var(--row-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+  }
+
+  .row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .attack-badge {
+    /* Sitzt mittig auf der oberen Rahmenlinie (halb drueber/halb drunter),
+       statt eine eigene Zeile im Layout zu belegen - dadurch bleibt die
+       Kartenhoehe unveraendert, egal ob gerade ein Status ansteht. */
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #1b140c;
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+
+  .attack-badge.attack { color: #ff8a7a; border-color: var(--attack-color); }
+
+  .stats-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .stats-line {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    /* Feste Zeilenhoehe - HART gesetzt (nicht nur min-height), damit
+       WIRKLICH nichts (auch kein umbrechender Text, falls der nowrap-Fix
+       an .val mal nicht greift, z.B. bei extrem schmalen Icons) die Hoehe
+       verschieben kann. Ueberschuessiger Inhalt wird abgeschnitten statt
+       die Zeile zu strecken - Hoehen-Stabilitaet hat Vorrang vor
+       Lesbarkeit bei extremen Einstellungen. */
+    height: var(--stat-line-height);
+    overflow: hidden;
+    /* Feste Gesamtbreite (siehe --line-width oben) - bleibt IMMER exakt so
+       breit, egal wie viele der Werte in dieser Zeile gerade an sind
+       (weniger aktive Werte lassen einfach Platz am Ende frei statt die
+       Zeile schmaler zu machen). flex:0 0 verhindert, dass ein aeusserer
+       Flex-Kontext (z.B. .stats-grid ist selbst flex-direction:column, hier
+       nicht relevant, aber zur Sicherheit) das wieder aufweicht. */
+    /* NICHT "flex: 0 0 var(--line-width)" verwenden: .stats-line liegt in
+       .stats-grid (flex-direction:column) - dort steuert flex-basis die
+       HAUPTACHSE (=Hoehe!), nicht die Breite. width + flex-shrink:0 reicht
+       fuer die Breiten-Fixierung, ohne die Hoehe zu ueberschreiben. */
+    width: var(--line-width);
+    flex-shrink: 0;
+  }
+
+  .player-row.you {
+    border-color: var(--you-color);
+  }
+
+  .player-row.attacking {
+    border-color: var(--attack-color);
+    --row-bg: #3c0c0a;
+  }
+
+  .player-row.attacking.pulse {
+    animation: attack-pulse 1s ease-in-out infinite;
+  }
+
+  .label {
+    width: 128px;
+    flex: 0 0 128px;
+    font-weight: 600;
+    font-size: 13px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stat {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    column-gap: 6px;
+    align-items: center;
+    /* Breite EINES Wertes = feste Gesamtbreite / Anzahl Slots - schrumpft
+       automatisch, wenn "Werte pro Zeile" erhoeht wird, damit die
+       GESAMTBREITE (--line-width) immer gleich bleibt. Bei sehr vielen
+       Werten pro Zeile werden Icon/Zahl entsprechend sehr klein bzw.
+       ueberlappen sich (bewusst in Kauf genommen statt die Breite zu
+       aendern - Hinweis dazu steht in den Einstellungen). */
+    width: calc(var(--line-width) / var(--items-per-line));
+    flex: 0 0 calc(var(--line-width) / var(--items-per-line));
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat .icon {
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .stat .icon-img {
+    width: var(--icon-size);
+    height: var(--icon-size);
+    object-fit: contain;
+    justify-self: center;
+  }
+
+  /* Steuersatz-Icon: Stimmungsgesicht mit einer kleinen Gold-Muenze als
+     Abzeichen dahinter versetzt (unten rechts) - eine Grid-Zelle, damit das
+     Stat-Grid (18px Icon-Spalte) nicht durcheinander kommt. */
+  .stat .tax-combo-icon {
+    position: relative;
+    width: var(--icon-size);
+    height: var(--icon-size);
+    justify-self: center;
+  }
+
+  .stat .tax-combo-icon .tax-gold-icon {
+    position: absolute;
+    width: 60%;
+    height: 60%;
+    bottom: -12%;
+    right: -12%;
+    object-fit: contain;
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+  }
+
+  .stat .tax-combo-icon .tax-mood-icon {
+    position: absolute;
+    width: 78%;
+    height: 78%;
+    top: 0;
+    left: 0;
+    object-fit: contain;
+  }
+
+  .stat .val {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    /* Links ausgerichtet, damit der Wert direkt neben seinem eigenen Icon
+       steht - bei "Breite pro Anzeige" groesser als noetig landet der
+       ungenutzte Platz dann als Abstand VOR dem naechsten Icon, statt den
+       Wert vom eigenen Icon wegzuschieben. */
+    text-align: left;
+    /* Bei sehr vielen "Werten pro Zeile" wird die Zahl schmaler als ihr
+       eigener Text - OHNE nowrap wuerde sie dann auf eine zweite Zeile
+       umbrechen und die ganze Kartenhoehe verschieben. Stattdessen seitlich
+       abschneiden (Breiten-Ueberlauf ist ok, Hoehen-Aenderung nicht). */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+  }
+
+  .pop-bad { color: #ff8a7a; }
+  .pop-ok { color: var(--text-color); }
+  .pop-good { color: #9be89b; }
+
+  .breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 2px;
+    border-top: 1px solid rgba(198, 161, 91, 0.35);
+    /* Feste Hoehe, IMMER reserviert (auch wenn show_troop_breakdown gerade
+       aus ist oder ein Spieler keine Truppen hat) - genau wie bei den
+       Werte-Zeilen soll das Ein-/Ausschalten dieses einen Hakens die
+       Kartenhoehe nicht verschieben. Mehr Truppentypen als hineinpassen
+       werden abgeschnitten statt die Zeile zu vergroessern. */
+    height: calc(var(--icon-size) + 3px);
+    overflow: hidden;
+  }
+
+  .breakdown .unit {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 11px;
+  }
+
+  .breakdown .unit img {
+    width: var(--icon-size);
+    height: var(--icon-size);
+    object-fit: contain;
+  }
+
+  #empty-msg {
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    color: #f2e9d8;
+    background: #241a10;
+    border: 1px solid #c6a15b;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+  <div id="board-left" class="side left"></div>
+  <div id="board-right" class="side right"></div>
+  <div id="logo"><img id="logo-img" src="/logo.png" alt=""></div>
+  <div id="empty-msg" style="display:none;">Warte auf Spieldaten &hellip;</div>
+
+  <script>
+    const DATA_URL = "/overlay.json";
+    const CONFIG_URL = "/overlay-config.json";
+    const POLL_MS = 500;
+    const CONFIG_POLL_MS = 200;
+
+    // Reihenfolge bestimmt Anzeige-Reihenfolge in der Zeile.
+    const STAT_DEFS = [
+      { flag: "show_gold",         key: "gold",                img: "/icons/resource_gold.png" },
+      { flag: "show_wood",         key: "wood",                img: "/icons/resource_wood.png" },
+      { flag: "show_stone",        key: "stone",               img: "/icons/resource_stone.png" },
+      { flag: "show_iron",         key: "iron",                img: "/icons/resource_iron.png" },
+      { flag: "show_food_total",   key: "food_total",          img: "/icons/resource_food_total.png" },
+      { flag: "show_bread",        key: "bread",               img: "/icons/resource_bread.png" },
+      { flag: "show_cheese",       key: "cheese",              img: "/icons/resource_cheese.png" },
+      { flag: "show_meat",         key: "meat",                img: "/icons/resource_meat.png" },
+      { flag: "show_apples",       key: "apples",              img: "/icons/resource_apples.png" },
+      { flag: "show_ale",          key: "ale",                 img: "/icons/resource_ale.png" },
+      { flag: "show_pitch",        key: "pitch",               img: "/icons/resource_pitch.png" },
+      { flag: "show_hops",         key: "hops",                img: "/icons/resource_hops.png" },
+      { flag: "show_wheat",        key: "wheat",               img: "/icons/resource_wheat.png" },
+      { flag: "show_flour",        key: "flour",               img: "/icons/resource_flour.png" },
+      { flag: "show_troops_total", key: "troops",              icon: "&#9876;&#65039;" },
+      { flag: "show_siege_movable", key: "siege_movable_total", icon: "&#127984;" },
+      { flag: "show_bows",         key: "bows",                img: "/icons/resource_bows.png" },
+      { flag: "show_crossbows",    key: "crossbows",           img: "/icons/resource_crossbows.png" },
+      { flag: "show_spears",       key: "spears",              img: "/icons/resource_spears.png" },
+      { flag: "show_pikes",        key: "pikes",               img: "/icons/resource_pikes.png" },
+      { flag: "show_maces",        key: "maces",               img: "/icons/resource_maces.png" },
+      { flag: "show_swords",       key: "swords",              img: "/icons/resource_swords.png" },
+      { flag: "show_leather_armor", key: "leather_armor",      img: "/icons/resource_leather_armor.png" },
+      { flag: "show_metal_armor",  key: "metal_armor",         img: "/icons/resource_metal_armor.png" },
+      { flag: "show_popularity",   key: "popularity",          img: "/icons/resource_popularity.png", isPop: true },
+      { flag: "show_population",   key: "population",          img: "/icons/population.png", isPopulation: true },
+      { flag: "show_tax_rate",     key: "tax_rate",            isTaxRate: true },
+      { flag: "show_monks_trained", key: "monks_trained",      img: "/icons/unit_monk.png" },
+      { flag: "show_lord_hp",      key: "lord_hp_percent",     icon: "&#10084;&#65039;", isLordHp: true },
+    ];
+
+    // Rubrik-Zuordnung fuer line_distribution "category" - dieselben 5
+    // Kategorien wie in den Einstellungen (Rohstoffe/Nahrung/Waffen &
+    // Ruestung/Militaer/Sonstiges), damit ein Wert immer an einer
+    // vorhersagbaren Stelle landet, egal was sonst an-/ausgeschaltet ist.
+    const STAT_CATEGORY_ORDER = [
+      "show_gold", "show_wood", "show_stone", "show_iron", "show_ale", "show_pitch", "show_hops", "show_wheat", "show_flour",
+      "show_food_total", "show_bread", "show_cheese", "show_meat", "show_apples",
+      "show_bows", "show_crossbows", "show_spears", "show_pikes", "show_maces", "show_swords", "show_leather_armor", "show_metal_armor",
+      "show_troops_total", "show_monks_trained", "show_siege_movable",
+      "show_popularity", "show_population", "show_tax_rate", "show_lord_hp",
+    ];
+
+    let cfg = { display: {} };
+
+    function popClass(pop) {
+      if (pop === null || pop === undefined) return "pop-ok";
+      if (pop < 40) return "pop-bad";
+      if (pop >= 70) return "pop-good";
+      return "pop-ok";
+    }
+
+    function fmt(v) {
+      return (v === null || v === undefined) ? "-" : v;
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s == null ? "" : s;
+      return div.innerHTML;
+    }
+
+    function activeStatDefs() {
+      const display = cfg.display || {};
+      return STAT_DEFS.filter((d) => display[d.flag]);
+    }
+
+    function iconHtml(def) {
+      return def.img
+        ? `<img class="icon-img" src="${def.img}" alt="">`
+        : `<span class="icon">${def.icon}</span>`;
+    }
+
+    function statValueText(def, p) {
+      if (def.isPop) {
+        const pop = p.popularity;
+        return (pop === null || pop === undefined) ? "-" : pop.toFixed(0);
+      }
+      if (def.isPopulation) {
+        const pop = p.population;
+        const cap = p.population_capacity;
+        return (pop === null || pop === undefined) ? "-" : `${pop}/${fmt(cap)}`;
+      }
+      if (def.isTaxRate) {
+        const tax = p.tax_rate;
+        return (tax === null || tax === undefined) ? "-" : `${tax + 1}/12`;
+      }
+      if (def.isLordHp) {
+        const pct = p.lord_hp_percent;
+        return (pct === null || pct === undefined) ? "-" : pct + "%";
+      }
+      return fmt(p[def.key]);
+    }
+
+    function taxIconSrc(tax) {
+      // <=3 (Spende bis "Keine Steuern", Standard, +1 Beliebtheit) = gute
+      // Laune, darueber (echte Steuern) = schlechte Laune. Neutral bleibt
+      // ungenutzt fuer unbekannte Werte reserviert.
+      if (tax === null || tax === undefined) return "/icons/mood_neutral.png";
+      return tax > 3 ? "/icons/mood_bad.png" : "/icons/mood_good.png";
+    }
+
+    function statHtml(def, p) {
+      const text = statValueText(def, p);
+      if (def.isPop) {
+        return `<div class="stat">${iconHtml(def)}<span class="val ${popClass(p.popularity)}">${text}</span></div>`;
+      }
+      if (def.isTaxRate) {
+        return `<div class="stat"><span class="tax-combo-icon"><img class="tax-gold-icon" src="/icons/resource_gold.png" alt=""><img class="tax-mood-icon" src="${taxIconSrc(p.tax_rate)}" alt=""></span><span class="val">${text}</span></div>`;
+      }
+      return `<div class="stat">${iconHtml(def)}<span class="val">${text}</span></div>`;
+    }
+
+    function breakdownHtml(p) {
+      // Gibt IMMER ein .breakdown-Element zurueck (auch leer, wenn der Haken
+      // aus ist oder gerade keine Truppen da sind) - der reservierte Platz
+      // dafuer bleibt so IMMER gleich, egal ob/wann show_troop_breakdown
+      // umgeschaltet wird (siehe .breakdown CSS: feste Hoehe).
+      const display = cfg.display || {};
+      let items = "";
+      if (display.show_troop_breakdown && p.units) {
+        const entries = Object.entries(p.units).filter(([, v]) => v && v > 0);
+        items = entries
+          .map(([key, val]) => `
+            <div class="unit">
+              <img src="/icons/${key}.png" alt="">
+              <span>${val}</span>
+            </div>
+          `)
+          .join("");
+      }
+      return `<div class="breakdown">${items}</div>`;
+    }
+
+    function orderedActiveStatDefs() {
+      const defs = activeStatDefs();
+      const layout = cfg.layout || {};
+      if (layout.line_distribution === "even") return defs;
+      // "category" (Standard): stabil nach Rubrik sortieren, damit z.B. alle
+      // Rohstoffe vor allen Waffen einsortiert werden - Reihenfolge INNERHALB
+      // einer Rubrik bleibt dabei wie in STAT_DEFS.
+      return [...defs].sort(
+        (a, b) => STAT_CATEGORY_ORDER.indexOf(a.flag) - STAT_CATEGORY_ORDER.indexOf(b.flag)
+      );
+    }
+
+    function lineLayout() {
+      const layout = cfg.layout || {};
+      // Werte pro Zeile (Breite) UND Zeilenzahl (Hoehe) sind beides feste,
+      // manuell gesetzte Zahlen - keine wird aus der Anzahl aktivierter
+      // Werte abgeleitet. Passt nicht alles rein, werden ueberzaehlige
+      // Werte (in der gewaehlten Reihenfolge) einfach nicht angezeigt, statt
+      // die Karte automatisch zu vergroessern - damit sich die Kartengroesse
+      // nie veraendert, nur weil waehrend eines laufenden Streams mal ein
+      // Wert an-/abgeschaltet wird.
+      const perLine = Math.max(1, parseInt(layout.stats_per_line, 10) || 6);
+      const lineCount = Math.max(1, parseInt(layout.line_count, 10) || 1);
+      return { perLine, lineCount };
+    }
+
+    // Die tatsaechlich sichtbaren Werte (Kapazitaet perLine*lineCount kann
+    // kleiner sein als die Anzahl aktivierter Werte - siehe lineLayout()) -
+    // von statsGridHtml() UND patchRow() gemeinsam genutzt, damit beide
+    // exakt dieselbe Reihenfolge/Anzahl an .stat-Elementen annehmen.
+    function visibleStatDefs() {
+      const defs = orderedActiveStatDefs();
+      const { perLine, lineCount } = lineLayout();
+      return defs.slice(0, perLine * lineCount);
+    }
+
+    function statsGridHtml(p) {
+      const defs = visibleStatDefs();
+      const { perLine, lineCount } = lineLayout();
+      // Statt einem CSS-Grid mit auto-flow (was bei wenigen Icons pro Zeile
+      // und aehnlichem Zeilen-/Spaltenabstand leicht wie "Spalten" statt
+      // "Zeilen" aussieht), werden hier explizite Zeilen-Divs gebaut - so
+      // ist das auch optisch eindeutig N horizontale Reihen, unabhaengig
+      // davon, wie eng sie beieinander stehen. Immer genau lineCount Divs,
+      // auch wenn eine Zeile dabei leer bleibt (feste Hoehe, siehe CSS
+      // min-height auf .stats-line).
+      const linesHtml = [];
+      for (let i = 0; i < lineCount; i++) {
+        const chunk = defs.slice(i * perLine, (i + 1) * perLine);
+        linesHtml.push(`<div class="stats-line">${chunk.map((d) => statHtml(d, p)).join("")}</div>`);
+      }
+      return `<div class="stats-grid">${linesHtml.join("")}</div>`;
+    }
+
+    function rowStyle(p, isAttacking) {
+      const pc = (cfg.player_colors || {})[String(p.slot)] || {};
+      const theme = (cfg.layout || {}).theme || "rgb";
+      const parts = [];
+      if (pc.border_color) parts.push(`border-color:${pc.border_color}`);
+
+      if (theme === "rgb") {
+        if (pc.bg_color) parts.push(`background-color:${pc.bg_color}`);
+        // Individuelles Hintergrundbild: wird immer versucht zu laden: falls
+        // fuer diesen Slot nie eines hochgeladen wurde, liefert der Server
+        // 404 und der Browser zeigt einfach nichts (kein kaputtes Bild-Icon,
+        // anders als bei <img> - bei background-image ist ein 404 unauffaellig).
+        parts.push(`background-image:url(/player-bg/${p.slot}.png)`);
+        parts.push("background-size:cover", "background-position:center");
+      } else if (theme === "shc_multi") {
+        // Jeder Rahmen bekommt das gemeinsame Pergament als eigenes Bild -
+        // individuelle Slot-Hintergrundbilder werden dabei bewusst ignoriert
+        // ("Pergament gewinnt immer"). Kein Farbschleier darueber: die PNG
+        // ist mit echter Transparenz gespeichert (Schriftrollen-Form statt
+        // Rechteck) - ein Schleier wuerde diese Transparenz zupflastern.
+        // Angriffs-Status bleibt weiterhin ueber Rahmenfarbe/Puls sichtbar.
+        parts.push("background-image:url(/bg/frame-parchment.png)");
+        parts.push("background-size:100% 100%");
+      }
+      // shc_single: keine eigene Bild/Farbfuellung pro Zeile - das
+      // gemeinsame Pergament der ganzen Seite (.side.theme-single) scheint
+      // durch den fast transparenten Zeilenhintergrund hindurch, siehe die
+      // CSS-Klasse .theme-shc auf .player-row.
+      return parts.join(";");
+    }
+
+    function attackBadgeHtml(p, isAttacking) {
+      const display = cfg.display || {};
+      if (!display.show_attack_badge || !display.highlight_attack_status) return "";
+      if (!p.attack_status || p.attack_status === "?") return "";
+      return `<div class="attack-badge${isAttacking ? " attack" : ""}">${escapeHtml(p.attack_status)}</div>`;
+    }
+
+    function rowHtml(p) {
+      const classes = ["player-row"];
+      if (p.is_you) classes.push("you");
+      const display = cfg.display || {};
+      const layout = cfg.layout || {};
+      const theme = layout.theme || "rgb";
+      if (theme !== "rgb") classes.push("theme-shc");
+      const isAttacking = display.highlight_attack_status && p.attack_status === "ANGRIFF MOEGLICH";
+      let extraStyle = "";
+      if (isAttacking) {
+        classes.push("attacking");
+        if (layout.attack_pulse !== false) {
+          classes.push("pulse");
+          // Negativer animation-delay startet die Animation gedanklich "in
+          // der Vergangenheit" - da die ganze Zeile bei jedem Datenabruf neu
+          // aufgebaut wird (sonst wuerde die Animation staendig neu bei 0%
+          // beginnen und ruckeln), sorgt das fuer einen durchgehend wirkenden
+          // Puls ueber mehrere Neuaufbauten hinweg.
+          extraStyle = `;animation-delay:-${Date.now() % 1000}ms`;
+        }
+      }
+      return `
+        <div class="${classes.join(' ')}" data-slot="${p.slot}" style="${rowStyle(p, isAttacking)}${extraStyle}">
+          ${attackBadgeHtml(p, isAttacking)}
+          <div class="row-top">
+            <div class="label">${escapeHtml(p.label)}</div>
+            ${statsGridHtml(p)}
+          </div>
+          ${breakdownHtml(p)}
+        </div>
+      `;
+    }
+
+    const DEMO_UNITS = { unit_archer: 12, unit_swordsman: 8, unit_knight: 3 };
+    const DEMO_FOOD = { bread: 40, cheese: 15, meat: 10, apples: 25, ale: 8, pitch: 18, hops: 22, wheat: 60, flour: 35, food_total: 90 };
+    const DEMO_WEAPONS = { bows: 12, crossbows: 6, spears: 20, pikes: 4, maces: 3, swords: 9, leather_armor: 14, metal_armor: 5 };
+    const DEMO_PLAYERS = [
+      { slot: 0, label: "Du", gold: 3200, wood: 145, stone: 60, iron: 20, troops: 42, siege_movable_total: 2, popularity: 78, population: 34, population_capacity: 42, tax_rate: 3, monks_trained: 4, lord_hp: 150000, lord_hp_percent: 100, is_you: true, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 1, label: "Gegner 1", gold: 1800, wood: 90, stone: 30, iron: 5, troops: 27, siege_movable_total: 0, popularity: 55, population: 21, population_capacity: 26, tax_rate: 7, monks_trained: 0, lord_hp: 132000, lord_hp_percent: 88, is_you: false, units: DEMO_UNITS, attack_status: "baut auf", ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 2, label: "Gegner 2", gold: 640, wood: 55, stone: 12, iron: 0, troops: 61, siege_movable_total: 4, popularity: 40, population: 15, population_capacity: 18, tax_rate: 1, monks_trained: 2, lord_hp: 98000, lord_hp_percent: 65, is_you: false, units: DEMO_UNITS, attack_status: "ANGRIFF MOEGLICH", attack_base: 55, ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 3, label: "Gegner 3", gold: 12500, wood: 310, stone: 180, iron: 90, troops: 15, siege_movable_total: 0, popularity: 92, population: 58, population_capacity: 66, tax_rate: 10, monks_trained: 7, lord_hp: 150000, lord_hp_percent: 100, is_you: false, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
+    ];
+
+    // Statt bei JEDEM Poll (alle 500ms) das komplette Zeilen-HTML (inkl.
+    // aller <img>-Tags) neu einzusetzen - was den Browser dazu bringt, jedes
+    // Icon kurz neu aufzubauen ("Blinken") - wird hier nur bei einer echten
+    // STRUKTUR-Aenderung (andere Spieleranzahl/-reihenfolge, andere aktive
+    // Werte, anderes Layout/Theme) komplett neu gebaut. Bei reinen
+    // Werte-Aenderungen (der Normalfall bei jedem Poll) wird stattdessen nur
+    // der Text in den vorhandenen <span>-Elementen aktualisiert - die
+    // <img>-Elemente selbst bleiben unangetastet, kein Blinken mehr.
+    let lastStructKey = null;
+    const rowIndex = new Map(); // slot -> Zeilen-Element
+
+    // side_mode "teams": eigenes Team (inkl. Slot 0) links, alle anderen
+    // rechts. KEIN Live-Team-Feld gefunden (ausfuehrlich gesucht, siehe
+    // project_shc_overlay_status.md) - laeuft komplett ueber die manuelle
+    // team_assignment-Zuordnung aus den Einstellungen. Faellt auf die alte
+    // "split"-Haelftelung zurueck, wenn Slot 0 keinem Team zugeordnet ist.
+    function splitByTeam(players) {
+      const assign = cfg.team_assignment || {};
+      const myTeam = assign["0"];
+      if (myTeam === null || myTeam === undefined) {
+        const mid = Math.ceil(players.length / 2);
+        return [players.slice(0, mid), players.slice(mid)];
+      }
+      const left = players.filter((p) => assign[String(p.slot)] === myTeam);
+      const right = players.filter((p) => assign[String(p.slot)] !== myTeam);
+      return [left, right];
+    }
+
+    function structKeyFor(leftPlayers, rightPlayers, defs) {
+      const layout = cfg.layout || {};
+      return [
+        layout.side_mode || "split",
+        layout.theme || "rgb",
+        layout.line_count, layout.stats_per_line, layout.line_distribution,
+        defs.map((d) => d.flag).join(","),
+        (cfg.display || {}).show_troop_breakdown ? 1 : 0,
+        "L:" + leftPlayers.map((p) => p.slot).join(","),
+        "R:" + rightPlayers.map((p) => p.slot).join(","),
+      ].join("|");
+    }
+
+    function patchRow(rowEl, p, defs) {
+      const labelEl = rowEl.querySelector(".label");
+      if (labelEl && labelEl.textContent !== p.label) labelEl.textContent = p.label;
+
+      const statEls = rowEl.querySelectorAll(".stats-grid .stat");
+      defs.forEach((def, i) => {
+        const statEl = statEls[i];
+        if (!statEl) return;
+        const valEl = statEl.lastElementChild;
+        const newVal = statValueText(def, p);
+        if (valEl && valEl.textContent !== newVal) valEl.textContent = newVal;
+        if (def.isPop && valEl) {
+          const cls = popClass(p.popularity);
+          if (!valEl.classList.contains(cls)) {
+            valEl.classList.remove("pop-ok", "pop-bad", "pop-good");
+            valEl.classList.add(cls);
+          }
+        }
+        if (def.isTaxRate) {
+          const iconEl = statEl.querySelector(".tax-mood-icon");
+          const newSrc = taxIconSrc(p.tax_rate);
+          if (iconEl && !iconEl.getAttribute("src").endsWith(newSrc)) {
+            iconEl.setAttribute("src", newSrc);
+          }
+        }
+      });
+
+      // Truppen-Aufschluesselung: seltener genutztes Extra, wird bei
+      // Aenderung einfach komplett neu eingesetzt (kleinerer, separater
+      // Bereich - nicht die Haupt-Icon-Zeile, die das Blinken verursacht hat).
+      const oldBreakdownEl = rowEl.querySelector(".breakdown");
+      const newBreakdownOuter = breakdownHtml(p);
+      const oldBreakdownOuter = oldBreakdownEl ? oldBreakdownEl.outerHTML : "";
+      if (newBreakdownOuter !== oldBreakdownOuter) {
+        if (oldBreakdownEl) oldBreakdownEl.remove();
+        if (newBreakdownOuter) {
+          const tmp = document.createElement("div");
+          tmp.innerHTML = newBreakdownOuter;
+          rowEl.appendChild(tmp.firstElementChild);
+        }
+      }
+
+      const display = cfg.display || {};
+      const layout = cfg.layout || {};
+      const isAttacking = display.highlight_attack_status && p.attack_status === "ANGRIFF MOEGLICH";
+      const shouldShowBadge = display.show_attack_badge && display.highlight_attack_status && p.attack_status && p.attack_status !== "?";
+      let badgeEl = rowEl.querySelector(".attack-badge");
+      if (shouldShowBadge) {
+        if (!badgeEl) {
+          badgeEl = document.createElement("div");
+          rowEl.insertBefore(badgeEl, rowEl.firstChild);
+        }
+        badgeEl.className = `attack-badge${isAttacking ? " attack" : ""}`;
+        if (badgeEl.textContent !== p.attack_status) badgeEl.textContent = p.attack_status;
+      } else if (badgeEl) {
+        badgeEl.remove();
+      }
+
+      const wasAttacking = rowEl.classList.contains("attacking");
+      rowEl.classList.toggle("attacking", isAttacking);
+      const wantsPulse = isAttacking && layout.attack_pulse !== false;
+      rowEl.classList.toggle("pulse", wantsPulse);
+      if (wantsPulse && !wasAttacking) {
+        // Neu angreifend: Animation frisch synchronisieren (siehe rowHtml()
+        // fuer die Begruendung des negativen Delays).
+        rowEl.dataset.animDelay = `-${Date.now() % 1000}ms`;
+      }
+
+      const baseStyle = rowStyle(p, isAttacking);
+      rowEl.style.cssText = baseStyle + (wantsPulse ? `;animation-delay:${rowEl.dataset.animDelay || "0ms"}` : "");
+    }
+
+    function render(data) {
+      const left = document.getElementById("board-left");
+      const right = document.getElementById("board-right");
+      const emptyMsg = document.getElementById("empty-msg");
+      let players = (data && data.players) || [];
+
+      if (players.length === 0) {
+        const display = cfg.display || {};
+        if (display.show_demo_data === false) {
+          left.innerHTML = "";
+          right.innerHTML = "";
+          rowIndex.clear();
+          lastStructKey = null;
+          emptyMsg.style.display = "block";
+          return;
+        }
+        players = DEMO_PLAYERS;
+      }
+      emptyMsg.style.display = "none";
+
+      const sideMode = (cfg.layout || {}).side_mode || "split";
+      let leftPlayers, rightPlayers;
+      if (sideMode === "left") {
+        leftPlayers = players;
+        rightPlayers = [];
+      } else if (sideMode === "right") {
+        leftPlayers = [];
+        rightPlayers = players;
+      } else if (sideMode === "teams") {
+        [leftPlayers, rightPlayers] = splitByTeam(players);
+      } else {
+        const mid = Math.ceil(players.length / 2);
+        leftPlayers = players.slice(0, mid);
+        rightPlayers = players.slice(mid);
+      }
+
+      const defs = visibleStatDefs();
+      const structKey = structKeyFor(leftPlayers, rightPlayers, defs);
+
+      if (structKey !== lastStructKey) {
+        left.innerHTML = leftPlayers.map(rowHtml).join("");
+        right.innerHTML = rightPlayers.map(rowHtml).join("");
+        rowIndex.clear();
+        [...left.children, ...right.children].forEach((el) => {
+          rowIndex.set(Number(el.dataset.slot), el);
+        });
+        lastStructKey = structKey;
+      } else {
+        players.forEach((p) => {
+          const el = rowIndex.get(p.slot);
+          if (el) patchRow(el, p, defs);
+        });
+      }
+    }
+
+    function applyLogoVisibility() {
+      const display = cfg.display || {};
+      const logoBox = document.getElementById("logo");
+      const logoImg = document.getElementById("logo-img");
+      if (display.show_logo && display.logo_path) {
+        logoBox.style.display = "block";
+        logoImg.src = "/logo.png?t=" + Date.now();
+      } else {
+        logoBox.style.display = "none";
+      }
+    }
+
+    async function pollData() {
+      try {
+        const res = await fetch(DATA_URL + "?t=" + Date.now(), { cache: "no-store" });
+        const data = await res.json();
+        render(data);
+      } catch (e) {
+        // Server noch nicht erreichbar - stiller Retry
+      }
+    }
+
+    function applyLayout(layout) {
+      layout = layout || {};
+      const root = document.documentElement.style;
+      if (layout.left_offset_px !== undefined) {
+        root.setProperty("--left-offset", layout.left_offset_px + "px");
+      }
+      if (layout.right_offset_px !== undefined) {
+        root.setProperty("--right-offset", layout.right_offset_px + "px");
+      }
+      if (layout.bottom_offset_px !== undefined) {
+        root.setProperty("--bottom-offset", layout.bottom_offset_px + "px");
+      }
+      if (layout.row_gap_px !== undefined) {
+        root.setProperty("--row-gap", layout.row_gap_px + "px");
+      }
+      if (layout.border_color) {
+        root.setProperty("--border-color", layout.border_color);
+      }
+      if (layout.icon_size_px !== undefined) {
+        root.setProperty("--icon-size", layout.icon_size_px + "px");
+      }
+      if (layout.line_height_px !== undefined) {
+        root.setProperty("--stat-line-height", layout.line_height_px + "px");
+      }
+      if (layout.stat_width_px !== undefined) {
+        root.setProperty("--line-width", layout.stat_width_px + "px");
+      }
+      root.setProperty("--items-per-line", Math.max(1, parseInt(layout.stats_per_line, 10) || 6));
+      if (layout.you_color) {
+        root.setProperty("--you-color", layout.you_color);
+      }
+      if (layout.attack_color) {
+        root.setProperty("--attack-color", layout.attack_color);
+      }
+      if (layout.text_color) {
+        root.setProperty("--text-color", layout.text_color);
+      }
+      const isSingle = (layout.theme || "rgb") === "shc_single";
+      document.getElementById("board-left").classList.toggle("theme-single", isSingle);
+      document.getElementById("board-right").classList.toggle("theme-single", isSingle);
+    }
+
+    function applyLogo(logo) {
+      logo = logo || {};
+      const box = document.getElementById("logo");
+      const corner = logo.corner || "bottom-left";
+      const ox = (logo.offset_x_px ?? 6) + "px";
+      const oy = (logo.offset_y_px ?? 6) + "px";
+      const width = (logo.width_px ?? 90) + "px";
+
+      box.style.top = box.style.bottom = box.style.left = box.style.right = "auto";
+      if (corner === "bottom-left") { box.style.left = ox; box.style.bottom = oy; }
+      else if (corner === "bottom-right") { box.style.right = ox; box.style.bottom = oy; }
+      else if (corner === "top-left") { box.style.left = ox; box.style.top = oy; }
+      else if (corner === "top-right") { box.style.right = ox; box.style.top = oy; }
+      box.style.width = width;
+    }
+
+    async function pollConfig() {
+      try {
+        const res = await fetch(CONFIG_URL + "?t=" + Date.now(), { cache: "no-store" });
+        cfg = await res.json();
+        applyLogoVisibility();
+        applyLayout(cfg.layout);
+        applyLogo(cfg.logo);
+      } catch (e) {
+        // stiller Retry
+      }
+    }
+
+    pollConfig().then(pollData);
+    setInterval(pollData, POLL_MS);
+    setInterval(pollConfig, CONFIG_POLL_MS);
+  </script>
+</body>
+</html>
