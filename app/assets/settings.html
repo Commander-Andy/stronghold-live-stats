@@ -490,14 +490,14 @@
 
     <h2>Teams</h2>
     <details class="card" id="team-assignment-details">
-      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Team-Zuordnung pro Slot ausklappen (0 = Du)</summary>
+      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Team-Zuordnung pro Spieler ausklappen</summary>
       <div id="team-assignment-list" style="margin-top:10px;"></div>
-      <p class="hint">Keine Live-Erkennung im Spielspeicher moeglich (ausfuehrlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Slot 0) links, alle anderen rechts. Gilt gemeinsam fuer Overlay und Uebersicht.</p>
+      <p class="hint">Keine Live-Erkennung im Spielspeicher moeglich (ausfuehrlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam fuer Overlay und Uebersicht.</p>
     </details>
 
     <h2>Individuelle Spieler-Farben</h2>
     <details class="card" id="player-colors-details">
-      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Pro Spieler-Slot ausklappen (0 = Du)</summary>
+      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Pro Spieler ausklappen</summary>
       <div id="player-colors-list" style="margin-top:10px;"></div>
       <p class="hint">Leer/zurueckgesetzt = uebernimmt die globale Rahmenfarbe bzw. die Standard-Zeilenfarbe. Ein Hintergrundbild pro Spieler kannst du hier ebenfalls reinziehen (wird zugeschnitten/gestreckt auf die Zeile gelegt).</p>
     </details>
@@ -845,7 +845,7 @@
         const row = document.createElement("div");
         row.className = "row";
         row.innerHTML = `
-          <label style="flex:0 0 90px;">${i === 0 ? "Du (Slot 0)" : "Slot " + i}</label>
+          <label style="flex:0 0 90px;">Spieler ${i + 1}</label>
           <span class="team-live-name" data-slot="${i}" style="flex:1; font-size:11px; color:#a89478;"></span>
           <span style="font-size:11px; color:#a89478;">Team</span>
           <input type="number" data-team-slot="${i}" min="1" max="8" step="1" style="width:60px;" value="${val === null || val === undefined ? "" : val}" placeholder="-">
@@ -888,7 +888,7 @@
         row.className = "row";
         row.style.cssText = "flex-wrap:wrap; border-bottom:1px solid rgba(198,161,91,0.3); padding-bottom:8px; margin-bottom:8px;";
         row.innerHTML = `
-          <label style="flex:0 0 90px;">${i === 0 ? "Du (Slot 0)" : "Slot " + i}</label>
+          <label style="flex:0 0 90px;">Spieler ${i + 1}</label>
           <span style="font-size:11px; color:#a89478;">Rahmen</span>
           <input type="color" data-slot="${i}" data-field="border_color" value="${pc.border_color || defaultBorder}">
           <span style="font-size:11px; color:#a89478;">Hintergrund</span>

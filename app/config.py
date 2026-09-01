@@ -168,8 +168,8 @@ DEFAULT_CONFIG = {
         # ist. "Werte pro Zeile" teilt diese feste Breite in entsprechend
         # viele gleich grosse Felder auf (mehr Werte = kleinere Icons/Zahlen).
         "stat_width_px": 312,
-        # Farbe fuer dein eigenes Feld (Slot 0) bzw. fuer die Angriffs-
-        # Warnung - eigene Farben, unabhaengig von der globalen border_color.
+        # Farbe fuer dein eigenes Feld (Spieler 1 / Slot 0) bzw. fuer die
+        # Angriffs-Warnung - eigene Farben, unabhaengig von border_color.
         "you_color": "#78c8ff",
         "attack_color": "#e6463c",
         # Ob das Angriffs-Feld zusaetzlich pulsierend leuchten soll (CSS-
@@ -186,13 +186,13 @@ DEFAULT_CONFIG = {
         "offset_y_px": 6,
         "width_px": 90,
     },
-    # Individuelle Rahmen-/Hintergrundfarbe pro Spieler-Slot (0=Du..7).
+    # Individuelle Rahmen-/Hintergrundfarbe pro Spieler-Slot (0=Spieler 1..7=Spieler 8).
     # null = uebernimmt die globale Standardfarbe (layout.border_color bzw.
     # die Standard-Zeilenfarbe). Ein individuelles Hintergrundbild pro Slot
     # wird separat als Datei verwaltet (kein Pfad hier noetig) - siehe
     # server.py Routen /player-bg/<slot>.png.
     "player_colors": {str(i): {"border_color": None, "bg_color": None} for i in range(8)},
-    # Manuelle Team-Zuordnung pro Slot (0=Du..7): null = keinem Team
+    # Manuelle Team-Zuordnung pro Slot (0=Spieler 1..7=Spieler 8): null = keinem Team
     # zugeordnet, sonst eine beliebige Team-Nummer (z.B. 1/2). Es gibt KEINE
     # live ausgelesene Team-/Buendnis-Adresse im Spielspeicher (ausfuehrlich
     # gesucht, siehe project_shc_overlay_status.md) - der User traegt das pro

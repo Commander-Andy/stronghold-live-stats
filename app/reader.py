@@ -378,7 +378,11 @@ def read_all_players(pm):
 
 
 def slot_label(i):
-    return "Du" if i == 0 else f"Slot {i:+d}"
+    # Kein "Du" mehr fuer Slot 0: per UCP3 kann auch Spieler 1 durch eine KI
+    # ersetzt werden (reine KI-vs-KI-Zuschauer-Matches), Slot 0 ist also
+    # nicht mehr garantiert der Mensch. Rein numerische, 1-indexierte
+    # Beschriftung statt einer falschen Annahme.
+    return f"Spieler {i + 1}"
 
 
 def _read_roster_slot_string(pm, addr):

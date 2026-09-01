@@ -228,7 +228,7 @@
   <h2>Teams</h2>
   <div class="card">
     <div id="team-assignment-list" style="margin-top:4px;"></div>
-    <p class="hint">Keine Live-Erkennung im Spielspeicher moeglich (ausfuehrlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Slot 0) links, alle anderen rechts. Gilt gemeinsam fuer Overlay und Uebersicht.</p>
+    <p class="hint">Keine Live-Erkennung im Spielspeicher moeglich (ausfuehrlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam fuer Overlay und Uebersicht.</p>
   </div>
 
   <script>
@@ -507,7 +507,7 @@
         const row = document.createElement("div");
         row.className = "row";
         row.innerHTML = `
-          <label style="flex:0 0 90px;">${i === 0 ? "Du (Slot 0)" : "Slot " + i}</label>
+          <label style="flex:0 0 90px;">Spieler ${i + 1}</label>
           <span class="team-live-name" data-slot="${i}" style="flex:1; font-size:11px; color:#a89478;"></span>
           <span style="font-size:11px; color:#a89478;">Team</span>
           <input type="number" data-team-slot="${i}" min="1" max="8" step="1" style="width:60px;" value="${val === null || val === undefined ? "" : val}" placeholder="-">
