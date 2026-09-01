@@ -154,7 +154,7 @@
       <button type="button" data-preset="militaer">Militaer</button>
       <button type="button" data-preset="alles">Alles an</button>
     </div>
-    <p class="hint">Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben (siehe "Ausrichtung") oder die Haeckchen unter "Sonstiges".</p>
+    <p class="hint">Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben (siehe "Design &amp; Anordnung") oder die Haeckchen unter "Sonstiges".</p>
   </div>
 
   <div class="card">
@@ -169,7 +169,7 @@
     <div id="display-categories" style="margin-top:10px;"></div>
   </details>
 
-  <h2>Ausrichtung</h2>
+  <h2>Design &amp; Anordnung</h2>
   <div class="card">
     <div class="row">
       <label>Design</label>
@@ -206,6 +206,14 @@
     <div class="row">
       <label>Farbe fuer dein eigenes Feld</label>
       <input type="color" id="you-color-input">
+    </div>
+  </div>
+
+  <h2>Angriffs-Warnung</h2>
+  <div class="card">
+    <div class="row">
+      <label>Angriffs-Warnung farblich hervorheben</label>
+      <input type="checkbox" data-key="highlight_attack_status">
     </div>
     <div class="row">
       <label>Farbe bei Angriffs-Warnung</label>
@@ -283,14 +291,13 @@
           ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
           ["show_population", "Bevoelkerung (aktuell/Kapazitaet)"],
           ["show_lord_hp", "Burgherr-HP (noch nicht funktional)"],
-          ["highlight_attack_status", "Angriffs-Warnung farblich hervorheben"],
           ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel laeuft"],
         ],
       },
     ];
 
     const STAT_PRESET_KEYS = DISPLAY_CATEGORIES.flatMap((cat) => cat.items.map(([key]) => key)).filter(
-      (key) => !["show_demo_data", "highlight_attack_status"].includes(key)
+      (key) => key !== "show_demo_data"
     );
 
     function presetFrom(trueKeys) {

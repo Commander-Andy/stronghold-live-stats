@@ -223,6 +223,19 @@
 
   <div id="status-line"><span class="dot dot-waiting"></span>Status wird geladen &hellip;</div>
 
+  <h2>OBS-Einrichtung</h2>
+  <div class="card">
+    <p style="font-size:13px;">In OBS eine neue <b>Browser-Quelle</b> hinzufuegen mit dieser URL:</p>
+    <div class="path-box"><code id="overlay-url">http://127.0.0.1:8765/overlay.html</code></div>
+    <p class="hint">Breite/Hoehe grosszuegig waehlen (z.B. deine Stream-Aufloesung), Hintergrund der Quelle ist transparent.</p>
+  </div>
+
+  <h2>Uebersichtsmodus</h2>
+  <div class="card">
+    <p style="font-size:13px;">Grosse, gut lesbare Ansicht aller Werte - nicht fuers Overlay/OBS gedacht, sondern zum selbst Draufschauen waehrend des Castens (z.B. auf einem zweiten Monitor).</p>
+    <button id="open-overview-btn" type="button">Uebersicht in neuem Tab oeffnen</button>
+  </div>
+
   <h2>KI-Personalities (fuer Angriffs-Warnung)</h2>
   <div class="card dropzone" id="aic-dropzone">
     <div class="row">
@@ -247,7 +260,7 @@
       <button type="button" data-preset="militaer">Militaer</button>
       <button type="button" data-preset="alles">Alles an</button>
     </div>
-    <p class="hint">Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben (siehe "Ausrichtung" rechts) oder die Haeckchen unter "Sonstiges".</p>
+    <p class="hint">Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben (siehe "Design &amp; Anordnung" weiter unten) oder die Haeckchen unter "Sonstiges".</p>
   </div>
 
   <details id="display-section" open>
@@ -293,19 +306,6 @@
     </div>
   </div>
 
-  <h2>OBS-Einrichtung</h2>
-  <div class="card">
-    <p style="font-size:13px;">In OBS eine neue <b>Browser-Quelle</b> hinzufuegen mit dieser URL:</p>
-    <div class="path-box"><code id="overlay-url">http://127.0.0.1:8765/overlay.html</code></div>
-    <p class="hint">Breite/Hoehe grosszuegig waehlen (z.B. deine Stream-Aufloesung), Hintergrund der Quelle ist transparent.</p>
-  </div>
-
-  <h2>Uebersichtsmodus</h2>
-  <div class="card">
-    <p style="font-size:13px;">Grosse, gut lesbare Ansicht aller Werte - nicht fuers Overlay/OBS gedacht, sondern zum selbst Draufschauen waehrend des Castens (z.B. auf einem zweiten Monitor).</p>
-    <button id="open-overview-btn" type="button">Uebersicht in neuem Tab oeffnen</button>
-  </div>
-
   <h2>Erweitert</h2>
   <div class="card">
     <div class="row">
@@ -320,112 +320,120 @@
     <p class="hint">0 = nie automatisch beenden (dann nur noch ueber "Beenden" im Tray-Symbol unten rechts in der Taskleiste).</p>
   </div>
 
-    <h2>Ausrichtung</h2>
-    <div class="card">
-      <div class="row">
-        <label>Design</label>
-        <select id="theme-input">
-          <option value="rgb">RGB (frei einstellbare Farben)</option>
-          <option value="shc_single">SHC Single (ein Pergament je Seite)</option>
-          <option value="shc_multi">SHC Multi (Pergament pro Rahmen)</option>
-        </select>
-      </div>
-      <p class="hint">Bei SHC Single/Multi bekommen die Rahmen ein Pergament als Hintergrund (ersetzt die Hintergrundfarbe/Bilder unten); Rahmenfarben bleiben weiterhin aktiv.</p>
-      <div class="row">
-        <label>Abstand links (px)</label>
-        <input type="range" id="left-offset-range" min="0" max="600" step="1">
-        <input type="number" id="left-offset-input" min="0" max="600" step="1">
-      </div>
-      <div class="row">
-        <label>Abstand rechts (px)</label>
-        <input type="range" id="right-offset-range" min="0" max="600" step="1">
-        <input type="number" id="right-offset-input" min="0" max="600" step="1">
-      </div>
-      <div class="row">
-        <label>Abstand unten (px)</label>
-        <input type="range" id="bottom-offset-range" min="0" max="300" step="1">
-        <input type="number" id="bottom-offset-input" min="0" max="300" step="1">
-      </div>
-      <p class="hint">Bezieht sich auf die rechte Stats-Spalte (Abstand zum Bevoelkerungs-Buch im Spiel-UI) bzw. den Abstand aller Zeilen zum unteren Bildschirmrand.</p>
-      <div class="row">
-        <label>Abstand zwischen den Zeilen (px)</label>
-        <input type="range" id="row-gap-range" min="0" max="40" step="1">
-        <input type="number" id="row-gap-input" min="0" max="40" step="1">
-      </div>
-      <div class="row">
-        <label>Seiten-Aufteilung</label>
-        <select id="side-mode-input">
-          <option value="split">Geteilt (links/rechts)</option>
-          <option value="left">Alle links</option>
-          <option value="right">Alle rechts</option>
-          <option value="teams">Nach Team (siehe "Teams" unten)</option>
-        </select>
-      </div>
-      <div class="row">
-        <label>Rahmenfarbe (Standard fuer alle, siehe unten fuer Ausnahmen pro Spieler)</label>
-        <input type="color" id="border-color-input">
-      </div>
-      <div class="row">
-        <label>Textfarbe (Beschriftung/Werte)</label>
-        <input type="color" id="text-color-input">
-      </div>
-      <div class="row">
-        <label>Farbe fuer dein eigenes Feld</label>
-        <input type="color" id="you-color-input">
-      </div>
-      <div class="row">
-        <label>Angriffs-Warnung farblich hervorheben</label>
-        <input type="checkbox" data-key="highlight_attack_status">
-      </div>
-      <div class="row">
-        <label>Farbe bei Angriffs-Warnung</label>
-        <input type="color" id="attack-color-input">
-      </div>
-      <div class="row">
-        <label>Angriffs-Warnung pulsierend leuchten lassen</label>
-        <input type="checkbox" id="attack-pulse-input">
-      </div>
-      <div class="row">
-        <label>Angriffs-Status zusaetzlich als Text-Badge auf dem Rahmen anzeigen</label>
-        <input type="checkbox" data-key="show_attack_badge">
-      </div>
-      <div class="row">
-        <label>Werte pro Zeile (teilt die feste Zeilenbreite auf)</label>
-        <input type="range" id="stats-per-line-range" min="1" max="25" step="1">
-        <input type="number" id="stats-per-line-input" min="1" max="25" step="1">
-      </div>
-      <div class="row">
-        <label>Zeilen (bestimmt die Kartenhoehe)</label>
-        <input type="range" id="line-count-range" min="1" max="10" step="1">
-        <input type="number" id="line-count-input" min="1" max="10" step="1">
-      </div>
-      <p class="hint">Die Kartenbreite ist IMMER exakt "Breite pro Anzeige (px)" (siehe unten) - das aendert sich nie, egal was du an-/ausschaltest. "Werte pro Zeile" teilt diese feste Breite nur in entsprechend viele gleich grosse Felder auf: mehr Werte pro Zeile = kleinere Icons/Zahlen, nicht mehr Breite. Werden die Icons dadurch zu klein zum Erkennen, erhoehe stattdessen "Breite pro Anzeige" oder fuege eine weitere Zeile hinzu, statt "Werte pro Zeile" zu senken. Passt bei sehr vielen Werten pro Zeile trotzdem nicht mehr alles lesbar rein, wird das bewusst in Kauf genommen (Ueberlauf), statt die Breite zu veraendern.</p>
-      <div class="row">
-        <label>Verteilung bei freien Zeilen</label>
-        <select id="line-distribution-input">
-          <option value="category">Nach Rubrik (Rohstoffe, Nahrung, Waffen, ...)</option>
-          <option value="even">Gleichmaessig (Anzeige-Reihenfolge)</option>
-        </select>
-      </div>
-      <p class="hint">"Nach Rubrik" sortiert Werte vor der Verteilung nach Kategorie, damit z.B. Rohstoffe immer vor Waffen stehen - ein Wert landet dadurch an einer vorhersagbaren Stelle, egal was du sonst an-/ausschaltest.</p>
-      <div class="row">
-        <label>Icon-Groesse (px)</label>
-        <input type="range" id="icon-size-range" min="8" max="40" step="1">
-        <input type="number" id="icon-size-input" min="8" max="40" step="1">
-      </div>
-      <div class="row">
-        <label>Zeilenhoehe (px)</label>
-        <input type="range" id="line-height-range" min="8" max="60" step="1">
-        <input type="number" id="line-height-input" min="8" max="60" step="1">
-      </div>
-      <p class="hint">Unabhaengig von der Icon-Groesse - z.B. etwas Luft ueber/unter kleinen Icons, ohne die Icons selbst zu vergroessern. Bleibt ebenfalls immer exakt gleich, egal was an-/ausgeschaltet ist.</p>
-      <div class="row">
-        <label>Breite pro Anzeige (px)</label>
-        <input type="range" id="stat-width-range" min="20" max="2000" step="1">
-        <input type="number" id="stat-width-input" min="20" max="2000" step="1">
-      </div>
-      <p class="hint">Mehr Breite verteilt Icon und Zahl gleichmaessiger - nuetzlich bei groesseren Zahlen oder mehr Platz auf dem Bildschirm.</p>
+  <h2>Groesse &amp; Abstaende</h2>
+  <div class="card">
+    <div class="row">
+      <label>Werte pro Zeile (teilt die feste Zeilenbreite auf)</label>
+      <input type="range" id="stats-per-line-range" min="1" max="25" step="1">
+      <input type="number" id="stats-per-line-input" min="1" max="25" step="1">
     </div>
+    <div class="row">
+      <label>Zeilen (bestimmt die Kartenhoehe)</label>
+      <input type="range" id="line-count-range" min="1" max="10" step="1">
+      <input type="number" id="line-count-input" min="1" max="10" step="1">
+    </div>
+    <p class="hint">Die Kartenbreite ist IMMER exakt "Breite pro Anzeige (px)" (siehe unten) - das aendert sich nie, egal was du an-/ausschaltest. "Werte pro Zeile" teilt diese feste Breite nur in entsprechend viele gleich grosse Felder auf: mehr Werte pro Zeile = kleinere Icons/Zahlen, nicht mehr Breite. Werden die Icons dadurch zu klein zum Erkennen, erhoehe stattdessen "Breite pro Anzeige" oder fuege eine weitere Zeile hinzu, statt "Werte pro Zeile" zu senken. Passt bei sehr vielen Werten pro Zeile trotzdem nicht mehr alles lesbar rein, wird das bewusst in Kauf genommen (Ueberlauf), statt die Breite zu veraendern.</p>
+    <div class="row">
+      <label>Breite pro Anzeige (px)</label>
+      <input type="range" id="stat-width-range" min="20" max="2000" step="1">
+      <input type="number" id="stat-width-input" min="20" max="2000" step="1">
+    </div>
+    <p class="hint">Mehr Breite verteilt Icon und Zahl gleichmaessiger - nuetzlich bei groesseren Zahlen oder mehr Platz auf dem Bildschirm.</p>
+    <div class="row">
+      <label>Icon-Groesse (px)</label>
+      <input type="range" id="icon-size-range" min="8" max="40" step="1">
+      <input type="number" id="icon-size-input" min="8" max="40" step="1">
+    </div>
+    <div class="row">
+      <label>Zeilenhoehe (px)</label>
+      <input type="range" id="line-height-range" min="8" max="60" step="1">
+      <input type="number" id="line-height-input" min="8" max="60" step="1">
+    </div>
+    <p class="hint">Unabhaengig von der Icon-Groesse - z.B. etwas Luft ueber/unter kleinen Icons, ohne die Icons selbst zu vergroessern. Bleibt ebenfalls immer exakt gleich, egal was an-/ausgeschaltet ist.</p>
+    <div class="row">
+      <label>Abstand zwischen den Zeilen (px)</label>
+      <input type="range" id="row-gap-range" min="0" max="40" step="1">
+      <input type="number" id="row-gap-input" min="0" max="40" step="1">
+    </div>
+    <div class="row">
+      <label>Abstand links (px)</label>
+      <input type="range" id="left-offset-range" min="0" max="600" step="1">
+      <input type="number" id="left-offset-input" min="0" max="600" step="1">
+    </div>
+    <div class="row">
+      <label>Abstand rechts (px)</label>
+      <input type="range" id="right-offset-range" min="0" max="600" step="1">
+      <input type="number" id="right-offset-input" min="0" max="600" step="1">
+    </div>
+    <div class="row">
+      <label>Abstand unten (px)</label>
+      <input type="range" id="bottom-offset-range" min="0" max="300" step="1">
+      <input type="number" id="bottom-offset-input" min="0" max="300" step="1">
+    </div>
+    <p class="hint">Bezieht sich auf die rechte Stats-Spalte (Abstand zum Bevoelkerungs-Buch im Spiel-UI) bzw. den Abstand aller Zeilen zum unteren Bildschirmrand.</p>
+    <div class="row">
+      <label>Verteilung bei freien Zeilen</label>
+      <select id="line-distribution-input">
+        <option value="category">Nach Rubrik (Rohstoffe, Nahrung, Waffen, ...)</option>
+        <option value="even">Gleichmaessig (Anzeige-Reihenfolge)</option>
+      </select>
+    </div>
+    <p class="hint">"Nach Rubrik" sortiert Werte vor der Verteilung nach Kategorie, damit z.B. Rohstoffe immer vor Waffen stehen - ein Wert landet dadurch an einer vorhersagbaren Stelle, egal was du sonst an-/ausschaltest.</p>
+  </div>
+
+  <h2>Design &amp; Anordnung</h2>
+  <div class="card">
+    <div class="row">
+      <label>Design</label>
+      <select id="theme-input">
+        <option value="rgb">RGB (frei einstellbare Farben)</option>
+        <option value="shc_single">SHC Single (ein Pergament je Seite)</option>
+        <option value="shc_multi">SHC Multi (Pergament pro Rahmen)</option>
+      </select>
+    </div>
+    <p class="hint">Bei SHC Single/Multi bekommen die Rahmen ein Pergament als Hintergrund (ersetzt die Hintergrundfarbe/Bilder unten); Rahmenfarben bleiben weiterhin aktiv.</p>
+    <div class="row">
+      <label>Seiten-Aufteilung</label>
+      <select id="side-mode-input">
+        <option value="split">Geteilt (links/rechts)</option>
+        <option value="left">Alle links</option>
+        <option value="right">Alle rechts</option>
+        <option value="teams">Nach Team (siehe "Teams" unten)</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Rahmenfarbe (Standard fuer alle, siehe unten fuer Ausnahmen pro Spieler)</label>
+      <input type="color" id="border-color-input">
+    </div>
+    <div class="row">
+      <label>Textfarbe (Beschriftung/Werte)</label>
+      <input type="color" id="text-color-input">
+    </div>
+    <div class="row">
+      <label>Farbe fuer dein eigenes Feld</label>
+      <input type="color" id="you-color-input">
+    </div>
+  </div>
+
+  <h2>Angriffs-Warnung</h2>
+  <div class="card">
+    <div class="row">
+      <label>Angriffs-Warnung farblich hervorheben</label>
+      <input type="checkbox" data-key="highlight_attack_status">
+    </div>
+    <div class="row">
+      <label>Farbe bei Angriffs-Warnung</label>
+      <input type="color" id="attack-color-input">
+    </div>
+    <div class="row">
+      <label>Angriffs-Warnung pulsierend leuchten lassen</label>
+      <input type="checkbox" id="attack-pulse-input">
+    </div>
+    <div class="row">
+      <label>Angriffs-Status zusaetzlich als Text-Badge auf dem Rahmen anzeigen</label>
+      <input type="checkbox" data-key="show_attack_badge">
+    </div>
+  </div>
 
     <h2>Teams</h2>
     <details class="card" id="team-assignment-details">
