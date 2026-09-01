@@ -14,6 +14,12 @@ dist/
 .claude/*.lock
 .claude/settings.local.json
 
+# Icon-Rohmaterial (nur lokal fuer Bearbeitung noetig, fertige Icons liegen in app/assets/icons)
+assets_source/Pictures/
+assets_source/tgx_units/
+assets_source/Truppen und waren.png
+assets_source/icons_cropped/
+
 # OS
 Thumbs.db
 .DS_Store
