@@ -1,7 +1,7 @@
-"""Pfad-Hilfsfunktionen fuer Dev- und PyInstaller-Betrieb.
+"""Pfad-Hilfsfunktionen für Dev- und PyInstaller-Betrieb.
 
 Im gepackten Build liegen die Bundled-Assets (assets/, icons/) in einem
-temporaeren Ordner, den PyInstaller unter sys._MEIPASS bereitstellt. Im
+temporären Ordner, den PyInstaller unter sys._MEIPASS bereitstellt. Im
 Dev-Betrieb (python app/main.py) liegen sie einfach relativ zu dieser Datei.
 """
 
@@ -14,7 +14,7 @@ def is_frozen() -> bool:
 
 
 def resource_path(*parts) -> Path:
-    """Liefert den absoluten Pfad zu einer gebuendelten Ressource
+    """Liefert den absoluten Pfad zu einer gebündelten Ressource
     (z.B. resource_path("assets", "overlay.html"))."""
     if is_frozen():
         base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
@@ -24,8 +24,8 @@ def resource_path(*parts) -> Path:
 
 
 def app_data_dir() -> Path:
-    """Persistenter, immer beschreibbarer Ordner fuer Konfiguration/Logo
-    (ueberlebt exe-Umzuege und PyInstaller-Onefile-Neuextraktion)."""
+    """Persistenter, immer beschreibbarer Ordner für Konfiguration/Logo
+    (überlebt exe-Umzüge und PyInstaller-Onefile-Neuextraktion)."""
     import os
 
     base = os.environ.get("APPDATA")

@@ -5,11 +5,11 @@
 <title>SHC Live Overlay</title>
 <style>
   :root {
-    /* Die Wehrmauer-Leiste unten ist in HD nur dekorativer Luecken-Fueller
+    /* Die Wehrmauer-Leiste unten ist in HD nur dekorativer Lücken-Füller
        (altes 4:3-Layout auf 16:9 gestreckt) - das Overlay darf also direkt
-       ganz unten drauf liegen, kein Abstand noetig. */
+       ganz unten drauf liegen, kein Abstand nötig. */
     --bottom-offset: 6px;
-    /* Rechts: Abstand zum Bevoelkerungs-Buch (echtes Spiel-UI, bleibt aussen). */
+    /* Rechts: Abstand zum Bevölkerungs-Buch (echtes Spiel-UI, bleibt außen). */
     --right-offset: 110px;
     --left-offset: 6px;
     --row-gap: 4px;
@@ -19,10 +19,10 @@
        Anzeige (px)"), --items-per-line = Anzahl Slots darin ("Werte pro
        Zeile") - die Breite EINES einzelnen Wertes ergibt sich daraus per
        calc() (siehe .stat). Beides bleibt IMMER exakt bei diesen Werten,
-       unabhaengig davon wie viele Werte gerade an/aus sind - keine
+       unabhängig davon wie viele Werte gerade an/aus sind - keine
        Ein-/Ausgabe darf die Breite verschieben (siehe .stats-line/.stat
-       unten). Ueberlauf/nicht mehr lesbare Icons bei sehr vielen Werten pro
-       Zeile sind bewusst in Kauf genommen statt die Breite zu veraendern. */
+       unten). Überlauf/nicht mehr lesbare Icons bei sehr vielen Werten pro
+       Zeile sind bewusst in Kauf genommen statt die Breite zu verändern. */
     --line-width: 312px;
     --items-per-line: 6;
     --stat-line-height: 16px;
@@ -64,7 +64,7 @@
   }
 
   /* Theme "SHC Single": ein gemeinsames Pergament liegt hinter allen
-     Rahmen dieser Seite - die einzelnen Zeilen (.theme-shc) werden dafuer
+     Rahmen dieser Seite - die einzelnen Zeilen (.theme-shc) werden dafür
      fast transparent, siehe unten. */
   .side.theme-single {
     background-image: url('/bg/frame-parchment.png');
@@ -74,10 +74,10 @@
 
   .player-row.theme-shc {
     /* Komplett transparent, damit das gemeinsame Pergament der Seite
-       (.side.theme-single) unveraendert durchscheint - genauso hell wie bei
-       "SHC Multi", wo jede Zeile direkt dasselbe (unveraenderte) Pergament
-       als eigenes Bild bekommt. Angriffs-Status bleibt wie bei Multi ueber
-       Rahmenfarbe/Puls sichtbar, kein zusaetzlicher Farbschleier. */
+       (.side.theme-single) unverändert durchscheint - genauso hell wie bei
+       "SHC Multi", wo jede Zeile direkt dasselbe (unveränderte) Pergament
+       als eigenes Bild bekommt. Angriffs-Status bleibt wie bei Multi über
+       Rahmenfarbe/Puls sichtbar, kein zusätzlicher Farbschleier. */
     --row-bg: transparent;
   }
 
@@ -113,9 +113,9 @@
   }
 
   .attack-badge {
-    /* Sitzt mittig auf der oberen Rahmenlinie (halb drueber/halb drunter),
+    /* Sitzt mittig auf der oberen Rahmenlinie (halb drüber/halb drunter),
        statt eine eigene Zeile im Layout zu belegen - dadurch bleibt die
-       Kartenhoehe unveraendert, egal ob gerade ein Status ansteht. */
+       Kartenhöhe unverändert, egal ob gerade ein Status ansteht. */
     position: absolute;
     top: 0;
     left: 50%;
@@ -143,24 +143,24 @@
     display: flex;
     gap: 4px;
     align-items: center;
-    /* Feste Zeilenhoehe - HART gesetzt (nicht nur min-height), damit
+    /* Feste Zeilenhöhe - HART gesetzt (nicht nur min-height), damit
        WIRKLICH nichts (auch kein umbrechender Text, falls der nowrap-Fix
-       an .val mal nicht greift, z.B. bei extrem schmalen Icons) die Hoehe
-       verschieben kann. Ueberschuessiger Inhalt wird abgeschnitten statt
-       die Zeile zu strecken - Hoehen-Stabilitaet hat Vorrang vor
+       an .val mal nicht greift, z.B. bei extrem schmalen Icons) die Höhe
+       verschieben kann. Überschüssiger Inhalt wird abgeschnitten statt
+       die Zeile zu strecken - Höhen-Stabilität hat Vorrang vor
        Lesbarkeit bei extremen Einstellungen. */
     height: var(--stat-line-height);
     overflow: hidden;
     /* Feste Gesamtbreite (siehe --line-width oben) - bleibt IMMER exakt so
        breit, egal wie viele der Werte in dieser Zeile gerade an sind
        (weniger aktive Werte lassen einfach Platz am Ende frei statt die
-       Zeile schmaler zu machen). flex:0 0 verhindert, dass ein aeusserer
+       Zeile schmaler zu machen). flex:0 0 verhindert, dass ein äußerer
        Flex-Kontext (z.B. .stats-grid ist selbst flex-direction:column, hier
        nicht relevant, aber zur Sicherheit) das wieder aufweicht. */
     /* NICHT "flex: 0 0 var(--line-width)" verwenden: .stats-line liegt in
        .stats-grid (flex-direction:column) - dort steuert flex-basis die
-       HAUPTACHSE (=Hoehe!), nicht die Breite. width + flex-shrink:0 reicht
-       fuer die Breiten-Fixierung, ohne die Hoehe zu ueberschreiben. */
+       HAUPTACHSE (=Höhe!), nicht die Breite. width + flex-shrink:0 reicht
+       für die Breiten-Fixierung, ohne die Höhe zu überschreiben. */
     width: var(--line-width);
     flex-shrink: 0;
   }
@@ -195,11 +195,11 @@
     column-gap: 6px;
     align-items: center;
     /* Breite EINES Wertes = feste Gesamtbreite / Anzahl Slots - schrumpft
-       automatisch, wenn "Werte pro Zeile" erhoeht wird, damit die
+       automatisch, wenn "Werte pro Zeile" erhöht wird, damit die
        GESAMTBREITE (--line-width) immer gleich bleibt. Bei sehr vielen
        Werten pro Zeile werden Icon/Zahl entsprechend sehr klein bzw.
-       ueberlappen sich (bewusst in Kauf genommen statt die Breite zu
-       aendern - Hinweis dazu steht in den Einstellungen). */
+       überlappen sich (bewusst in Kauf genommen statt die Breite zu
+       ändern - Hinweis dazu steht in den Einstellungen). */
     width: calc(var(--line-width) / var(--items-per-line));
     flex: 0 0 calc(var(--line-width) / var(--items-per-line));
     min-width: 0;
@@ -220,7 +220,7 @@
     justify-self: center;
   }
 
-  /* Steuersatz-Icon: Stimmungsgesicht mit einer kleinen Gold-Muenze als
+  /* Steuersatz-Icon: Stimmungsgesicht mit einer kleinen Gold-Münze als
      Abzeichen dahinter versetzt (unten rechts) - eine Grid-Zelle, damit das
      Stat-Grid (18px Icon-Spalte) nicht durcheinander kommt. */
   .stat .tax-combo-icon {
@@ -252,14 +252,14 @@
   .stat .val {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     /* Links ausgerichtet, damit der Wert direkt neben seinem eigenen Icon
-       steht - bei "Breite pro Anzeige" groesser als noetig landet der
-       ungenutzte Platz dann als Abstand VOR dem naechsten Icon, statt den
+       steht - bei "Breite pro Anzeige" größer als nötig landet der
+       ungenutzte Platz dann als Abstand VOR dem nächsten Icon, statt den
        Wert vom eigenen Icon wegzuschieben. */
     text-align: left;
     /* Bei sehr vielen "Werten pro Zeile" wird die Zahl schmaler als ihr
-       eigener Text - OHNE nowrap wuerde sie dann auf eine zweite Zeile
-       umbrechen und die ganze Kartenhoehe verschieben. Stattdessen seitlich
-       abschneiden (Breiten-Ueberlauf ist ok, Hoehen-Aenderung nicht). */
+       eigener Text - OHNE nowrap würde sie dann auf eine zweite Zeile
+       umbrechen und die ganze Kartenhöhe verschieben. Stattdessen seitlich
+       abschneiden (Breiten-Überlauf ist ok, Höhen-Änderung nicht). */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: clip;
@@ -276,11 +276,11 @@
     gap: 6px;
     padding-top: 2px;
     border-top: 1px solid rgba(198, 161, 91, 0.35);
-    /* Feste Hoehe, IMMER reserviert (auch wenn show_troop_breakdown gerade
+    /* Feste Höhe, IMMER reserviert (auch wenn show_troop_breakdown gerade
        aus ist oder ein Spieler keine Truppen hat) - genau wie bei den
        Werte-Zeilen soll das Ein-/Ausschalten dieses einen Hakens die
-       Kartenhoehe nicht verschieben. Mehr Truppentypen als hineinpassen
-       werden abgeschnitten statt die Zeile zu vergroessern. */
+       Kartenhöhe nicht verschieben. Mehr Truppentypen als hineinpassen
+       werden abgeschnitten statt die Zeile zu vergrößern. */
     height: calc(var(--icon-size) + 3px);
     overflow: hidden;
   }
@@ -298,15 +298,15 @@
     object-fit: contain;
   }
 
-  /* Belagerungsgeraete-Sammelwert (kein Einzeltyp auffindbar, siehe
+  /* Belagerungsgeräte-Sammelwert (kein Einzeltyp auffindbar, siehe
      Recherche) als eigener Platzhalter-Eintrag in der Truppen-Zeile -
      bewusst per position:absolute statt Flex-Reihenfolge/margin-left:auto
      gesetzt, damit er NIE mit den echten Einheiten-Icons um den Zeilen-
-     umbruch konkurriert (waere sonst bei vielen aktiven Truppentypen
+     umbruch konkurriert (wäre sonst bei vielen aktiven Truppentypen
      unsichtbar auf eine zweite, abgeschnittene Zeile gerutscht - vom
      layout-invariant-checker-Agent so gefunden). Dasselbe Kastensymbol
      wie beim Sonstiges-Einzelwert "siege_movable_total" oben, damit klar
-     ist: gleicher Sammelwert, keine echte Typ-Aufschluesselung. */
+     ist: gleicher Sammelwert, keine echte Typ-Aufschlüsselung. */
   .breakdown .unit.siege-combo {
     position: absolute;
     top: 2px;
@@ -370,9 +370,9 @@
       { flag: "show_lord_hp",      key: "lord_hp_percent",     icon: "&#10084;&#65039;", isLordHp: true },
     ];
 
-    // Rubrik-Zuordnung fuer line_distribution "category" - dieselben 5
+    // Rubrik-Zuordnung für line_distribution "category" - dieselben 5
     // Kategorien wie in den Einstellungen (Rohstoffe/Nahrung/Waffen &
-    // Ruestung/Militaer/Sonstiges), damit ein Wert immer an einer
+    // Rüstung/Militär/Sonstiges), damit ein Wert immer an einer
     // vorhersagbaren Stelle landet, egal was sonst an-/ausgeschaltet ist.
     const STAT_CATEGORY_ORDER = [
       "show_gold", "show_wood", "show_stone", "show_iron", "show_ale", "show_pitch", "show_hops", "show_wheat", "show_flour",
@@ -435,8 +435,8 @@
 
     function taxIconSrc(tax) {
       // <=3 (Spende bis "Keine Steuern", Standard, +1 Beliebtheit) = gute
-      // Laune, darueber (echte Steuern) = schlechte Laune. Neutral bleibt
-      // ungenutzt fuer unbekannte Werte reserviert.
+      // Laune, darüber (echte Steuern) = schlechte Laune. Neutral bleibt
+      // ungenutzt für unbekannte Werte reserviert.
       if (tax === null || tax === undefined) return "/icons/mood_neutral.png";
       return tax > 3 ? "/icons/mood_bad.png" : "/icons/mood_good.png";
     }
@@ -453,10 +453,10 @@
     }
 
     function breakdownHtml(p) {
-      // Gibt IMMER ein .breakdown-Element zurueck (auch leer, wenn der Haken
+      // Gibt IMMER ein .breakdown-Element zurück (auch leer, wenn der Haken
       // aus ist oder gerade keine Truppen da sind) - der reservierte Platz
-      // dafuer bleibt so IMMER gleich, egal ob/wann show_troop_breakdown
-      // umgeschaltet wird (siehe .breakdown CSS: feste Hoehe).
+      // dafür bleibt so IMMER gleich, egal ob/wann show_troop_breakdown
+      // umgeschaltet wird (siehe .breakdown CSS: feste Höhe).
       const display = cfg.display || {};
       let items = "";
       if (display.show_troop_breakdown && p.units) {
@@ -470,13 +470,13 @@
           `)
           .join("");
       }
-      // Belagerungsgeraete-Summe als eigener, immer ganz rechts sitzender
-      // Platzhalter-Eintrag (siehe .siege-combo CSS) - unabhaengig vom
-      // "echten" Aufschluesselungs-Haken, da hier eh nur die Summe existiert.
+      // Belagerungsgeräte-Summe als eigener, immer ganz rechts sitzender
+      // Platzhalter-Eintrag (siehe .siege-combo CSS) - unabhängig vom
+      // "echten" Aufschlüsselungs-Haken, da hier eh nur die Summe existiert.
       // Katapult-Icon extra eng zugeschnitten (unit_catapult_large.png,
       // ohne den transparenten Rand des Original-Sprites) statt des
       // normalen unit_catapult.png, damit es trotz gleicher --icon-size
-      // wie die anderen Icons den Rahmen sichtbar mehr ausfuellt.
+      // wie die anderen Icons den Rahmen sichtbar mehr ausfüllt.
       if (display.show_siege_movable && p.siege_movable_total) {
         items += `
           <div class="unit siege-combo">
@@ -502,19 +502,19 @@
 
     function lineLayout() {
       const layout = cfg.layout || {};
-      // Werte pro Zeile (Breite) UND Zeilenzahl (Hoehe) sind beides feste,
+      // Werte pro Zeile (Breite) UND Zeilenzahl (Höhe) sind beides feste,
       // manuell gesetzte Zahlen - keine wird aus der Anzahl aktivierter
-      // Werte abgeleitet. Passt nicht alles rein, werden ueberzaehlige
-      // Werte (in der gewaehlten Reihenfolge) einfach nicht angezeigt, statt
-      // die Karte automatisch zu vergroessern - damit sich die Kartengroesse
-      // nie veraendert, nur weil waehrend eines laufenden Streams mal ein
+      // Werte abgeleitet. Passt nicht alles rein, werden überzählige
+      // Werte (in der gewählten Reihenfolge) einfach nicht angezeigt, statt
+      // die Karte automatisch zu vergrößern - damit sich die Kartengröße
+      // nie verändert, nur weil während eines laufenden Streams mal ein
       // Wert an-/abgeschaltet wird.
       const perLine = Math.max(1, parseInt(layout.stats_per_line, 10) || 6);
       const lineCount = Math.max(1, parseInt(layout.line_count, 10) || 1);
       return { perLine, lineCount };
     }
 
-    // Die tatsaechlich sichtbaren Werte (Kapazitaet perLine*lineCount kann
+    // Die tatsächlich sichtbaren Werte (Kapazität perLine*lineCount kann
     // kleiner sein als die Anzahl aktivierter Werte - siehe lineLayout()) -
     // von statsGridHtml() UND patchRow() gemeinsam genutzt, damit beide
     // exakt dieselbe Reihenfolge/Anzahl an .stat-Elementen annehmen.
@@ -528,11 +528,11 @@
       const defs = visibleStatDefs();
       const { perLine, lineCount } = lineLayout();
       // Statt einem CSS-Grid mit auto-flow (was bei wenigen Icons pro Zeile
-      // und aehnlichem Zeilen-/Spaltenabstand leicht wie "Spalten" statt
+      // und ähnlichem Zeilen-/Spaltenabstand leicht wie "Spalten" statt
       // "Zeilen" aussieht), werden hier explizite Zeilen-Divs gebaut - so
-      // ist das auch optisch eindeutig N horizontale Reihen, unabhaengig
+      // ist das auch optisch eindeutig N horizontale Reihen, unabhängig
       // davon, wie eng sie beieinander stehen. Immer genau lineCount Divs,
-      // auch wenn eine Zeile dabei leer bleibt (feste Hoehe, siehe CSS
+      // auch wenn eine Zeile dabei leer bleibt (feste Höhe, siehe CSS
       // min-height auf .stats-line).
       const linesHtml = [];
       for (let i = 0; i < lineCount; i++) {
@@ -551,22 +551,22 @@
       if (theme === "rgb") {
         if (pc.bg_color) parts.push(`background-color:${pc.bg_color}`);
         // Individuelles Hintergrundbild: wird immer versucht zu laden: falls
-        // fuer diesen Slot nie eines hochgeladen wurde, liefert der Server
+        // für diesen Slot nie eines hochgeladen wurde, liefert der Server
         // 404 und der Browser zeigt einfach nichts (kein kaputtes Bild-Icon,
-        // anders als bei <img> - bei background-image ist ein 404 unauffaellig).
+        // anders als bei <img> - bei background-image ist ein 404 unauffällig).
         parts.push(`background-image:url(/player-bg/${p.slot}.png)`);
         parts.push("background-size:cover", "background-position:center");
       } else if (theme === "shc_multi") {
         // Jeder Rahmen bekommt das gemeinsame Pergament als eigenes Bild -
         // individuelle Slot-Hintergrundbilder werden dabei bewusst ignoriert
-        // ("Pergament gewinnt immer"). Kein Farbschleier darueber: die PNG
+        // ("Pergament gewinnt immer"). Kein Farbschleier darüber: die PNG
         // ist mit echter Transparenz gespeichert (Schriftrollen-Form statt
-        // Rechteck) - ein Schleier wuerde diese Transparenz zupflastern.
-        // Angriffs-Status bleibt weiterhin ueber Rahmenfarbe/Puls sichtbar.
+        // Rechteck) - ein Schleier würde diese Transparenz zupflastern.
+        // Angriffs-Status bleibt weiterhin über Rahmenfarbe/Puls sichtbar.
         parts.push("background-image:url(/bg/frame-parchment.png)");
         parts.push("background-size:100% 100%");
       }
-      // shc_single: keine eigene Bild/Farbfuellung pro Zeile - das
+      // shc_single: keine eigene Bild/Farbfüllung pro Zeile - das
       // gemeinsame Pergament der ganzen Seite (.side.theme-single) scheint
       // durch den fast transparenten Zeilenhintergrund hindurch, siehe die
       // CSS-Klasse .theme-shc auf .player-row.
@@ -587,7 +587,7 @@
       const layout = cfg.layout || {};
       const theme = layout.theme || "rgb";
       if (theme !== "rgb") classes.push("theme-shc");
-      const isAttacking = display.highlight_attack_status && p.attack_status === "ANGRIFF MOEGLICH";
+      const isAttacking = display.highlight_attack_status && p.attack_status === "ANGRIFF MÖGLICH";
       let extraStyle = "";
       if (isAttacking) {
         classes.push("attacking");
@@ -595,9 +595,9 @@
           classes.push("pulse");
           // Negativer animation-delay startet die Animation gedanklich "in
           // der Vergangenheit" - da die ganze Zeile bei jedem Datenabruf neu
-          // aufgebaut wird (sonst wuerde die Animation staendig neu bei 0%
-          // beginnen und ruckeln), sorgt das fuer einen durchgehend wirkenden
-          // Puls ueber mehrere Neuaufbauten hinweg.
+          // aufgebaut wird (sonst würde die Animation ständig neu bei 0%
+          // beginnen und ruckeln), sorgt das für einen durchgehend wirkenden
+          // Puls über mehrere Neuaufbauten hinweg.
           extraStyle = `;animation-delay:-${Date.now() % 1000}ms`;
         }
       }
@@ -619,26 +619,26 @@
     const DEMO_PLAYERS = [
       { slot: 0, label: "Du", gold: 3200, wood: 145, stone: 60, iron: 20, troops: 42, siege_movable_total: 2, popularity: 78, population: 34, population_capacity: 42, tax_rate: 3, monks_trained: 4, lord_hp: 150000, lord_hp_percent: 100, is_you: true, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
       { slot: 1, label: "Gegner 1", gold: 1800, wood: 90, stone: 30, iron: 5, troops: 27, siege_movable_total: 0, popularity: 55, population: 21, population_capacity: 26, tax_rate: 7, monks_trained: 0, lord_hp: 132000, lord_hp_percent: 88, is_you: false, units: DEMO_UNITS, attack_status: "baut auf", ...DEMO_FOOD, ...DEMO_WEAPONS },
-      { slot: 2, label: "Gegner 2", gold: 640, wood: 55, stone: 12, iron: 0, troops: 61, siege_movable_total: 4, popularity: 40, population: 15, population_capacity: 18, tax_rate: 1, monks_trained: 2, lord_hp: 98000, lord_hp_percent: 65, is_you: false, units: DEMO_UNITS, attack_status: "ANGRIFF MOEGLICH", attack_base: 55, ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 2, label: "Gegner 2", gold: 640, wood: 55, stone: 12, iron: 0, troops: 61, siege_movable_total: 4, popularity: 40, population: 15, population_capacity: 18, tax_rate: 1, monks_trained: 2, lord_hp: 98000, lord_hp_percent: 65, is_you: false, units: DEMO_UNITS, attack_status: "ANGRIFF MÖGLICH", attack_base: 55, ...DEMO_FOOD, ...DEMO_WEAPONS },
       { slot: 3, label: "Gegner 3", gold: 12500, wood: 310, stone: 180, iron: 90, troops: 15, siege_movable_total: 0, popularity: 92, population: 58, population_capacity: 66, tax_rate: 10, monks_trained: 7, lord_hp: 150000, lord_hp_percent: 100, is_you: false, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
     ];
 
     // Statt bei JEDEM Poll (alle 500ms) das komplette Zeilen-HTML (inkl.
     // aller <img>-Tags) neu einzusetzen - was den Browser dazu bringt, jedes
     // Icon kurz neu aufzubauen ("Blinken") - wird hier nur bei einer echten
-    // STRUKTUR-Aenderung (andere Spieleranzahl/-reihenfolge, andere aktive
+    // STRUKTUR-Änderung (andere Spieleranzahl/-reihenfolge, andere aktive
     // Werte, anderes Layout/Theme) komplett neu gebaut. Bei reinen
-    // Werte-Aenderungen (der Normalfall bei jedem Poll) wird stattdessen nur
+    // Werte-Änderungen (der Normalfall bei jedem Poll) wird stattdessen nur
     // der Text in den vorhandenen <span>-Elementen aktualisiert - die
     // <img>-Elemente selbst bleiben unangetastet, kein Blinken mehr.
     let lastStructKey = null;
     const rowIndex = new Map(); // slot -> Zeilen-Element
 
     // side_mode "teams": eigenes Team (inkl. Slot 0) links, alle anderen
-    // rechts. KEIN Live-Team-Feld gefunden (ausfuehrlich gesucht, siehe
-    // project_shc_overlay_status.md) - laeuft komplett ueber die manuelle
-    // team_assignment-Zuordnung aus den Einstellungen. Faellt auf die alte
-    // "split"-Haelftelung zurueck, wenn Slot 0 keinem Team zugeordnet ist.
+    // rechts. KEIN Live-Team-Feld gefunden (ausführlich gesucht, siehe
+    // project_shc_overlay_status.md) - läuft komplett über die manuelle
+    // team_assignment-Zuordnung aus den Einstellungen. Fällt auf die alte
+    // "split"-Hälftelung zurück, wenn Slot 0 keinem Team zugeordnet ist.
     function splitByTeam(players) {
       const assign = cfg.team_assignment || {};
       const myTeam = assign["0"];
@@ -691,8 +691,8 @@
         }
       });
 
-      // Truppen-Aufschluesselung: seltener genutztes Extra, wird bei
-      // Aenderung einfach komplett neu eingesetzt (kleinerer, separater
+      // Truppen-Aufschlüsselung: seltener genutztes Extra, wird bei
+      // Änderung einfach komplett neu eingesetzt (kleinerer, separater
       // Bereich - nicht die Haupt-Icon-Zeile, die das Blinken verursacht hat).
       const oldBreakdownEl = rowEl.querySelector(".breakdown");
       const newBreakdownOuter = breakdownHtml(p);
@@ -708,7 +708,7 @@
 
       const display = cfg.display || {};
       const layout = cfg.layout || {};
-      const isAttacking = display.highlight_attack_status && p.attack_status === "ANGRIFF MOEGLICH";
+      const isAttacking = display.highlight_attack_status && p.attack_status === "ANGRIFF MÖGLICH";
       const shouldShowBadge = display.show_attack_badge && display.highlight_attack_status && p.attack_status && p.attack_status !== "?";
       let badgeEl = rowEl.querySelector(".attack-badge");
       if (shouldShowBadge) {
@@ -728,7 +728,7 @@
       rowEl.classList.toggle("pulse", wantsPulse);
       if (wantsPulse && !wasAttacking) {
         // Neu angreifend: Animation frisch synchronisieren (siehe rowHtml()
-        // fuer die Begruendung des negativen Delays).
+        // für die Begründung des negativen Delays).
         rowEl.dataset.animDelay = `-${Date.now() % 1000}ms`;
       }
 

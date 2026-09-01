@@ -3,11 +3,11 @@ PyInstaller-Build).
 
 Ablauf: Konfiguration laden -> Worker-Thread starten -> HTTP-Server
 starten -> Tray-Icon starten -> Browser mit der Einstellungs-Seite
-oeffnen -> warten, bis der Idle-Watchdog oder "Beenden" im Tray-Menue
-das Beenden anstoesst -> sauber aufraeumen.
+öffnen -> warten, bis der Idle-Watchdog oder "Beenden" im Tray-Menü
+das Beenden anstößt -> sauber aufräumen.
 
-Der Release-Build laeuft ohne Konsole (--noconsole) - eine unbehandelte
-Ausnahme waere dort sonst voellig unsichtbar. Deshalb faengt main() alles
+Der Release-Build läuft ohne Konsole (--noconsole) - eine unbehandelte
+Ausnahme wäre dort sonst völlig unsichtbar. Deshalb fängt main() alles
 ab und zeigt Fehler notfalls per natives Tkinter-Meldungsfenster an.
 """
 
@@ -70,8 +70,8 @@ def run():
     webbrowser.open(settings_url)
 
     # Haupt-Thread blockiert, bis der Idle-Watchdog oder "Beenden" im
-    # Tray-Menue das Beenden ausloest - alle anderen Threads sind Daemons,
-    # daher reicht ein sauberes Rueckkehren hier, um den Prozess zu beenden.
+    # Tray-Menü das Beenden auslöst - alle anderen Threads sind Daemons,
+    # daher reicht ein sauberes Rückkehren hier, um den Prozess zu beenden.
     stop_event.wait()
 
 

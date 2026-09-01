@@ -1,11 +1,11 @@
-"""Hintergrund-Thread: liest laufend Spieldaten aus und haelt die aktuelle
+"""Hintergrund-Thread: liest laufend Spieldaten aus und hält die aktuelle
 Overlay-Payload in einem Thread-sicheren StateStore bereit, den server.py
-fuer /overlay.json ausliest.
+für /overlay.json ausliest.
 
-Verbindungsfehler (Spiel nicht offen, Spiel waehrenddessen geschlossen)
-fuehren NIE zu einem Absturz des Threads - stattdessen wird der Status auf
-"waiting_for_game"/"error" gesetzt und der naechste Tick versucht es erneut.
-Das ist wichtig, weil dieses Tool an gewoehnliche Endanwender verteilt wird,
+Verbindungsfehler (Spiel nicht offen, Spiel währenddessen geschlossen)
+führen NIE zu einem Absturz des Threads - stattdessen wird der Status auf
+"waiting_for_game"/"error" gesetzt und der nächste Tick versucht es erneut.
+Das ist wichtig, weil dieses Tool an gewöhnliche Endanwender verteilt wird,
 bei denen "Spiel noch nicht gestartet" der Normalfall beim App-Start ist.
 """
 
@@ -84,8 +84,8 @@ class Worker:
             self.state.set_aic_loaded(False)
 
     def update_config(self, new_config: dict):
-        """Wird vom Server nach einer Settings-Aenderung aufgerufen - laedt
-        die aic-Datei neu, falls sich der Pfad geaendert hat."""
+        """Wird vom Server nach einer Settings-Änderung aufgerufen - lädt
+        die aic-Datei neu, falls sich der Pfad geändert hat."""
         old_aic_path = self._config.get("aic_file_path")
         self._config = new_config
         if new_config.get("aic_file_path") != old_aic_path:
@@ -116,7 +116,7 @@ class Worker:
             all_values = res.read_all_players(self._pm)
             lord_labels = res.read_roster_names(self._pm)
         except Exception as e:
-            # Spiel vermutlich geschlossen - Verbindung verwerfen, naechster
+            # Spiel vermutlich geschlossen - Verbindung verwerfen, nächster
             # Tick versucht einen frischen connect().
             self._pm = None
             self.state.set_waiting(f"Verbindung verloren: {e}")
@@ -137,19 +137,19 @@ class Worker:
         self.state.set_payload(payload)
 
     def _poll_monks_only(self):
-        """Nur das Moenche-Ereignis-Log abfragen, ohne den vollen Tick
+        """Nur das Mönche-Ereignis-Log abfragen, ohne den vollen Tick
         (kein read_all_players/roster/payload-Aufbau). Wird deutlich
-        oefter aufgerufen als der volle Tick, weil das Log ein kleiner,
-        sich schnell ueberschreibender Zaehl-Stapel ist (siehe
+        öfter aufgerufen als der volle Tick, weil das Log ein kleiner,
+        sich schnell überschreibender Zähl-Stapel ist (siehe
         reader.poll_monk_events Docstring) - je seltener wir schauen,
-        desto eher geht ein Moench-Ereignis unbemerkt verloren, wenn
+        desto eher geht ein Mönch-Ereignis unbemerkt verloren, wenn
         zwischendurch viele andere Einheiten gebaut/verloren werden."""
         if self._pm is None:
             return
         try:
             res.poll_monk_events(self._pm)
         except Exception:
-            pass  # naechster _tick() erkennt einen echten Verbindungsverlust
+            pass  # nächster _tick() erkennt einen echten Verbindungsverlust
 
     MONK_POLL_INTERVAL_S = 0.15
 
@@ -162,7 +162,7 @@ class Worker:
                 try:
                     self._tick()
                 except Exception as e:
-                    # Absicherung: der Thread darf unter keinen Umstaenden
+                    # Absicherung: der Thread darf unter keinen Umständen
                     # sterben, auch nicht bei einem unerwarteten Fehler.
                     self.state.set_error(str(e))
                     self._pm = None

@@ -1,9 +1,9 @@
 """
 Stronghold Crusader HD - Angriffs-Monitor
 =============================================
-Portierte Version von shc_attack_monitor.py. status_for() ist unveraendert.
-Die frueher inline in main()'s Schleife lebende Pro-Spieler-Logik wurde in
-compute_player_attack_status() extrahiert, damit worker.py sie fuer jeden
+Portierte Version von shc_attack_monitor.py. status_for() ist unverändert.
+Die früher inline in main()'s Schleife lebende Pro-Spieler-Logik wurde in
+compute_player_attack_status() extrahiert, damit worker.py sie für jeden
 aktiven Nicht-Ich-Slot aufrufen und das Ergebnis in dieselbe Overlay-Payload
 mergen kann, die auch die Ressourcen/Truppen liefert.
 """
@@ -21,17 +21,17 @@ def status_for(troops, base, rand):
     low = base - rand
     high = base + rand
     if troops >= high:
-        return "ANGRIFF MOEGLICH"
+        return "ANGRIFF MÖGLICH"
     if troops >= low:
-        return "naehert sich"
+        return "nähert sich"
     if base > 0 and troops >= 0.7 * low:
         return "baut auf"
     return "ruhig"
 
 
 def compute_player_attack_status(aic_data, name, troops):
-    """Loest den Live-Namen zu einer .aic-Personality auf und berechnet den
-    Angriffsstatus. Gibt immer ein dict zurueck (auch ohne Treffer)."""
+    """Löst den Live-Namen zu einer .aic-Personality auf und berechnet den
+    Angriffsstatus. Gibt immer ein dict zurück (auch ohne Treffer)."""
     if aic_data is None or not name or troops is None:
         return {"status": "?", "base": None, "rand": 0, "personality_found": False}
 
@@ -47,7 +47,7 @@ def compute_player_attack_status(aic_data, name, troops):
     return {"status": status, "base": base, "rand": rand, "personality_found": True}
 
 
-# --- Nur fuer CLI-Debug (python app/attack_monitor.py), nicht von der App genutzt ---
+# --- Nur für CLI-Debug (python app/attack_monitor.py), nicht von der App genutzt ---
 
 def main():
     aic_path = sys.argv[1] if len(sys.argv) > 1 else aic.DEFAULT_AIC_FILE
@@ -63,7 +63,7 @@ def main():
         print(f"[FEHLER] {err}")
         return
 
-    print("Starte Live-Ueberwachung (Strg+C zum Beenden)...\n")
+    print("Starte Live-Überwachung (Strg+C zum Beenden)...\n")
     try:
         while True:
             all_values = res.read_all_players(pm)

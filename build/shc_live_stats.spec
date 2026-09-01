@@ -1,11 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller-Spec fuer den gepackten Endanwender-Build.
+# PyInstaller-Spec für den gepackten Endanwender-Build.
 #
 # Bauen (aus dem Projekt-Wurzelverzeichnis):
 #   pyinstaller build/shc_live_stats.spec --clean
 #
 # Ergebnis liegt danach in dist/SHCLiveStats.exe (Release, fensterlos) und
-# dist/SHCLiveStatsDebug.exe (mit Konsole, fuer Fehlersuche).
+# dist/SHCLiveStatsDebug.exe (mit Konsole, für Fehlersuche).
 
 import os
 
@@ -38,7 +38,7 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 # Release-Build: kein Konsolenfenster, fragt automatisch nach Administrator-
-# Rechten (das Spiel selbst laeuft elevated, ohne das schlaegt pymem fehl).
+# Rechten (das Spiel selbst läuft elevated, ohne das schlägt pymem fehl).
 exe_release = EXE(
     pyz,
     a.scripts,
@@ -53,9 +53,9 @@ exe_release = EXE(
     icon=APP_ICON,
 )
 
-# Debug-Build: identisch, aber mit Konsolenfenster fuer Fehlersuche (eigene
+# Debug-Build: identisch, aber mit Konsolenfenster für Fehlersuche (eigene
 # EXE, da PyInstaller console-Flag nicht innerhalb eines Analysis-Objekts
-# nachtraeglich umschaltbar ist).
+# nachträglich umschaltbar ist).
 exe_debug = EXE(
     pyz,
     a.scripts,

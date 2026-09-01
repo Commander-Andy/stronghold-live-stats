@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>SHC Live Stats - Uebersicht-Einstellungen</title>
+<title>SHC Live Stats - Übersicht-Einstellungen</title>
 <link rel="icon" href="/icons/app_logo.png">
 <style>
   * { box-sizing: border-box; }
@@ -35,15 +35,21 @@
     color: #c6a15b;
     margin-top: 28px;
   }
-  .hint {
-    font-size: 12px;
-    color: #a89478;
-    margin: -4px 0 12px 0;
-  }
   .cat-count {
     font-size: 11px;
     font-weight: 400;
     color: #a89478;
+  }
+  /* Kleines "i"-Symbol statt ausufernder Dauertext-Absätze unter jedem
+     Regler/Abschnitt - Erklärung erscheint per nativem Tooltip (title-
+     Attribut) erst bei Bedarf beim Draufhalten. */
+  .info-tip {
+    display: inline-block;
+    cursor: help;
+    color: #a89478;
+    font-size: 13px;
+    margin-left: 4px;
+    line-height: 1;
   }
   .card {
     background: #241a10;
@@ -76,7 +82,7 @@
   button:hover { background: #d8b878; }
   /* Zeigt, welcher Knopf gerade dem aktuellen Zustand entspricht (aktive
      Anzeige-Vorlage, volle "Alle an/aus"-Kategorie, geladener Speicherplatz)
-     - sieht aus wie hineingedrueckt statt nur farblich markiert. */
+     - sieht aus wie hineingedrückt statt nur farblich markiert. */
   button.active-preset {
     background: #8a6d3f;
     box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
@@ -125,8 +131,8 @@
   .dot-waiting { background: #e6c34a; }
   .dot-error { background: #ff8a7a; }
   /* Eigener Pfeil statt des Browser-Standard-Markers, da <summary> hier oft
-     als Flex-Container (Name + Knoepfe) gestylt ist - der native Marker
-     wuerde dabei kaum sichtbar/falsch ausgerichtet erscheinen. */
+     als Flex-Container (Name + Knöpfe) gestylt ist - der native Marker
+     würde dabei kaum sichtbar/falsch ausgerichtet erscheinen. */
   summary { list-style: none; }
   summary::-webkit-details-marker { display: none; }
   .disclosure-arrow {
@@ -140,33 +146,30 @@
 </style>
 </head>
 <body>
-  <h1>Uebersicht - eigene Einstellungen</h1>
-  <p class="hint">Diese Einstellungen gelten nur fuer den Uebersichtsmodus (diese Seite hier) - das OBS-Overlay im Stream bleibt davon unberuehrt und hat seine eigene Konfiguration.</p>
+  <h1>Übersicht - eigene Einstellungen <span class="info-tip" title='Diese Einstellungen gelten nur für den Übersichtsmodus (diese Seite hier) - das OBS-Overlay im Stream bleibt davon unberührt und hat seine eigene Konfiguration.'>&#9432;</span></h1>
 
   <div id="status-line"><span class="dot dot-waiting"></span>Status wird geladen &hellip;</div>
 
-  <h2>Speicherplaetze</h2>
+  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen dieser Übersicht unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.'>&#9432;</span></h2>
   <div class="card">
     <div id="saved-layouts-list"></div>
-    <p class="hint">Speichert das komplette Aussehen dieser Uebersicht unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.</p>
   </div>
 
-  <h2>Anzeige-Vorlagen</h2>
+  <h2>Anzeige-Vorlagen <span class="info-tip" title='Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben ("Design &amp; Anordnung") oder die Häkchen unter "Sonstiges".'>&#9432;</span></h2>
   <div class="card">
     <div class="row" style="flex-wrap:wrap; gap:8px;">
       <button type="button" data-preset="standard">Standard</button>
       <button type="button" data-preset="minimal">Minimal</button>
-      <button type="button" data-preset="militaer">Militaer</button>
+      <button type="button" data-preset="militär">Militär</button>
       <button type="button" data-preset="alles">Alles an</button>
     </div>
-    <p class="hint">Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben (siehe "Design &amp; Anordnung") oder die Haeckchen unter "Sonstiges".</p>
   </div>
 
   <div class="card">
     <div class="row" style="flex-wrap:wrap; gap:8px; align-items:center;">
       <button type="button" id="sync-overlay-btn">Mit Overlay synchronisieren</button>
+      <span class="info-tip" title='Übernimmt einmalig die Anzeige-Auswahl und Farb-/Design-Einstellungen vom Overlay in die Übersicht. Sobald danach hier irgendetwas geändert wird, gilt der Abgleich als überholt (Knopf springt zurück).'>&#9432;</span>
     </div>
-    <p class="hint">Uebernimmt einmalig die Anzeige-Auswahl und Farb-/Design-Einstellungen vom Overlay in die Uebersicht. Sobald danach hier irgendetwas geaendert wird, gilt der Abgleich als ueberholt (Knopf springt zurueck).</p>
   </div>
 
   <details id="display-section" open>
@@ -177,14 +180,13 @@
   <h2>Design &amp; Anordnung</h2>
   <div class="card">
     <div class="row">
-      <label>Design</label>
+      <label>Design <span class="info-tip" title='Bei SHC Single/Multi bekommen die Karten ein Pergament als Hintergrund; Rahmenfarben bleiben weiterhin aktiv.'>&#9432;</span></label>
       <select id="theme-input">
         <option value="rgb">RGB (frei einstellbare Farben)</option>
         <option value="shc_single">SHC Single (ein Pergament je Seite)</option>
         <option value="shc_multi">SHC Multi (Pergament pro Rahmen)</option>
       </select>
     </div>
-    <p class="hint">Bei SHC Single/Multi bekommen die Karten ein Pergament als Hintergrund; Rahmenfarben bleiben weiterhin aktiv.</p>
     <div class="row">
       <label>Seiten-Aufteilung</label>
       <select id="side-mode-input">
@@ -200,7 +202,7 @@
       <input type="number" id="row-gap-input" min="0" max="60" step="1">
     </div>
     <div class="row">
-      <label>Truppen-Icon-Groesse (px)</label>
+      <label>Truppen-Icon-Größe (px)</label>
       <input type="range" id="breakdown-icon-range" min="10" max="60" step="1">
       <input type="number" id="breakdown-icon-input" min="10" max="60" step="1">
     </div>
@@ -209,7 +211,7 @@
       <input type="color" id="text-color-input">
     </div>
     <div class="row">
-      <label>Farbe fuer dein eigenes Feld</label>
+      <label>Farbe für dein eigenes Feld</label>
       <input type="color" id="you-color-input">
     </div>
   </div>
@@ -230,18 +232,17 @@
     </div>
   </div>
 
-  <h2>Teams</h2>
+  <h2>Teams <span class="info-tip" title='Keine Live-Erkennung im Spielspeicher möglich (ausführlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam für Overlay und Übersicht.'>&#9432;</span></h2>
   <div class="card">
     <div id="team-assignment-list" style="margin-top:4px;"></div>
-    <p class="hint">Keine Live-Erkennung im Spielspeicher moeglich (ausfuehrlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam fuer Overlay und Uebersicht.</p>
   </div>
 
   <script>
     let currentConfig = null;
 
-    // Anzeige-Haeckchen in aufklappbare Kategorien gruppiert (statt einer
+    // Anzeige-Häkchen in aufklappbare Kategorien gruppiert (statt einer
     // langen flachen Liste) - jede Kategorie bekommt eigene "Alle an/aus"-
-    // Knoepfe. Wird per JS aus dieser Liste gebaut, siehe renderDisplayCategories().
+    // Knöpfe. Wird per JS aus dieser Liste gebaut, siehe renderDisplayCategories().
     const DISPLAY_CATEGORIES = [
       {
         name: "Rohstoffe",
@@ -262,31 +263,31 @@
         items: [
           ["show_food_total", "Nahrung gesamt"],
           ["show_bread", "Brot"],
-          ["show_cheese", "Kaese"],
+          ["show_cheese", "Käse"],
           ["show_meat", "Fleisch"],
-          ["show_apples", "Aepfel"],
+          ["show_apples", "Äpfel"],
         ],
       },
       {
-        name: "Waffen & Ruestung",
+        name: "Waffen & Rüstung",
         items: [
-          ["show_bows", "Boegen"],
-          ["show_crossbows", "Armbrueste"],
+          ["show_bows", "Bögen"],
+          ["show_crossbows", "Armbrüste"],
           ["show_spears", "Speere"],
           ["show_pikes", "Piken"],
           ["show_maces", "Keulen"],
           ["show_swords", "Schwerter"],
-          ["show_leather_armor", "Lederruestung"],
-          ["show_metal_armor", "Metallruestung"],
+          ["show_leather_armor", "Lederrüstung"],
+          ["show_metal_armor", "Metallrüstung"],
         ],
       },
       {
-        name: "Militaer",
+        name: "Militär",
         items: [
           ["show_troops_total", "Truppen gesamt"],
-          ["show_troop_breakdown", "Truppen-Aufschluesselung nach Typ (Icons)"],
-          ["show_monks_trained", "Moenche (seit Tool-Start trainiert, kein Live-Bestand)"],
-          ["show_siege_movable", "Belagerungsgeraete gesamt (Sammelwert ganz rechts in der Truppen-Zeile, kein Einzeltyp moeglich)"],
+          ["show_troop_breakdown", "Truppen-Aufschlüsselung nach Typ (Icons)"],
+          ["show_monks_trained", "Mönche (seit Tool-Start trainiert, kein Live-Bestand)"],
+          ["show_siege_movable", "Belagerungsgeräte gesamt (Sammelwert ganz rechts in der Truppen-Zeile, kein Einzeltyp möglich)"],
         ],
       },
       {
@@ -294,9 +295,9 @@
         items: [
           ["show_popularity", "Popularity"],
           ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
-          ["show_population", "Bevoelkerung (aktuell/Kapazitaet)"],
+          ["show_population", "Bevölkerung (aktuell/Kapazität)"],
           ["show_lord_hp", "Burgherr-HP (noch nicht funktional)"],
-          ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel laeuft"],
+          ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel läuft"],
         ],
       },
     ];
@@ -314,7 +315,7 @@
     const DISPLAY_PRESETS = {
       standard: presetFrom(["show_gold", "show_wood", "show_stone", "show_iron", "show_troops_total", "show_popularity"]),
       minimal: presetFrom(["show_gold", "show_troops_total", "show_popularity"]),
-      militaer: presetFrom(["show_troops_total", "show_troop_breakdown", "show_siege_movable"]),
+      militär: presetFrom(["show_troops_total", "show_troop_breakdown", "show_siege_movable"]),
       alles: presetFrom(STAT_PRESET_KEYS),
     };
 
@@ -352,7 +353,7 @@
 
     // Zeigt "(x/y)" neben jedem Rubrik-Namen, damit der eingeklappte
     // Zustand ("x an") trotzdem auf einen Blick erkennbar bleibt, statt
-    // extra aufklappen zu muessen - Idee aus der Layout-Review, guenstiger
+    // extra aufklappen zu müssen - Idee aus der Layout-Review, günstiger
     // als ein Dropdown (siehe project_shc_overlay_status.md).
     function updateCategoryCounts() {
       const cfg = currentConfig || {};
@@ -383,10 +384,10 @@
       return keysA.every((k) => deepEqual(a[k], b[k]));
     }
 
-    // 5 komplette Speicherplaetze fuers ganze Aussehen dieser Uebersicht -
+    // 5 komplette Speicherplätze fürs ganze Aussehen dieser Übersicht -
     // hier ist die Config flach (keine display/layout-Unterbereiche wie im
     // Overlay), also einfach eine Kopie von allem AUSSER saved_layouts
-    // selbst (sonst wuerde ein Speicherplatz sich selbst mit-speichern).
+    // selbst (sonst würde ein Speicherplatz sich selbst mit-speichern).
     function currentLookSnapshot() {
       const { saved_layouts, ...rest } = currentConfig;
       return JSON.parse(JSON.stringify(rest));
@@ -406,7 +407,7 @@
           <label>${slot ? escapeHtmlAttr(slot.name) : `Speicherplatz ${i + 1} (leer)`}</label>
           <button type="button" data-load-slot="${i}" ${slot ? "" : "disabled"}>Laden</button>
           <button type="button" data-save-slot="${i}">Speichern</button>
-          ${slot ? `<button type="button" data-clear-slot="${i}">Loeschen</button>` : ""}
+          ${slot ? `<button type="button" data-clear-slot="${i}">Löschen</button>` : ""}
         </div>
       `).join("");
 
@@ -422,7 +423,7 @@
         btn.addEventListener("click", () => {
           const i = parseInt(btn.dataset.saveSlot, 10);
           const existing = currentConfig.saved_layouts[i];
-          const name = prompt("Name fuer diesen Speicherplatz:", existing ? existing.name : `Setup ${i + 1}`);
+          const name = prompt("Name für diesen Speicherplatz:", existing ? existing.name : `Setup ${i + 1}`);
           if (!name) return;
           const slots = currentConfig.saved_layouts.slice();
           slots[i] = { name, ...currentLookSnapshot() };
@@ -440,8 +441,8 @@
     }
 
     // Markiert, welcher Knopf gerade dem aktuellen Zustand entspricht (sieht
-    // wie hineingedrueckt aus) - bei Anzeige-Vorlagen, den "Alle an/aus"-
-    // Knoepfen je Kategorie, und geladenen Speicherplaetzen.
+    // wie hineingedrückt aus) - bei Anzeige-Vorlagen, den "Alle an/aus"-
+    // Knöpfen je Kategorie, und geladenen Speicherplätzen.
     function updateActiveHighlights() {
       document.querySelectorAll("button[data-preset]").forEach((btn) => {
         const preset = DISPLAY_PRESETS[btn.dataset.preset];
@@ -576,8 +577,8 @@
         body: JSON.stringify(patch),
       });
       applyConfigToForm(await res.json());
-      // Jede Aenderung AUSSER dem Sync-Vorgang selbst macht den Abgleich
-      // ungueltig - der Knopf zeigt dann wieder den unsynchronisierten
+      // Jede Änderung AUSSER dem Sync-Vorgang selbst macht den Abgleich
+      // ungültig - der Knopf zeigt dann wieder den unsynchronisierten
       // Zustand.
       if (!opts.fromSync) {
         setSyncButtonState(false);
@@ -585,11 +586,11 @@
     }
 
     // Welche Felder beim Sync vom Overlay (display/layout) in die
-    // Uebersicht (flacher Aufbau) uebernommen werden - nur Felder, die es
+    // Übersicht (flacher Aufbau) übernommen werden - nur Felder, die es
     // in BEIDEN Config-Bereichen unter demselben Namen gibt. Overlay-
-    // spezifische Sachen ohne Uebersicht-Entsprechung (Logo, Angriffs-
-    // Badge, Zeilen/Breite-Layout, Rahmenfarbe, Versaetze) werden bewusst
-    // NICHT uebernommen.
+    // spezifische Sachen ohne Übersicht-Entsprechung (Logo, Angriffs-
+    // Badge, Zeilen/Breite-Layout, Rahmenfarbe, Versätze) werden bewusst
+    // NICHT übernommen.
     const SYNC_DISPLAY_KEYS = [
       "show_gold", "show_wood", "show_stone", "show_iron",
       "show_troops_total", "show_troop_breakdown", "show_siege_movable",

@@ -1,7 +1,7 @@
 """Konfigurations-Schema, Laden/Speichern.
 
 Liegt unter %APPDATA%\\SHCLiveStats\\config.json - pro Benutzer, immer
-beschreibbar, ueberlebt exe-Umzuege und PyInstaller-Onefile-Neuextraktion
+beschreibbar, überlebt exe-Umzüge und PyInstaller-Onefile-Neuextraktion
 (im Gegensatz zu sys._MEIPASS oder einem Installationsort unter
 Program Files, der ohne Admin-Rechte evtl. nicht beschreibbar ist).
 """
@@ -15,9 +15,9 @@ from paths import app_data_dir
 
 SCHEMA_VERSION = 17
 
-# Flags, die tatsaechlich als einzelne Icons im Overlay gerendert werden
-# (siehe STAT_DEFS in overlay.html) - fuer die einmalige line_count-Migration
-# unten. show_troop_breakdown zaehlt NICHT mit (eigener Bereich, kein Icon
+# Flags, die tatsächlich als einzelne Icons im Overlay gerendert werden
+# (siehe STAT_DEFS in overlay.html) - für die einmalige line_count-Migration
+# unten. show_troop_breakdown zählt NICHT mit (eigener Bereich, kein Icon
 # in dieser Zeilen-Grid-Logik).
 _STAT_DISPLAY_FLAGS = [
     "show_gold", "show_wood", "show_stone", "show_iron",
@@ -38,8 +38,8 @@ DEFAULT_CONFIG = {
     "poll_interval_ms": 500,
     "attack_poll_interval_ms": 1000,
     # Wie lange (Sekunden) weder Einstellungs-Seite noch OBS aktiv gewesen
-    # sein muessen, bevor sich die App von selbst beendet. 0 = nie automatisch
-    # beenden (nur noch ueber "Beenden" im Tray-Menue moeglich).
+    # sein müssen, bevor sich die App von selbst beendet. 0 = nie automatisch
+    # beenden (nur noch über "Beenden" im Tray-Menü möglich).
     "idle_shutdown_seconds": 60,
     "display": {
         "show_gold": True,
@@ -50,61 +50,61 @@ DEFAULT_CONFIG = {
         "show_troop_breakdown": False,
         "show_siege_movable": False,
         "show_popularity": True,
-        # Aktuelle Einwohnerzahl / Kapazitaet, im Overlay als "x/y" (wie im
-        # Bevoelkerungsbuch) angezeigt.
+        # Aktuelle Einwohnerzahl / Kapazität, im Overlay als "x/y" (wie im
+        # Bevölkerungsbuch) angezeigt.
         "show_population": False,
-        # Aktueller Steuersatz (0=Grosszuegige Spende ... 3=Keine Steuern,
+        # Aktueller Steuersatz (0=Großzügige Spende ... 3=Keine Steuern,
         # Standard ... 11=Grausamste Steuern) - im Overlay als Stufe 1-12
         # angezeigt.
         "show_tax_rate": False,
-        # EXPERIMENTELL: seit Tool-Start trainierte Moenche pro Spieler -
-        # KEIN Live-Bestand (stirbt ein Moench, sinkt die Zahl nicht), da es
-        # kein festes Zaehlerfeld dafuer gibt - wird aus einem kleinen,
-        # sich staendig ueberschreibenden Ereignis-Stapel mitgezaehlt (siehe
-        # reader.poll_monk_events()). Zaehlung beginnt erst, sobald das Tool
-        # laeuft (kein rueckwirkendes Zaehlen moeglich). Kann in seltenen
-        # Faellen (sehr viele gleichzeitige Bau-/Verlust-Ereignisse aller
-        # Spieler binnen ~150ms) einzelne Moenche verpassen.
+        # EXPERIMENTELL: seit Tool-Start trainierte Mönche pro Spieler -
+        # KEIN Live-Bestand (stirbt ein Mönch, sinkt die Zahl nicht), da es
+        # kein festes Zählerfeld dafür gibt - wird aus einem kleinen,
+        # sich ständig überschreibenden Ereignis-Stapel mitgezählt (siehe
+        # reader.poll_monk_events()). Zählung beginnt erst, sobald das Tool
+        # läuft (kein rückwirkendes Zählen möglich). Kann in seltenen
+        # Fällen (sehr viele gleichzeitige Bau-/Verlust-Ereignisse aller
+        # Spieler binnen ~150ms) einzelne Mönche verpassen.
         "show_monks_trained": False,
         # NOCH NICHT FUNKTIONAL (Stand 2026-09-01) - Live-HP des Burgherren.
         # Basis-HP, Multiplikator-Tabelle und die grobe Speicherregion sind
         # bekannt (siehe reader.py), aber die naive feste Adress-Formel
         # erwies sich in einem echten Match als falsch (Ereignis-Ringpuffer-
         # Trugschluss, siehe project_shc_overlay_status.md) - braucht noch
-        # dieselbe Ereignis-Zaehler-Technik wie show_monks_trained.
+        # dieselbe Ereignis-Zähler-Technik wie show_monks_trained.
         "show_lord_hp": False,
         "highlight_attack_status": True,
-        # Zeigt den Angriffs-Status ("baut auf" etc.) zusaetzlich als
-        # Text-Badge mittig ueber der Spielerzeile - aus, da das im OBS-
-        # Overlay zusaetzlichen Platz braucht (der farbige Rahmen/Puls von
-        # highlight_attack_status bleibt davon unberuehrt).
+        # Zeigt den Angriffs-Status ("baut auf" etc.) zusätzlich als
+        # Text-Badge mittig über der Spielerzeile - aus, da das im OBS-
+        # Overlay zusätzlichen Platz braucht (der farbige Rahmen/Puls von
+        # highlight_attack_status bleibt davon unberührt).
         "show_attack_badge": False,
         "show_logo": False,
         "logo_path": None,
         # Zeigt Platzhalter-Spieler mit 0/"-"-Werten an, solange kein Spiel
         # verbunden ist - damit man Ausrichtung/Farben/Icons schon vorab
-        # einstellen kann, ohne extra ein Match starten zu muessen.
+        # einstellen kann, ohne extra ein Match starten zu müssen.
         "show_demo_data": True,
         # Nahrung (Kornspeicher-Inhalt) - Summe + Einzelwerte, alle
-        # standardmaessig aus, um das Overlay nicht zuzumuellen.
+        # standardmäßig aus, um das Overlay nicht zuzumüllen.
         "show_food_total": False,
         "show_bread": False,
         "show_cheese": False,
         "show_meat": False,
         "show_apples": False,
-        # Bier zaehlt NICHT zur Nahrung (show_food_total) - es wird von der
+        # Bier zählt NICHT zur Nahrung (show_food_total) - es wird von der
         # Schenke verbraucht und erzeugt dort einen eigenen Beliebtheits-
-        # Bonus, aehnlich wie Religion. Wird zusammen mit Pech/Hopfen als
+        # Bonus, ähnlich wie Religion. Wird zusammen mit Pech/Hopfen als
         # "Rohstoff" einsortiert (siehe Kategorien in den Einstellungen).
         "show_ale": False,
         "show_pitch": False,
         "show_hops": False,
-        # Getreide und Mehl (Zwischenprodukt fuer Brot) - zaehlen NICHT zur
+        # Getreide und Mehl (Zwischenprodukt für Brot) - zählen NICHT zur
         # Nahrung gesamt (show_food_total), genau wie Hopfen/Pech als
         # "Rohstoff" einsortiert.
         "show_wheat": False,
         "show_flour": False,
-        # Waffen-/Ruestungslager (hergestellt, aber noch nicht an Truppen
+        # Waffen-/Rüstungslager (hergestellt, aber noch nicht an Truppen
         # ausgegeben).
         "show_bows": False,
         "show_crossbows": False,
@@ -117,67 +117,67 @@ DEFAULT_CONFIG = {
     },
     "layout": {
         "right_offset_px": 110,
-        # War bisher fest auf 6px verdrahtet (kein Bevoelkerungsbuch o.ae. auf
-        # der linken Seite, das man umgehen muesste) - jetzt trotzdem
+        # War bisher fest auf 6px verdrahtet (kein Bevölkerungsbuch o.ä. auf
+        # der linken Seite, das man umgehen müsste) - jetzt trotzdem
         # einstellbar, z.B. um die Seiten symmetrisch auszurichten.
         "left_offset_px": 6,
         "bottom_offset_px": 6,
         "row_gap_px": 4,
-        # "split" = wie bisher haelftig links/rechts (nach Slot-Reihenfolge),
-        # "left"/"right" = alle Spieler auf einer Seite (z.B. fuer 1vN-
+        # "split" = wie bisher hälftig links/rechts (nach Slot-Reihenfolge),
+        # "left"/"right" = alle Spieler auf einer Seite (z.B. für 1vN-
         # Konstellationen), "teams" = anhand von team_assignment sortiert
-        # (eigenes Team links, alle anderen rechts) - faellt auf "split"
-        # zurueck, wenn Slot 0 keinem Team zugeordnet ist.
+        # (eigenes Team links, alle anderen rechts) - fällt auf "split"
+        # zurück, wenn Slot 0 keinem Team zugeordnet ist.
         "side_mode": "split",
         # "rgb" = frei einstellbare Farben (Standardverhalten, siehe Farben
         # unten). "shc_single" = EIN gemeinsames Pergament liegt hinter allen
         # Rahmen einer Seite (wie eine durchgehende Schriftrolle).
         # "shc_multi" = jeder einzelne Rahmen bekommt sein eigenes Pergament.
-        # Bei shc_single/shc_multi gewinnt das Pergament immer gegenueber
+        # Bei shc_single/shc_multi gewinnt das Pergament immer gegenüber
         # individuell hochgeladenen Pro-Spieler-Hintergrundbildern; Rahmen-
-        # farben (Standard/Du/Angriff, auch pro Spieler) bleiben unveraendert
+        # farben (Standard/Du/Angriff, auch pro Spieler) bleiben unverändert
         # aktiv und werden oben auf dem Pergament angezeigt.
         "theme": "rgb",
         "border_color": "#c6a15b",
         # Wie viele Werte NEBENEINANDER in eine Zeile passen - legt die
         # BREITE der Karte fest (Breite = diese Zahl * stat_width_px).
         "stats_per_line": 6,
-        # Feste Anzahl Zeilen - legt die HOEHE der Karte fest. Beide Werte
-        # zusammen (stats_per_line x line_count) sind eine feste Kapazitaet,
+        # Feste Anzahl Zeilen - legt die HÖHE der Karte fest. Beide Werte
+        # zusammen (stats_per_line x line_count) sind eine feste Kapazität,
         # die sich NIE automatisch an die Anzahl aktivierter Werte anpasst -
-        # damit sich die Kartengroesse nicht veraendert, nur weil waehrend
+        # damit sich die Kartengröße nicht verändert, nur weil während
         # eines laufenden Streams mal ein Wert an-/abgeschaltet wird. Passt
-        # nicht alles rein, werden ueberzaehlige Werte einfach nicht
-        # angezeigt (siehe line_distribution fuer die Reihenfolge).
+        # nicht alles rein, werden überzählige Werte einfach nicht
+        # angezeigt (siehe line_distribution für die Reihenfolge).
         "line_count": 1,
         # "category" = Werte werden nach Rubrik geordnet einsortiert
-        # (Rohstoffe, Nahrung, Waffen&Ruestung, Militaer, Sonstiges) - ein
+        # (Rohstoffe, Nahrung, Waffen&Rüstung, Militär, Sonstiges) - ein
         # bestimmter Wert landet dadurch immer an einer vorhersagbaren
-        # Stelle, unabhaengig davon, was sonst noch an-/ausgeschaltet ist.
+        # Stelle, unabhängig davon, was sonst noch an-/ausgeschaltet ist.
         # "even" = Werte werden schlicht der Reihe nach (Anzeige-Reihenfolge)
-        # gleichmaessig auf die Zeilen aufgeteilt.
+        # gleichmäßig auf die Zeilen aufgeteilt.
         "line_distribution": "category",
         "icon_size_px": 16,
-        # Hoehe einer Werte-Zeile in px - UNABHAENGIG von icon_size_px, damit
-        # z.B. etwas Luft ueber/unter kleinen Icons entstehen kann, ohne die
-        # Icons selbst groesser zu machen. Bleibt IMMER exakt so hoch (siehe
+        # Höhe einer Werte-Zeile in px - UNABHÄNGIG von icon_size_px, damit
+        # z.B. etwas Luft über/unter kleinen Icons entstehen kann, ohne die
+        # Icons selbst größer zu machen. Bleibt IMMER exakt so hoch (siehe
         # .stats-line in overlay.html), egal was an-/ausgeschaltet ist.
         "line_height_px": 16,
         # GESAMTBREITE einer Werte-Zeile in px (nicht Breite pro einzelnem
         # Icon!) - bleibt IMMER exakt so breit, egal was an-/ausgeschaltet
         # ist. "Werte pro Zeile" teilt diese feste Breite in entsprechend
-        # viele gleich grosse Felder auf (mehr Werte = kleinere Icons/Zahlen).
+        # viele gleich große Felder auf (mehr Werte = kleinere Icons/Zahlen).
         "stat_width_px": 312,
-        # Farbe fuer dein eigenes Feld (Spieler 1 / Slot 0) bzw. fuer die
-        # Angriffs-Warnung - eigene Farben, unabhaengig von border_color.
+        # Farbe für dein eigenes Feld (Spieler 1 / Slot 0) bzw. für die
+        # Angriffs-Warnung - eigene Farben, unabhängig von border_color.
         "you_color": "#78c8ff",
         "attack_color": "#e6463c",
-        # Ob das Angriffs-Feld zusaetzlich pulsierend leuchten soll (CSS-
+        # Ob das Angriffs-Feld zusätzlich pulsierend leuchten soll (CSS-
         # Animation), statt nur einen statischen roten Rahmen zu zeigen.
         "attack_pulse": True,
-        # Textfarbe fuer Beschriftung/Werte - v.a. bei SHC Single/Multi
-        # nuetzlich, wenn das helle Pergament mit dem hellen Standardtext
-        # (fast) verschmilzt und dunklerer Text besser lesbar waere.
+        # Textfarbe für Beschriftung/Werte - v.a. bei SHC Single/Multi
+        # nützlich, wenn das helle Pergament mit dem hellen Standardtext
+        # (fast) verschmilzt und dunklerer Text besser lesbar wäre.
         "text_color": "#f2e9d8",
     },
     "logo": {
@@ -187,33 +187,33 @@ DEFAULT_CONFIG = {
         "width_px": 90,
     },
     # Individuelle Rahmen-/Hintergrundfarbe pro Spieler-Slot (0=Spieler 1..7=Spieler 8).
-    # null = uebernimmt die globale Standardfarbe (layout.border_color bzw.
+    # null = übernimmt die globale Standardfarbe (layout.border_color bzw.
     # die Standard-Zeilenfarbe). Ein individuelles Hintergrundbild pro Slot
-    # wird separat als Datei verwaltet (kein Pfad hier noetig) - siehe
+    # wird separat als Datei verwaltet (kein Pfad hier nötig) - siehe
     # server.py Routen /player-bg/<slot>.png.
     "player_colors": {str(i): {"border_color": None, "bg_color": None} for i in range(8)},
     # Manuelle Team-Zuordnung pro Slot (0=Spieler 1..7=Spieler 8): null = keinem Team
     # zugeordnet, sonst eine beliebige Team-Nummer (z.B. 1/2). Es gibt KEINE
-    # live ausgelesene Team-/Buendnis-Adresse im Spielspeicher (ausfuehrlich
-    # gesucht, siehe project_shc_overlay_status.md) - der User traegt das pro
+    # live ausgelesene Team-/Bündnis-Adresse im Spielspeicher (ausführlich
+    # gesucht, siehe project_shc_overlay_status.md) - der User trägt das pro
     # Match von Hand ein. Wird von BEIDEN Einstellungsseiten (Overlay +
-    # Uebersicht) gemeinsam genutzt (kein separates "overview"-Duplikat,
-    # siehe server.py) - Team-Zugehoerigkeit ist Match-Realitaet, kein
-    # Design-Unterschied zwischen Overlay und Uebersicht. "teams" als
+    # Übersicht) gemeinsam genutzt (kein separates "overview"-Duplikat,
+    # siehe server.py) - Team-Zugehörigkeit ist Match-Realität, kein
+    # Design-Unterschied zwischen Overlay und Übersicht. "teams" als
     # side_mode (layout.side_mode / overview.side_mode) sortiert dann anhand
     # dessen links (eigenes Team, inkl. Slot 0) vs. rechts (alle anderen).
     "team_assignment": {str(i): None for i in range(8)},
-    # 5 Speicherplaetze fuer komplette, selbst benannte Anzeige-Setups (nicht
+    # 5 Speicherplätze für komplette, selbst benannte Anzeige-Setups (nicht
     # nur welche Werte, sondern das volle Aussehen: Design, Farben, Zeilen/
     # Breite, Logo, Pro-Spieler-Farben). null = Platz noch leer. Jeder Platz
     # ist ein dict {"name": str, "display": {...}, "layout": {...},
-    # "logo": {...}, "player_colors": {...}} - eine vollstaendige Kopie
+    # "logo": {...}, "player_colors": {...}} - eine vollständige Kopie
     # dieser vier Config-Bereiche zum Zeitpunkt des Speicherns.
     "saved_layouts": [None, None, None, None, None],
-    # Eigene, vom OBS-Overlay komplett unabhaengige Einstellungen fuer den
-    # Uebersichtsmodus (overview.html) - der Streamer soll dort z.B. mehr
-    # Details anzeigen koennen, ohne das schlanke Stream-Overlay zu
-    # veraendern, und umgekehrt.
+    # Eigene, vom OBS-Overlay komplett unabhängige Einstellungen für den
+    # Übersichtsmodus (overview.html) - der Streamer soll dort z.B. mehr
+    # Details anzeigen können, ohne das schlanke Stream-Overlay zu
+    # verändern, und umgekehrt.
     "overview": {
         "show_gold": True,
         "show_wood": True,
@@ -223,8 +223,8 @@ DEFAULT_CONFIG = {
         "show_troop_breakdown": False,
         "show_siege_movable": False,
         "show_popularity": True,
-        # Aktuelle Einwohnerzahl / Kapazitaet, im Overlay als "x/y" (wie im
-        # Bevoelkerungsbuch) angezeigt.
+        # Aktuelle Einwohnerzahl / Kapazität, im Overlay als "x/y" (wie im
+        # Bevölkerungsbuch) angezeigt.
         "show_population": False,
         "show_tax_rate": False,
         "show_monks_trained": False,
@@ -250,21 +250,21 @@ DEFAULT_CONFIG = {
         "show_leather_armor": False,
         "show_metal_armor": False,
         # Wie layout.side_mode im Overlay ("teams" nutzt das TOP-LEVEL
-        # team_assignment, das sich Overlay und Uebersicht teilen).
+        # team_assignment, das sich Overlay und Übersicht teilen).
         "side_mode": "split",
-        # Wie layout.theme im Overlay, aber komplett unabhaengig davon.
+        # Wie layout.theme im Overlay, aber komplett unabhängig davon.
         "theme": "rgb",
         "row_gap_px": 14,
-        # Icon-Groesse fuer die Truppen-Aufschluesselung (show_troop_breakdown)
-        # - unabhaengig von der Groesse der Haupt-Stat-Icons, da hier bis zu
-        # 17 Icons gleichzeitig in einer Zeile stehen koennen.
+        # Icon-Größe für die Truppen-Aufschlüsselung (show_troop_breakdown)
+        # - unabhängig von der Größe der Haupt-Stat-Icons, da hier bis zu
+        # 17 Icons gleichzeitig in einer Zeile stehen können.
         "breakdown_icon_size_px": 22,
         "you_color": "#78c8ff",
         "attack_color": "#e6463c",
         "attack_pulse": True,
         "text_color": "#f2e9d8",
-        # 5 Speicherplaetze wie oben, aber komplett unabhaengig - hier ist
-        # ein Platz einfach eine vollstaendige Kopie dieses ganzen (flachen)
+        # 5 Speicherplätze wie oben, aber komplett unabhängig - hier ist
+        # ein Platz einfach eine vollständige Kopie dieses ganzen (flachen)
         # "overview"-Bereichs zum Zeitpunkt des Speicherns.
         "saved_layouts": [None, None, None, None, None],
     },
@@ -278,7 +278,7 @@ def config_path() -> Path:
 
 
 def _deep_merge_defaults(defaults, loaded):
-    """Fuellt fehlende Schluessel aus defaults auf, damit alte config.json-
+    """Füllt fehlende Schlüssel aus defaults auf, damit alte config.json-
     Dateien nach einem Update nicht mit KeyError abbrechen."""
     result = dict(defaults)
     for key, value in loaded.items():
@@ -290,10 +290,10 @@ def _deep_merge_defaults(defaults, loaded):
 
 
 def _migrate_line_count(cfg: dict) -> int:
-    """Einmalige Migration fuer Configs von vor der line_count-Einfuehrung:
+    """Einmalige Migration für Configs von vor der line_count-Einführung:
     errechnet, wie viele Zeilen der bisherige automatische Umbruch (Anzahl
-    aktivierter Werte / stats_per_line, aufgerundet) ergeben haette - damit
-    niemand beim Update ploetzlich schon aktivierte Werte verliert. Danach
+    aktivierter Werte / stats_per_line, aufgerundet) ergeben hätte - damit
+    niemand beim Update plötzlich schon aktivierte Werte verliert. Danach
     ist line_count ein rein manueller Wert wie jeder andere Regler."""
     display = cfg.get("display", {})
     active = sum(1 for flag in _STAT_DISPLAY_FLAGS if display.get(flag))
@@ -314,10 +314,10 @@ def load_config() -> dict:
         return json.loads(json.dumps(DEFAULT_CONFIG))
 
     needs_migration = "line_count" not in loaded.get("layout", {})
-    # Einmalige Migration fuer Configs von vor Schema v17: stat_width_px war
+    # Einmalige Migration für Configs von vor Schema v17: stat_width_px war
     # bis dahin die Breite EINES einzelnen Wertes (Icon+Zahl), ab v17 ist es
-    # die GESAMTBREITE einer ganzen Zeile - ohne Umrechnung wuerde ein
-    # bestehender Wert wie 52 ploetzlich als winzige Gesamtbreite gelten
+    # die GESAMTBREITE einer ganzen Zeile - ohne Umrechnung würde ein
+    # bestehender Wert wie 52 plötzlich als winzige Gesamtbreite gelten
     # statt wie bisher pro Icon. Alter effektiver Gesamtwert = alte
     # Icon-Breite * stats_per_line.
     needs_width_migration = loaded.get("schema_version", 0) < 17
@@ -346,7 +346,7 @@ def save_config(cfg: dict) -> None:
 
 
 def merge_and_save(current: dict, patch: dict) -> dict:
-    """Wendet ein (moeglicherweise partielles) Update aus der Settings-UI an
+    """Wendet ein (möglicherweise partielles) Update aus der Settings-UI an
     und speichert das Ergebnis."""
     merged = _deep_merge_defaults(current, patch)
     merged["schema_version"] = SCHEMA_VERSION

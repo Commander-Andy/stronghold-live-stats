@@ -1,8 +1,8 @@
 @echo off
-REM Startet die App direkt aus dem Quellcode (kein Build noetig) - zeigt
+REM Startet die App direkt aus dem Quellcode (kein Build nötig) - zeigt
 REM also immer den aktuellen Stand von app/, im Gegensatz zur gebauten
 REM .exe unter dist/, die einen Schnappschuss vom letzten Build zeigt.
-REM Nur zum Testen/Entwickeln gedacht, nicht fuer den echten Stream-Einsatz.
+REM Nur zum Testen/Entwickeln gedacht, nicht für den echten Stream-Einsatz.
 
 cd /d "%~dp0"
 

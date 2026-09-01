@@ -1,9 +1,9 @@
-"""Tray-Icon: laeuft ueber die gesamte Lebensdauer der App. Bietet
-"Einstellungen oeffnen" (fuer den Fall, dass der Nutzer den Einstellungs-Tab
-geschlossen hat, waehrend OBS die Overlay-Daten noch abruft) und "Beenden"
-(manuelles Beenden ueber denselben sauberen Shutdown-Pfad wie der
+"""Tray-Icon: läuft über die gesamte Lebensdauer der App. Bietet
+"Einstellungen öffnen" (für den Fall, dass der Nutzer den Einstellungs-Tab
+geschlossen hat, während OBS die Overlay-Daten noch abruft) und "Beenden"
+(manuelles Beenden über denselben sauberen Shutdown-Pfad wie der
 Idle-Watchdog in server.py). Verschwindet automatisch, wenn die App beendet
-wird - egal ob durch Inaktivitaet oder ueber "Beenden".
+wird - egal ob durch Inaktivität oder über "Beenden".
 """
 
 import threading
@@ -16,8 +16,8 @@ from paths import resource_path
 
 
 def _make_icon_image():
-    """Laedt das App-Logo als Tray-Icon; faellt auf ein einfaches generisches
-    Icon zurueck, falls die Asset-Datei aus irgendeinem Grund fehlt."""
+    """Lädt das App-Logo als Tray-Icon; fällt auf ein einfaches generisches
+    Icon zurück, falls die Asset-Datei aus irgendeinem Grund fehlt."""
     try:
         img = Image.open(resource_path("assets", "icons", "app_logo.png")).convert("RGBA")
         return img.resize((64, 64), Image.LANCZOS)
@@ -40,7 +40,7 @@ class TrayIcon:
             icon=_make_icon_image(),
             title="SHC Live Stats",
             menu=pystray.Menu(
-                pystray.MenuItem("Einstellungen oeffnen", self._open_settings),
+                pystray.MenuItem("Einstellungen öffnen", self._open_settings),
                 pystray.MenuItem("Beenden", self._quit),
             ),
         )

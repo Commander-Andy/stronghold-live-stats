@@ -18,7 +18,7 @@
     color: #f2e9d8;
     font-family: "Segoe UI", Trebuchet MS, Arial, sans-serif;
   }
-  /* Abdunkelung ueber dem Hintergrundbild, damit der Text lesbar bleibt */
+  /* Abdunkelung über dem Hintergrundbild, damit der Text lesbar bleibt */
   body::before {
     content: "";
     position: fixed;
@@ -44,11 +44,11 @@
     top: 24px;
   }
   /* Die Vorschau rendert overlay.html auf einer virtuellen 1920x1080-
-     Leinwand (dieselbe Pixelgroesse, die overlay.html auch in OBS bei
-     Full-HD-Ausgabe haette) und wird dann maßstabsgetreu auf die sichtbare
-     Kastengroesse herunterskaliert - overlay.html arbeitet mit festen
-     Pixelwerten, ohne diesen Trick waere die Vorschau bei einer kleineren
-     Box faelschlich "zu groß" statt originalgetreu. */
+     Leinwand (dieselbe Pixelgröße, die overlay.html auch in OBS bei
+     Full-HD-Ausgabe hätte) und wird dann maßstabsgetreu auf die sichtbare
+     Kastengröße herunterskaliert - overlay.html arbeitet mit festen
+     Pixelwerten, ohne diesen Trick wäre die Vorschau bei einer kleineren
+     Box fälschlich "zu groß" statt originalgetreu. */
   .preview-box {
     width: 100%;
     max-width: 1152px;
@@ -60,13 +60,13 @@
     position: relative;
   }
   /* Hintergrundbild (Spiel-Screenshot als Ausrichtungshilfe, z.B. das
-     Bevoelkerungsbuch-Symbol) liegt als eigenes <img> - exakt in
-     derselben 1920x1080-Leinwandgroesse und mit demselben transform-
-     origin wie die iframe darueber - statt als CSS background-image auf
+     Bevölkerungsbuch-Symbol) liegt als eigenes <img> - exakt in
+     derselben 1920x1080-Leinwandgröße und mit demselben transform-
+     origin wie die iframe darüber - statt als CSS background-image auf
      .preview-box. So bekommt es in apply() denselben Zoom/Pan-Transform
      wie die iframe und bleibt beim Zoomen/Verschieben exakt darunter
-     ausgerichtet - sonst waere Zoomen fuers Feinjustieren nutzlos, weil
-     sich nur der Overlay-Inhalt bewegt haette, nicht die Referenz
+     ausgerichtet - sonst wäre Zoomen fürs Feinjustieren nutzlos, weil
+     sich nur der Overlay-Inhalt bewegt hätte, nicht die Referenz
      dahinter. */
   .preview-box img.preview-bg {
     position: absolute;
@@ -89,17 +89,17 @@
     background: transparent;
     transform-origin: top left;
     /* Skalierungsfaktor wird per JS (ResizeObserver) passend zur
-       tatsaechlichen, ggf. schwankenden Kastengroesse gesetzt - dadurch
-       passt sich die Vorschau automatisch an jede verfuegbare Breite an
-       (eigenes Fenster, eingebettet im Uebersichtsmodus-Panel, etc.),
-       statt eine feste Pixelgroesse vorauszusetzen. Zoom/Pan (siehe
-       .preview-overlay) haengt sich mit einem zusaetzlichen Faktor bzw.
+       tatsächlichen, ggf. schwankenden Kastengröße gesetzt - dadurch
+       passt sich die Vorschau automatisch an jede verfügbare Breite an
+       (eigenes Fenster, eingebettet im Übersichtsmodus-Panel, etc.),
+       statt eine feste Pixelgröße vorauszusetzen. Zoom/Pan (siehe
+       .preview-overlay) hängt sich mit einem zusätzlichen Faktor bzw.
        einer Verschiebung oben auf dieselbe transform-Eigenschaft dran -
        und wird 1:1 auch auf .preview-bg angewendet, siehe apply(). */
   }
-  /* Transparente Ebene ueber der iframe - noetig weil Maus-Events (wheel/
+  /* Transparente Ebene über der iframe - nötig weil Maus-Events (wheel/
      drag) auf einem iframe NICHT zum Elternfenster durchgereicht werden,
-     sobald der Zeiger ueber dem iframe-Inhalt selbst steht. Faengt Zoom/
+     sobald der Zeiger über dem iframe-Inhalt selbst steht. Fängt Zoom/
      Pan-Gesten ab, ohne dass man versehentlich mit der Vorschau selbst
      interagiert (die ist eh nur zur Anzeige gedacht). */
   .preview-overlay {
@@ -195,7 +195,7 @@
   button:hover { background: #d8b878; }
   /* Zeigt, welcher Knopf gerade dem aktuellen Zustand entspricht (aktive
      Anzeige-Vorlage, volle "Alle an/aus"-Kategorie, geladener Speicherplatz)
-     - sieht aus wie hineingedrueckt statt nur farblich markiert. */
+     - sieht aus wie hineingedrückt statt nur farblich markiert. */
   button.active-preset {
     background: #8a6d3f;
     box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
@@ -244,8 +244,8 @@
   .dot-waiting { background: #e6c34a; }
   .dot-error { background: #ff8a7a; }
   /* Eigener Pfeil statt des Browser-Standard-Markers, da <summary> hier oft
-     als Flex-Container (Name + Knoepfe) gestylt ist - der native Marker
-     wuerde dabei kaum sichtbar/falsch ausgerichtet erscheinen. */
+     als Flex-Container (Name + Knöpfe) gestylt ist - der native Marker
+     würde dabei kaum sichtbar/falsch ausgerichtet erscheinen. */
   summary { list-style: none; }
   summary::-webkit-details-marker { display: none; }
   .disclosure-arrow {
@@ -256,15 +256,21 @@
   details[open] > summary .disclosure-arrow {
     transform: rotate(90deg);
   }
-  .hint {
-    font-size: 12px;
-    color: #a89478;
-    margin-top: 4px;
-  }
   .cat-count {
     font-size: 11px;
     font-weight: 400;
     color: #a89478;
+  }
+  /* Kleines "i"-Symbol statt ausufernder Dauertext-Absätze unter jedem
+     Regler/Abschnitt - Erklärung erscheint per nativem Tooltip (title-
+     Attribut) erst bei Bedarf beim Draufhalten. */
+  .info-tip {
+    display: inline-block;
+    cursor: help;
+    color: #a89478;
+    font-size: 13px;
+    margin-left: 4px;
+    line-height: 1;
   }
   code {
     background: #1b140c;
@@ -281,44 +287,41 @@
 
   <div id="status-line"><span class="dot dot-waiting"></span>Status wird geladen &hellip;</div>
 
-  <h2>OBS-Einrichtung</h2>
+  <h2>OBS-Einrichtung <span class="info-tip" title='Breite/Höhe großzügig wählen (z.B. deine Stream-Auflösung), Hintergrund der Quelle ist transparent.'>&#9432;</span></h2>
   <div class="card">
-    <p style="font-size:13px;">In OBS eine neue <b>Browser-Quelle</b> hinzufuegen mit dieser URL:</p>
+    <p style="font-size:13px;">In OBS eine neue <b>Browser-Quelle</b> hinzufügen mit dieser URL:</p>
     <div class="path-box"><code id="overlay-url">http://127.0.0.1:8765/overlay.html</code></div>
-    <p class="hint">Breite/Hoehe grosszuegig waehlen (z.B. deine Stream-Aufloesung), Hintergrund der Quelle ist transparent.</p>
   </div>
 
-  <h2>Uebersichtsmodus</h2>
+  <h2>Übersichtsmodus</h2>
   <div class="card">
-    <p style="font-size:13px;">Grosse, gut lesbare Ansicht aller Werte - nicht fuers Overlay/OBS gedacht, sondern zum selbst Draufschauen waehrend des Castens (z.B. auf einem zweiten Monitor).</p>
-    <button id="open-overview-btn" type="button">Uebersicht in neuem Tab oeffnen</button>
+    <p style="font-size:13px;">Große, gut lesbare Ansicht aller Werte - nicht fürs Overlay/OBS gedacht, sondern zum selbst Draufschauen während des Castens (z.B. auf einem zweiten Monitor).</p>
+    <button id="open-overview-btn" type="button">Übersicht in neuem Tab öffnen</button>
   </div>
 
-  <h2>KI-Personalities (fuer Angriffs-Warnung)</h2>
+  <h2>KI-Personalities (für Angriffs-Warnung)</h2>
   <div class="card dropzone" id="aic-dropzone">
     <div class="row">
       <label>.aic-Datei (z.B. vanilla.json aus deiner Spiel-Installation)</label>
-      <button id="pick-aic-btn">Datei waehlen</button>
+      <button id="pick-aic-btn">Datei wählen</button>
     </div>
-    <div class="path-box" id="aic-path-box">- keine ausgewaehlt -</div>
+    <div class="path-box" id="aic-path-box">- keine ausgewählt -</div>
     <div class="drop-hint">... oder Datei einfach hier reinziehen</div>
   </div>
 
-  <h2>Speicherplaetze</h2>
+  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen (Design, Farben, Zeilen/Breite, Logo, Pro-Spieler-Farben) unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.'>&#9432;</span></h2>
   <div class="card">
     <div id="saved-layouts-list"></div>
-    <p class="hint">Speichert das komplette Aussehen (Design, Farben, Zeilen/Breite, Logo, Pro-Spieler-Farben) unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.</p>
   </div>
 
-  <h2>Anzeige-Vorlagen</h2>
+  <h2>Anzeige-Vorlagen <span class="info-tip" title='Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben ("Design &amp; Anordnung" weiter unten) oder die Häkchen unter "Sonstiges".'>&#9432;</span></h2>
   <div class="card">
     <div class="row" style="flex-wrap:wrap; gap:8px;">
       <button type="button" data-preset="standard">Standard</button>
       <button type="button" data-preset="minimal">Minimal</button>
-      <button type="button" data-preset="militaer">Militaer</button>
+      <button type="button" data-preset="militär">Militär</button>
       <button type="button" data-preset="alles">Alles an</button>
     </div>
-    <p class="hint">Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben (siehe "Design &amp; Anordnung" weiter unten) oder die Haeckchen unter "Sonstiges".</p>
   </div>
 
   <details id="display-section" open>
@@ -334,9 +337,9 @@
     </div>
     <div class="row">
       <label>Bilddatei</label>
-      <button id="pick-logo-btn">Bild waehlen</button>
+      <button id="pick-logo-btn">Bild wählen</button>
     </div>
-    <div class="path-box" id="logo-path-box">- kein Logo ausgewaehlt -</div>
+    <div class="path-box" id="logo-path-box">- kein Logo ausgewählt -</div>
     <div class="drop-hint">... oder Bild einfach hier reinziehen</div>
     <div class="row">
       <label>Ecke</label>
@@ -358,7 +361,7 @@
       <input type="number" id="logo-offset-y-input" min="0" max="400" step="1">
     </div>
     <div class="row">
-      <label>Breite (px, Hoehe passt sich proportional an)</label>
+      <label>Breite (px, Höhe passt sich proportional an)</label>
       <input type="range" id="logo-width-range" min="10" max="500" step="1">
       <input type="number" id="logo-width-input" min="10" max="500" step="1">
     </div>
@@ -367,47 +370,42 @@
   <h2>Erweitert</h2>
   <div class="card">
     <div class="row">
-      <label>Lokaler Port</label>
+      <label>Lokaler Port <span class="info-tip" title='Änderung wird erst nach einem Neustart der App wirksam.'>&#9432;</span></label>
       <input type="number" id="port-input">
     </div>
-    <p class="hint">Aenderung wird erst nach einem Neustart der App wirksam.</p>
     <div class="row">
-      <label>Automatisch beenden nach (Sekunden ohne Einstellungs-Seite UND ohne OBS-Zugriff)</label>
+      <label>Automatisch beenden nach (Sekunden ohne Einstellungs-Seite UND ohne OBS-Zugriff) <span class="info-tip" title='0 = nie automatisch beenden (dann nur noch über "Beenden" im Tray-Symbol unten rechts in der Taskleiste).'>&#9432;</span></label>
       <input type="number" id="idle-shutdown-input" min="0" max="3600" step="5">
     </div>
-    <p class="hint">0 = nie automatisch beenden (dann nur noch ueber "Beenden" im Tray-Symbol unten rechts in der Taskleiste).</p>
   </div>
 
-  <h2>Groesse &amp; Abstaende</h2>
+  <h2>Größe &amp; Abstände</h2>
   <div class="card">
     <div class="row">
-      <label>Werte pro Zeile (teilt die feste Zeilenbreite auf)</label>
+      <label>Werte pro Zeile (teilt die feste Zeilenbreite auf) <span class="info-tip" title='Die Kartenbreite ist IMMER exakt "Breite pro Anzeige (px)" (siehe unten) - das ändert sich nie, egal was du an-/ausschaltest. "Werte pro Zeile" teilt diese feste Breite nur in entsprechend viele gleich große Felder auf: mehr Werte pro Zeile = kleinere Icons/Zahlen, nicht mehr Breite. Werden die Icons dadurch zu klein zum Erkennen, erhöhe stattdessen "Breite pro Anzeige" oder füge eine weitere Zeile hinzu, statt "Werte pro Zeile" zu senken. Passt bei sehr vielen Werten pro Zeile trotzdem nicht mehr alles lesbar rein, wird das bewusst in Kauf genommen (Überlauf), statt die Breite zu verändern.'>&#9432;</span></label>
       <input type="range" id="stats-per-line-range" min="1" max="25" step="1">
       <input type="number" id="stats-per-line-input" min="1" max="25" step="1">
     </div>
     <div class="row">
-      <label>Zeilen (bestimmt die Kartenhoehe)</label>
+      <label>Zeilen (bestimmt die Kartenhöhe)</label>
       <input type="range" id="line-count-range" min="1" max="10" step="1">
       <input type="number" id="line-count-input" min="1" max="10" step="1">
     </div>
-    <p class="hint">Die Kartenbreite ist IMMER exakt "Breite pro Anzeige (px)" (siehe unten) - das aendert sich nie, egal was du an-/ausschaltest. "Werte pro Zeile" teilt diese feste Breite nur in entsprechend viele gleich grosse Felder auf: mehr Werte pro Zeile = kleinere Icons/Zahlen, nicht mehr Breite. Werden die Icons dadurch zu klein zum Erkennen, erhoehe stattdessen "Breite pro Anzeige" oder fuege eine weitere Zeile hinzu, statt "Werte pro Zeile" zu senken. Passt bei sehr vielen Werten pro Zeile trotzdem nicht mehr alles lesbar rein, wird das bewusst in Kauf genommen (Ueberlauf), statt die Breite zu veraendern.</p>
     <div class="row">
-      <label>Breite pro Anzeige (px)</label>
+      <label>Breite pro Anzeige (px) <span class="info-tip" title='Mehr Breite verteilt Icon und Zahl gleichmäßiger - nützlich bei größeren Zahlen oder mehr Platz auf dem Bildschirm.'>&#9432;</span></label>
       <input type="range" id="stat-width-range" min="20" max="2000" step="1">
       <input type="number" id="stat-width-input" min="20" max="2000" step="1">
     </div>
-    <p class="hint">Mehr Breite verteilt Icon und Zahl gleichmaessiger - nuetzlich bei groesseren Zahlen oder mehr Platz auf dem Bildschirm.</p>
     <div class="row">
-      <label>Icon-Groesse (px)</label>
+      <label>Icon-Größe (px)</label>
       <input type="range" id="icon-size-range" min="8" max="40" step="1">
       <input type="number" id="icon-size-input" min="8" max="40" step="1">
     </div>
     <div class="row">
-      <label>Zeilenhoehe (px)</label>
+      <label>Zeilenhöhe (px) <span class="info-tip" title='Unabhängig von der Icon-Größe - z.B. etwas Luft über/unter kleinen Icons, ohne die Icons selbst zu vergrößern. Bleibt ebenfalls immer exakt gleich, egal was an-/ausgeschaltet ist.'>&#9432;</span></label>
       <input type="range" id="line-height-range" min="8" max="60" step="1">
       <input type="number" id="line-height-input" min="8" max="60" step="1">
     </div>
-    <p class="hint">Unabhaengig von der Icon-Groesse - z.B. etwas Luft ueber/unter kleinen Icons, ohne die Icons selbst zu vergroessern. Bleibt ebenfalls immer exakt gleich, egal was an-/ausgeschaltet ist.</p>
     <div class="row">
       <label>Abstand zwischen den Zeilen (px)</label>
       <input type="range" id="row-gap-range" min="0" max="40" step="1">
@@ -424,32 +422,29 @@
       <input type="number" id="right-offset-input" min="0" max="600" step="1">
     </div>
     <div class="row">
-      <label>Abstand unten (px)</label>
+      <label>Abstand unten (px) <span class="info-tip" title='Bezieht sich auf die rechte Stats-Spalte (Abstand zum Bevölkerungs-Buch im Spiel-UI) bzw. den Abstand aller Zeilen zum unteren Bildschirmrand.'>&#9432;</span></label>
       <input type="range" id="bottom-offset-range" min="0" max="300" step="1">
       <input type="number" id="bottom-offset-input" min="0" max="300" step="1">
     </div>
-    <p class="hint">Bezieht sich auf die rechte Stats-Spalte (Abstand zum Bevoelkerungs-Buch im Spiel-UI) bzw. den Abstand aller Zeilen zum unteren Bildschirmrand.</p>
     <div class="row">
-      <label>Verteilung bei freien Zeilen</label>
+      <label>Verteilung bei freien Zeilen <span class="info-tip" title='"Nach Rubrik" sortiert Werte vor der Verteilung nach Kategorie, damit z.B. Rohstoffe immer vor Waffen stehen - ein Wert landet dadurch an einer vorhersagbaren Stelle, egal was du sonst an-/ausschaltest.'>&#9432;</span></label>
       <select id="line-distribution-input">
         <option value="category">Nach Rubrik (Rohstoffe, Nahrung, Waffen, ...)</option>
-        <option value="even">Gleichmaessig (Anzeige-Reihenfolge)</option>
+        <option value="even">Gleichmäßig (Anzeige-Reihenfolge)</option>
       </select>
     </div>
-    <p class="hint">"Nach Rubrik" sortiert Werte vor der Verteilung nach Kategorie, damit z.B. Rohstoffe immer vor Waffen stehen - ein Wert landet dadurch an einer vorhersagbaren Stelle, egal was du sonst an-/ausschaltest.</p>
   </div>
 
   <h2>Design &amp; Anordnung</h2>
   <div class="card">
     <div class="row">
-      <label>Design</label>
+      <label>Design <span class="info-tip" title='Bei SHC Single/Multi bekommen die Rahmen ein Pergament als Hintergrund (ersetzt die Hintergrundfarbe/Bilder unten); Rahmenfarben bleiben weiterhin aktiv.'>&#9432;</span></label>
       <select id="theme-input">
         <option value="rgb">RGB (frei einstellbare Farben)</option>
         <option value="shc_single">SHC Single (ein Pergament je Seite)</option>
         <option value="shc_multi">SHC Multi (Pergament pro Rahmen)</option>
       </select>
     </div>
-    <p class="hint">Bei SHC Single/Multi bekommen die Rahmen ein Pergament als Hintergrund (ersetzt die Hintergrundfarbe/Bilder unten); Rahmenfarben bleiben weiterhin aktiv.</p>
     <div class="row">
       <label>Seiten-Aufteilung</label>
       <select id="side-mode-input">
@@ -460,7 +455,7 @@
       </select>
     </div>
     <div class="row">
-      <label>Rahmenfarbe (Standard fuer alle, siehe unten fuer Ausnahmen pro Spieler)</label>
+      <label>Rahmenfarbe (Standard für alle, siehe unten für Ausnahmen pro Spieler)</label>
       <input type="color" id="border-color-input">
     </div>
     <div class="row">
@@ -468,7 +463,7 @@
       <input type="color" id="text-color-input">
     </div>
     <div class="row">
-      <label>Farbe fuer dein eigenes Feld</label>
+      <label>Farbe für dein eigenes Feld</label>
       <input type="color" id="you-color-input">
     </div>
   </div>
@@ -488,23 +483,21 @@
       <input type="checkbox" id="attack-pulse-input">
     </div>
     <div class="row">
-      <label>Angriffs-Status zusaetzlich als Text-Badge auf dem Rahmen anzeigen</label>
+      <label>Angriffs-Status zusätzlich als Text-Badge auf dem Rahmen anzeigen</label>
       <input type="checkbox" data-key="show_attack_badge">
     </div>
   </div>
 
     <h2>Teams</h2>
     <details class="card" id="team-assignment-details">
-      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Team-Zuordnung pro Spieler ausklappen</summary>
+      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Team-Zuordnung pro Spieler ausklappen <span class="info-tip" title='Keine Live-Erkennung im Spielspeicher möglich (ausführlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam für Overlay und Übersicht.'>&#9432;</span></summary>
       <div id="team-assignment-list" style="margin-top:10px;"></div>
-      <p class="hint">Keine Live-Erkennung im Spielspeicher moeglich (ausfuehrlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam fuer Overlay und Uebersicht.</p>
     </details>
 
     <h2>Individuelle Spieler-Farben</h2>
     <details class="card" id="player-colors-details">
-      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Pro Spieler ausklappen</summary>
+      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Pro Spieler ausklappen <span class="info-tip" title='Leer/zurückgesetzt = übernimmt die globale Rahmenfarbe bzw. die Standard-Zeilenfarbe. Ein Hintergrundbild pro Spieler kannst du hier ebenfalls reinziehen (wird zugeschnitten/gestreckt auf die Zeile gelegt).'>&#9432;</span></summary>
       <div id="player-colors-list" style="margin-top:10px;"></div>
-      <p class="hint">Leer/zurueckgesetzt = uebernimmt die globale Rahmenfarbe bzw. die Standard-Zeilenfarbe. Ein Hintergrundbild pro Spieler kannst du hier ebenfalls reinziehen (wird zugeschnitten/gestreckt auf die Zeile gelegt).</p>
     </details>
 
   </div><!-- /left-col -->
@@ -514,8 +507,8 @@
     <div class="preview-box">
       <img class="preview-bg" id="preview-bg-img" src="/bg/preview.png" alt="">
       <iframe id="preview-frame" src="/overlay.html"></iframe>
-      <div class="preview-overlay" id="preview-overlay" title="Mausrad: Zoom - Ziehen: Verschieben (bei Zoom) - Doppelklick: Zuruecksetzen"></div>
-      <button type="button" class="preview-reset-btn" id="preview-reset-btn" title="Zoom zuruecksetzen">&#128269;</button>
+      <div class="preview-overlay" id="preview-overlay" title="Mausrad: Zoom - Ziehen: Verschieben (bei Zoom) - Doppelklick: Zurücksetzen"></div>
+      <button type="button" class="preview-reset-btn" id="preview-reset-btn" title="Zoom zurücksetzen">&#128269;</button>
     </div>
 
   </div><!-- /right-col -->
@@ -525,9 +518,9 @@
   <script>
     let currentConfig = null;
 
-    // Anzeige-Haeckchen in aufklappbare Kategorien gruppiert (statt einer
+    // Anzeige-Häkchen in aufklappbare Kategorien gruppiert (statt einer
     // langen flachen Liste) - jede Kategorie bekommt eigene "Alle an/aus"-
-    // Knoepfe. Wird per JS aus dieser Liste gebaut, siehe renderDisplayCategories().
+    // Knöpfe. Wird per JS aus dieser Liste gebaut, siehe renderDisplayCategories().
     const DISPLAY_CATEGORIES = [
       {
         name: "Rohstoffe",
@@ -548,31 +541,31 @@
         items: [
           ["show_food_total", "Nahrung gesamt"],
           ["show_bread", "Brot"],
-          ["show_cheese", "Kaese"],
+          ["show_cheese", "Käse"],
           ["show_meat", "Fleisch"],
-          ["show_apples", "Aepfel"],
+          ["show_apples", "Äpfel"],
         ],
       },
       {
-        name: "Waffen & Ruestung",
+        name: "Waffen & Rüstung",
         items: [
-          ["show_bows", "Boegen"],
-          ["show_crossbows", "Armbrueste"],
+          ["show_bows", "Bögen"],
+          ["show_crossbows", "Armbrüste"],
           ["show_spears", "Speere"],
           ["show_pikes", "Piken"],
           ["show_maces", "Keulen"],
           ["show_swords", "Schwerter"],
-          ["show_leather_armor", "Lederruestung"],
-          ["show_metal_armor", "Metallruestung"],
+          ["show_leather_armor", "Lederrüstung"],
+          ["show_metal_armor", "Metallrüstung"],
         ],
       },
       {
-        name: "Militaer",
+        name: "Militär",
         items: [
           ["show_troops_total", "Truppen gesamt"],
-          ["show_troop_breakdown", "Truppen-Aufschluesselung nach Typ (Icons)"],
-          ["show_monks_trained", "Moenche (seit Tool-Start trainiert, kein Live-Bestand)"],
-          ["show_siege_movable", "Belagerungsgeraete gesamt (Sammelwert ganz rechts in der Truppen-Zeile, kein Einzeltyp moeglich)"],
+          ["show_troop_breakdown", "Truppen-Aufschlüsselung nach Typ (Icons)"],
+          ["show_monks_trained", "Mönche (seit Tool-Start trainiert, kein Live-Bestand)"],
+          ["show_siege_movable", "Belagerungsgeräte gesamt (Sammelwert ganz rechts in der Truppen-Zeile, kein Einzeltyp möglich)"],
         ],
       },
       {
@@ -580,16 +573,16 @@
         items: [
           ["show_popularity", "Popularity"],
           ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
-          ["show_population", "Bevoelkerung (aktuell/Kapazitaet)"],
+          ["show_population", "Bevölkerung (aktuell/Kapazität)"],
           ["show_lord_hp", "Burgherr-HP (noch nicht funktional)"],
-          ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel laeuft"],
+          ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel läuft"],
         ],
       },
     ];
 
     // Nur "echte" Anzeige-Werte - keine Verhaltens-Schalter wie Demo-Daten
     // oder die Angriffs-Hervorhebung (die stehen bewusst nicht unter den
-    // Vorlagen-Knoepfen, sondern bleiben manuell in ihren eigenen Karten).
+    // Vorlagen-Knöpfen, sondern bleiben manuell in ihren eigenen Karten).
     const STAT_PRESET_KEYS = DISPLAY_CATEGORIES.flatMap((cat) => cat.items.map(([key]) => key)).filter(
       (key) => key !== "show_demo_data"
     );
@@ -603,7 +596,7 @@
     const DISPLAY_PRESETS = {
       standard: presetFrom(["show_gold", "show_wood", "show_stone", "show_iron", "show_troops_total", "show_popularity"]),
       minimal: presetFrom(["show_gold", "show_troops_total", "show_popularity"]),
-      militaer: presetFrom(["show_troops_total", "show_troop_breakdown", "show_siege_movable"]),
+      militär: presetFrom(["show_troops_total", "show_troop_breakdown", "show_siege_movable"]),
       alles: presetFrom(STAT_PRESET_KEYS),
     };
 
@@ -626,7 +619,7 @@
 
       updateCategoryCounts();
 
-      // preventDefault/stopPropagation, damit ein Klick auf die Knoepfe nicht
+      // preventDefault/stopPropagation, damit ein Klick auf die Knöpfe nicht
       // zugleich die <summary> auf-/zuklappt (natives Verhalten sonst).
       container.querySelectorAll("button[data-cat]").forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -643,7 +636,7 @@
 
     // Zeigt "(x/y)" neben jedem Rubrik-Namen, damit der eingeklappte
     // Zustand ("x an") trotzdem auf einen Blick erkennbar bleibt, statt
-    // extra aufklappen zu muessen - Idee aus der Layout-Review, guenstiger
+    // extra aufklappen zu müssen - Idee aus der Layout-Review, günstiger
     // als ein Dropdown (siehe project_shc_overlay_status.md).
     function updateCategoryCounts() {
       const display = (currentConfig && currentConfig.display) || {};
@@ -674,8 +667,8 @@
       return keysA.every((k) => deepEqual(a[k], b[k]));
     }
 
-    // 5 komplette Speicherplaetze fuers ganze Aussehen (nicht nur die
-    // Anzeige-Haeckchen wie bei den Vorlagen oben) - Design, Farben, Zeilen/
+    // 5 komplette Speicherplätze fürs ganze Aussehen (nicht nur die
+    // Anzeige-Häkchen wie bei den Vorlagen oben) - Design, Farben, Zeilen/
     // Breite, Logo, Pro-Spieler-Farben zusammen.
     function currentLookSnapshot() {
       return {
@@ -694,7 +687,7 @@
           <label>${slot ? escapeHtmlAttr(slot.name) : `Speicherplatz ${i + 1} (leer)`}</label>
           <button type="button" data-load-slot="${i}" ${slot ? "" : "disabled"}>Laden</button>
           <button type="button" data-save-slot="${i}">Speichern</button>
-          ${slot ? `<button type="button" data-clear-slot="${i}">Loeschen</button>` : ""}
+          ${slot ? `<button type="button" data-clear-slot="${i}">Löschen</button>` : ""}
         </div>
       `).join("");
 
@@ -714,7 +707,7 @@
         btn.addEventListener("click", () => {
           const i = parseInt(btn.dataset.saveSlot, 10);
           const existing = currentConfig.saved_layouts[i];
-          const name = prompt("Name fuer diesen Speicherplatz:", existing ? existing.name : `Setup ${i + 1}`);
+          const name = prompt("Name für diesen Speicherplatz:", existing ? existing.name : `Setup ${i + 1}`);
           if (!name) return;
           const slots = currentConfig.saved_layouts.slice();
           slots[i] = { name, ...currentLookSnapshot() };
@@ -738,8 +731,8 @@
     }
 
     // Markiert, welcher Knopf gerade dem aktuellen Zustand entspricht (sieht
-    // wie hineingedrueckt aus) - bei Anzeige-Vorlagen, den "Alle an/aus"-
-    // Knoepfen je Kategorie, und geladenen Speicherplaetzen.
+    // wie hineingedrückt aus) - bei Anzeige-Vorlagen, den "Alle an/aus"-
+    // Knöpfen je Kategorie, und geladenen Speicherplätzen.
     function updateActiveHighlights() {
       document.querySelectorAll("button[data-preset]").forEach((btn) => {
         const preset = DISPLAY_PRESETS[btn.dataset.preset];
@@ -790,8 +783,8 @@
         el.checked = !!cfg.display[el.dataset.key];
       });
       updateCategoryCounts();
-      document.getElementById("aic-path-box").textContent = cfg.aic_file_path || "- keine ausgewaehlt -";
-      document.getElementById("logo-path-box").textContent = cfg.display.logo_path || "- kein Logo ausgewaehlt -";
+      document.getElementById("aic-path-box").textContent = cfg.aic_file_path || "- keine ausgewählt -";
+      document.getElementById("logo-path-box").textContent = cfg.display.logo_path || "- kein Logo ausgewählt -";
       document.getElementById("port-input").value = cfg.http_port;
       document.getElementById("overlay-url").textContent = `http://127.0.0.1:${cfg.http_port}/overlay.html`;
       document.getElementById("left-offset-input").value = cfg.layout.left_offset_px;
@@ -823,9 +816,9 @@
       syncRangesFromNumbers();
     }
 
-    // Jedes [Schieberegler, Zahlenfeld]-Paar fuer Groessen-/Abstands-Werte.
-    // Der Schieberegler ist rein visuell/bequem - das Speichern uebernimmt
-    // weiterhin das jeweilige Zahlenfeld ueber seine bestehenden Listener.
+    // Jedes [Schieberegler, Zahlenfeld]-Paar für Größen-/Abstands-Werte.
+    // Der Schieberegler ist rein visuell/bequem - das Speichern übernimmt
+    // weiterhin das jeweilige Zahlenfeld über seine bestehenden Listener.
     const SLIDER_PAIRS = [
       ["left-offset-range", "left-offset-input"],
       ["right-offset-range", "right-offset-input"],
@@ -916,8 +909,8 @@
           <input type="color" data-slot="${i}" data-field="border_color" value="${pc.border_color || defaultBorder}">
           <span style="font-size:11px; color:#a89478;">Hintergrund</span>
           <input type="color" data-slot="${i}" data-field="bg_color" value="${pc.bg_color || "#241a10"}">
-          <button type="button" data-clear-slot="${i}">Zuruecksetzen</button>
-          <div class="dropzone" data-slot-drop="${i}" style="flex-basis:100%; font-size:11px; padding:6px; text-align:center; border:1px dashed #574;">Hintergrundbild fuer diesen Slot hier reinziehen</div>
+          <button type="button" data-clear-slot="${i}">Zurücksetzen</button>
+          <div class="dropzone" data-slot-drop="${i}" style="flex-basis:100%; font-size:11px; padding:6px; text-align:center; border:1px dashed #574;">Hintergrundbild für diesen Slot hier reinziehen</div>
         `;
         list.appendChild(row);
       }
@@ -1144,15 +1137,15 @@
     setupDropzone("logo-dropzone", "/api/upload-logo", () => loadConfig());
 
     // Skaliert die eingebettete overlay.html (die intern feste 1920x1080-
-    // Pixelwerte annimmt) passend zur tatsaechlichen, ggf. variablen Breite
-    // der Vorschau-Box - reagiert auch auf Groessenaenderungen (z.B. wenn
+    // Pixelwerte annimmt) passend zur tatsächlichen, ggf. variablen Breite
+    // der Vorschau-Box - reagiert auch auf Größenänderungen (z.B. wenn
     // diese Seite in einem schmaleren/breiteren Panel eingebettet wird,
-    // etwa im Uebersichtsmodus).
+    // etwa im Übersichtsmodus).
     // Vorschau: Basis-Skalierung passt die virtuelle 1920x1080-Leinwand
-    // immer in den verfuegbaren Kasten ein (wie bisher); zusaetzlich kann
+    // immer in den verfügbaren Kasten ein (wie bisher); zusätzlich kann
     // per Mausrad hineingezoomt und dann per Ziehen verschoben werden, um
-    // Rahmen/Abstaende genauer einstellen zu koennen. Zoom-Faktor 1 =
-    // exakt eingepasst (Ausgangszustand), > 1 = zusaetzlich hineingezoomt.
+    // Rahmen/Abstände genauer einstellen zu können. Zoom-Faktor 1 =
+    // exakt eingepasst (Ausgangszustand), > 1 = zusätzlich hineingezoomt.
     function setupResponsivePreview() {
       const box = document.querySelector(".preview-box");
       const frame = document.getElementById("preview-frame");

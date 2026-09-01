@@ -1,12 +1,12 @@
 """Lokaler HTTP-Server (nur 127.0.0.1 - loopback, damit nie eine Windows-
-Firewall-Abfrage ausgeloest wird) fuer die Einstellungs-Seite, das
+Firewall-Abfrage ausgelöst wird) für die Einstellungs-Seite, das
 OBS-Overlay und die kleine JSON-API dazwischen.
 
-Enthaelt zusaetzlich den Idle-Shutdown-Watchdog: die App soll sich beenden,
+Enthält zusätzlich den Idle-Shutdown-Watchdog: die App soll sich beenden,
 sobald WEDER die Einstellungs-Seite NOCH OBS (das laufend /overlay.json
 abruft) noch aktiv ist - damit ein versehentlich geschlossener
 Einstellungs-Tab niemals ein laufendes Overlay mitten im Stream absterben
-laesst.
+lässt.
 """
 
 import json
@@ -27,13 +27,13 @@ DEFAULT_IDLE_GRACE_PERIOD_S = 60
 
 class AppContext:
     """Gemeinsamer Zustand, den Handler-Instanzen (die der HTTPServer pro
-    Anfrage neu erzeugt) ueber Klassenattribute erreichen koennen."""
+    Anfrage neu erzeugt) über Klassenattribute erreichen können."""
 
     def __init__(self, config: dict, worker, state, tray_ref_holder):
         self.config = config
         self.worker = worker
         self.state = state
-        self.tray_ref_holder = tray_ref_holder  # dict mit "tray" Key, spaeter befuellt
+        self.tray_ref_holder = tray_ref_holder  # dict mit "tray" Key, später befüllt
         self.last_settings_heartbeat = time.time()
         self.last_overlay_poll = time.time()
         self._lock = threading.Lock()
@@ -67,7 +67,7 @@ def _idle_watchdog(ctx: AppContext):
         time.sleep(IDLE_CHECK_INTERVAL_S)
         grace_period = ctx.config.get("idle_shutdown_seconds", DEFAULT_IDLE_GRACE_PERIOD_S)
         if grace_period <= 0:
-            continue  # 0 = Auto-Beenden deaktiviert, nur noch ueber Tray-Menue
+            continue  # 0 = Auto-Beenden deaktiviert, nur noch über Tray-Menü
         if ctx.idle_seconds() >= grace_period:
             ctx.request_shutdown()
             return
@@ -78,7 +78,7 @@ ICON_MIME = "image/png"
 
 def make_handler(ctx: AppContext):
     class Handler(BaseHTTPRequestHandler):
-        # BaseHTTPRequestHandler druckt Zugriffe standardmaessig auf stderr -
+        # BaseHTTPRequestHandler druckt Zugriffe standardmäßig auf stderr -
         # im fensterlosen Build gibt es davon niemanden, der es sieht, und es
         # kostet nur Leistung. Abschalten.
         def log_message(self, fmt, *args):
@@ -126,7 +126,7 @@ def make_handler(ctx: AppContext):
 
         def _query_slot(self):
             """Liest ?slot=N aus der Anfrage, validiert 0-7. Gibt None bei
-            fehlendem/ungueltigem Wert zurueck."""
+            fehlendem/ungültigem Wert zurück."""
             qs = parse_qs(urlsplit(self.path).query)
             try:
                 slot = int(qs.get("slot", [""])[0])
@@ -205,7 +205,7 @@ def make_handler(ctx: AppContext):
                 self._send_json(ctx.config)
             elif path == "/api/overview-config":
                 patch = self._read_json_body()
-                # team_assignment ist TOP-LEVEL geteilt (Overlay + Uebersicht
+                # team_assignment ist TOP-LEVEL geteilt (Overlay + Übersicht
                 # nutzen dieselbe Zuordnung, kein "overview"-Duplikat) -
                 # deshalb hier rausgezogen und separat gemerged statt unter
                 # "overview" verschachtelt zu werden.
@@ -236,8 +236,8 @@ def make_handler(ctx: AppContext):
                         saved_path = None
                 self._send_json({"path": saved_path})
             elif path == "/api/upload-aic":
-                # Fuer Drag&Drop: der Browser gibt bei Dateien keinen echten
-                # Dateisystempfad heraus (Sicherheitsbeschraenkung), also wird
+                # Für Drag&Drop: der Browser gibt bei Dateien keinen echten
+                # Dateisystempfad heraus (Sicherheitsbeschränkung), also wird
                 # hier stattdessen der Dateiinhalt hochgeladen und lokal
                 # gespeichert - die App nutzt danach diesen gespeicherten Pfad.
                 raw = self._read_raw_body()

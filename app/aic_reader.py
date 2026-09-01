@@ -1,9 +1,9 @@
 """
 Stronghold Crusader - AIC/Personality-Reader (Angriffs-Schwellwerte)
 ======================================================================
-Portierte Version von shc_aic_reader.py fuer die App. Funktional
-unveraendert - DEFAULT_AIC_FILE ist hier nur noch Dokumentation/Fallback
-fuer den CLI-Gebrauch; die App selbst liest den Pfad immer aus der
+Portierte Version von shc_aic_reader.py für die App. Funktional
+unverändert - DEFAULT_AIC_FILE ist hier nur noch Dokumentation/Fallback
+für den CLI-Gebrauch; die App selbst liest den Pfad immer aus der
 gespeicherten Konfiguration (config.py), nie aus dieser Konstante.
 """
 
@@ -19,7 +19,7 @@ DEFAULT_AIC_FILE = (
 
 # Eingebaute (deutsche) Standard-Anzeigenamen der Basis-Archetypen, wie sie
 # LIVE im Speicher stehen - NICHT identisch mit dem "Name"-Feld in der
-# .aic-Datei ("Wolf" vs. "Wolf, Herzog Volpe"). Nur bestaetigt fuer die
+# .aic-Datei ("Wolf" vs. "Wolf, Herzog Volpe"). Nur bestätigt für die
 # deutsche Sprachversion.
 DEFAULT_DISPLAY_NAMES = {
     "Rat":       "Ratte, Herzog de Puce",
@@ -56,14 +56,14 @@ ATTACK_FIELDS = [
 
 
 def load_aic(path):
-    """Laedt eine .aic-JSON-Datei. strict=False, weil die Beschreibungsfelder
-    echte Zeilenumbrueche in Strings enthalten (kein gueltiges Standard-JSON)."""
+    """Lädt eine .aic-JSON-Datei. strict=False, weil die Beschreibungsfelder
+    echte Zeilenumbrüche in Strings enthalten (kein gültiges Standard-JSON)."""
     with open(path, encoding="utf-8-sig") as f:
         return json.load(f, strict=False)
 
 
 def extract_lords(data):
-    """Gibt eine Liste von (name, custom_name, personality_dict) zurueck."""
+    """Gibt eine Liste von (name, custom_name, personality_dict) zurück."""
     result = []
     for char in data.get("AICharacters", []):
         name = char.get("Name", "?")
@@ -83,8 +83,8 @@ def find_personality(data, identifier):
 
 
 def resolve_personality(data, live_name):
-    """Wie find_personality(), faellt aber zusaetzlich auf die eingebauten
-    Standard-Anzeigenamen zurueck, falls der Live-Name nicht direkt als
+    """Wie find_personality(), fällt aber zusätzlich auf die eingebauten
+    Standard-Anzeigenamen zurück, falls der Live-Name nicht direkt als
     Name/CustomName in der .aic-Datei steht (typisch bei Vanilla-Lords)."""
     found = find_personality(data, live_name)
     if found is not None:
@@ -121,9 +121,9 @@ def describe(name, custom_name, summary):
     if any(p is not None for p in probs):
         lines.append(f"  Chance auf Angriffsarmee (Normal/Schwach/Stark): {probs[0]}/{probs[1]}/{probs[2]}")
     if max_army is not None:
-        lines.append(f"  Max. Armeegroesse: {max_army}")
+        lines.append(f"  Max. Armeegröße: {max_army}")
     if target is not None:
-        lines.append(f"  Angriffsziel-Praeferenz: {target}")
+        lines.append(f"  Angriffsziel-Präferenz: {target}")
     return "\n".join(lines)
 
 
