@@ -9,7 +9,7 @@ You are a skeptical-but-creative reviewer for the SHC Live Stats project's Cheat
 
 ## Context you must ground yourself in
 
-Read `app/reader.py` (existing confirmed offsets: `PLAYER_STRIDE`, `POPULARITY_OFFSET`, etc.), the `research/` folder (old scan scripts and their output snapshots), and the project's memory file `project_shc_overlay_status.md` (ask the main session for its contents if you can't reach it directly) before opining. Two documented failures anchor why this role exists:
+Read `app/reader.py` (existing confirmed offsets: `PLAYER_STRIDE`, `POPULARITY_OFFSET`, etc.), the `research/` folder (old scan scripts and their output snapshots), and `research/shc_overlay_status.md` (consolidated status: confirmed offsets, dead ends, open questions — committed to the repo, not machine-local memory) before opining. Two documented failures anchor why this role exists:
 
 1. **Team detection**: a correlation scan found an offset that matched perfectly in a 2-team test, then broke completely under a 3+3+2 uneven-team test. A single "it matches" test was not enough.
 2. **Lord HP**: `LORD_HP_BASE=0x1388DA4, STRIDE=0x490` produced a perfectly monotonic 8-slot pattern in an isolated sandbox test (sequential, uncontested hits on separate lords) — including correctly predicting an untested slot's value. It was implemented and shipped, then failed in a real match where all 4 players showed the *identical* raw value. Root cause: it was reading a shared event-log ring buffer (also used for Monk training events), not a per-player array. The sandbox pattern was a coincidence of isolated, sequential, uncontested hits landing in slot order.

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>SHC Win-Bar</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    font-family: "Segoe UI", Trebuchet MS, Arial, sans-serif;
+    color: #f2e9d8;
+    overflow: hidden;
+  }
+
+  /* Dieselbe dunkle Karten-Hintergrundfarbe wie .player-row in overlay.html
+     - dort NICHT als gemeinsame CSS-Datei geteilt (dieses Projekt hat keinen
+     Build-Schritt/Modul-Mechanismus, siehe restliche Duplizierung zwischen
+     den HTML-Dateien), deshalb hier als eigene Variable dupliziert. Bei
+     Änderung an einer Stelle auch hier nachziehen. */
+  :root {
+    --panel-bg: #241a10;
+    --border-color: #c6a15b;
+  }
+
+  /* "segmented": EIN Balken, pro Seite ein Segment proportional zu ihrem
+     Stärke-Anteil (Summe = 100%, siehe strength_score.compute_side_summary).
+     flex-grow direkt aus share_percent - wächst/schrumpft automatisch mit
+     der Seitenzahl, keine Sonderbehandlung für 2 vs. mehr Seiten nötig.
+     EIN gemeinsamer Rahmen (Standardfarbe) um den GESAMTEN Balken - die
+     Segmente darin liegen ohne Lücke/eigenen Rahmen aneinander und gehen
+     fließend ineinander über (nur die Füllfarbe unterscheidet sie).
+     overflow:hidden verhindert, dass äußere Segmente über die abgerundeten
+     Ecken des Rahmens hinausragen. */
+  #bar-segmented {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    background: var(--panel-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    white-space: nowrap;
+    font-weight: bold;
+    font-size: 14px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+    transition: flex-grow 0.4s ease;
+  }
+
+  /* "individual": pro Seite eine eigene, unabhängig 0-100% gefüllte Leiste
+     (dieselbe "gegen den Rest"-Wahrscheinlichkeit wie im Spieler-Rahmen). */
+  /* EIN gemeinsamer Rahmen (Standard-Rahmenfarbe) um den GESAMTEN Balken -
+     die einzelnen Zeilen darin sind reine Füllung ohne eigenen Rahmen
+     (siehe .individual-row), damit es wie EIN Balken wirkt statt wie
+     mehrere aneinandergereihte, einzeln umrandete Kästchen. */
+  #bar-individual {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    gap: 4px;
+    background: var(--panel-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+    box-sizing: border-box;
+    padding: 4px 8px;
+  }
+  .individual-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .individual-label {
+    flex: 0 0 auto;
+    min-width: 70px;
+    font-size: 13px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .individual-track {
+    position: relative;
+    flex: 1 1 auto;
+    height: 60%;
+    min-height: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .individual-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transition: width 0.4s ease;
+  }
+  .individual-percent {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    font-weight: bold;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  }
+</style>
+</head>
+<body>
+  <div id="bar-segmented" style="display:none;"></div>
+  <div id="bar-individual" style="display:none;"></div>
+
+  <script>
+    const DATA_URL = "/overlay.json";
+    const CONFIG_URL = "/overlay-config.json";
+    const POLL_MS = 500;
+    const CONFIG_POLL_MS = 200;
+
+    // Feste Ausweich-Palette, falls für den repräsentativen Spieler-Slot
+    // einer Seite keine individuelle Farbe (player_colors) gesetzt ist -
+    // nach Slot-Nummer indiziert (nicht nach Array-Position), damit eine
+    // Seite ihre Farbe nicht wechselt, nur weil sich die Sortierreihenfolge
+    // (Stärke-Ranking bei FFA) zwischen zwei Ticks ändert.
+    const FALLBACK_PALETTE = [
+      "#4f8fef", "#e6463c", "#3ecf6e", "#e6b93e",
+      "#b56ce6", "#3ecfc9", "#e68f3e", "#8f8f8f",
+    ];
+
+    const DEMO_SIDES = [
+      { key: "team:1", label: "Team 1", representative_slot: 0, team_number: 1, share_percent: 63, win_probability_percent: 71 },
+      { key: "team:2", label: "Team 2", representative_slot: 2, team_number: 2, share_percent: 37, win_probability_percent: 29 },
+    ];
+
+    let cfg = { player_colors: {}, team_colors: {}, win_bar: { mode: "segmented" } };
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s == null ? "" : s;
+      return div.innerHTML;
+    }
+
+    function colorForSide(side) {
+      if (side.team_number !== null && side.team_number !== undefined) {
+        const teamColor = (cfg.team_colors || {})[String(side.team_number)];
+        if (teamColor) return teamColor;
+      }
+      const pc = (cfg.player_colors || {})[String(side.representative_slot)];
+      if (pc && pc.border_color) return pc.border_color;
+      return FALLBACK_PALETTE[side.representative_slot % FALLBACK_PALETTE.length];
+    }
+
+    function renderSegmented(sides) {
+      const box = document.getElementById("bar-segmented");
+      box.innerHTML = sides.map((s) => `
+        <div class="segment" style="flex-grow:${Math.max(s.share_percent, 0.001)};background:${colorForSide(s)}">
+          ${escapeHtml(s.label)} &middot; ${s.share_percent.toFixed(0)}%
+        </div>
+      `).join("");
+    }
+
+    function renderIndividual(sides) {
+      const box = document.getElementById("bar-individual");
+      box.innerHTML = sides.map((s) => `
+        <div class="individual-row">
+          <div class="individual-label">${escapeHtml(s.label)}</div>
+          <div class="individual-track">
+            <div class="individual-fill" style="width:${s.win_probability_percent}%;background:${colorForSide(s)}"></div>
+            <div class="individual-percent">${s.win_probability_percent}%</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function applyOpacity(winBar) {
+      const pct = (winBar || {}).opacity_percent;
+      document.body.style.opacity = (pct === undefined || pct === null) ? 1 : pct / 100;
+    }
+
+    function applyBorderColor(layout) {
+      document.documentElement.style.setProperty("--border-color", (layout || {}).border_color || "#c6a15b");
+    }
+
+    function render(data) {
+      // Kein eigener "Demo-Daten"-Schalter wie bei overlay.html/overview.html
+      // - diese Seite ist eine optionale, zusätzliche OBS-Quelle, die man
+      // sich bewusst einrichtet; ohne Live-Daten direkt Demo-Werte zu zeigen
+      // hilft beim Einrichten/Stylen, ohne extra ein Match starten zu müssen.
+      let sides = (data && data.sides) || [];
+      if (sides.length === 0) sides = DEMO_SIDES;
+
+      const mode = (cfg.win_bar || {}).mode || "segmented";
+      const segBox = document.getElementById("bar-segmented");
+      const indBox = document.getElementById("bar-individual");
+
+      if (mode === "individual") {
+        segBox.style.display = "none";
+        indBox.style.display = "flex";
+        renderIndividual(sides);
+      } else {
+        indBox.style.display = "none";
+        segBox.style.display = "flex";
+        renderSegmented(sides);
+      }
+    }
+
+    async function pollData() {
+      try {
+        const res = await fetch(DATA_URL + "?t=" + Date.now(), { cache: "no-store" });
+        const data = await res.json();
+        render(data);
+      } catch (e) {
+        // Server noch nicht erreichbar - stiller Retry
+      }
+    }
+
+    async function pollConfig() {
+      try {
+        const res = await fetch(CONFIG_URL + "?t=" + Date.now(), { cache: "no-store" });
+        cfg = await res.json();
+        applyOpacity(cfg.win_bar);
+        applyBorderColor(cfg.layout);
+      } catch (e) {
+        // stiller Retry
+      }
+    }
+
+    pollConfig().then(pollData);
+    setInterval(pollData, POLL_MS);
+    setInterval(pollConfig, CONFIG_POLL_MS);
+  </script>
+</body>
+</html>

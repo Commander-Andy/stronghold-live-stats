@@ -27,7 +27,7 @@ _STAT_DISPLAY_FLAGS = [
     "show_bows", "show_crossbows", "show_spears", "show_pikes", "show_maces", "show_swords",
     "show_leather_armor", "show_metal_armor",
     "show_popularity", "show_population", "show_tax_rate", "show_monks_trained",
-    "show_lord_hp",
+    "show_lord_hp", "show_win_probability",
 ]
 
 DEFAULT_CONFIG = {
@@ -73,6 +73,10 @@ DEFAULT_CONFIG = {
         # Trugschluss, siehe project_shc_overlay_status.md) - braucht noch
         # dieselbe Ereignis-Zähler-Technik wie show_monks_trained.
         "show_lord_hp": False,
+        # EXPERIMENTELL (Stand 2026-09-02) - heuristische Gewinnwahrschein-
+        # lichkeit aus Truppen/Wirtschaft/Trend, siehe strength_score.py.
+        # Fast alle Gewichte darin sind Platzhalter ohne echte Kalibrierung.
+        "show_win_probability": False,
         "highlight_attack_status": True,
         # Zeigt den Angriffs-Status ("baut auf" etc.) zusätzlich als
         # Text-Badge mittig über der Spielerzeile - aus, da das im OBS-
@@ -185,6 +189,37 @@ DEFAULT_CONFIG = {
         "offset_x_px": 6,
         "offset_y_px": 6,
         "width_px": 90,
+        "opacity_percent": 100,
+    },
+    # Gewinnwahrscheinlichkeits-Balken - EXPERIMENTELL, siehe strength_score.py.
+    # "mode": "segmented" = EIN Balken, pro Seite ein Segment proportional
+    # zum Stärke-Anteil (Summe = 100%, bei genau 2 Seiten ein klassischer
+    # geteilter Balken, wächst/schrumpft automatisch mit der Seitenzahl).
+    # "individual" = pro Seite ein eigener, unabhängig von 0-100% gefüllter
+    # Balken (dieselbe "gegen den Rest"-Wahrscheinlichkeit wie im Spieler-
+    # Rahmen). Gilt für BEIDE Darstellungsformen gemeinsam:
+    # "show_in_overlay" = direkt in overlay.html eingebaut (mittig oben,
+    # Größe/Position/Transparenz über die restlichen Felder hier steuerbar)
+    # UND/ODER als eigene, frei positionierbare OBS-Quelle (win_bar.html,
+    # kein eigener Schalter nötig - wie bei overlay.html/overview.html
+    # entscheidet die OBS-Quelle selbst, ob das sichtbar wird; win_bar.html
+    # ignoriert width_px/height_px/offset_y_px, da die eigene OBS-Quelle
+    # dafür schon Größe/Position vorgibt, nutzt aber opacity_percent mit).
+    "win_bar": {
+        "mode": "segmented",
+        "show_in_overlay": False,
+        "width_px": 400,
+        "height_px": 26,
+        "offset_y_px": 6,
+        "opacity_percent": 100,
+        # Wie show_in_overlay, aber für den Übersichtsmodus (overview.html) -
+        # eigener Schalter, da unabhängig ein-/ausschaltbar; "mode"/Farben
+        # etc. bleiben GEMEINSAM mit dem Overlay-Balken (kein Sinn, dieselbe
+        # Berechnung pro Anzeige-Oberfläche unterschiedlich einzufärben).
+        # Übersicht hat kein Positions-/Größen-Konzept (keine OBS-Quelle,
+        # kein Crop) - width_px/height_px/offset_y_px gelten dort nicht,
+        # der Balken sitzt einfach oben in normalem Seitenfluss.
+        "show_in_overview": False,
     },
     # Individuelle Rahmen-/Hintergrundfarbe pro Spieler-Slot (0=Spieler 1..7=Spieler 8).
     # null = übernimmt die globale Standardfarbe (layout.border_color bzw.
@@ -203,6 +238,13 @@ DEFAULT_CONFIG = {
     # side_mode (layout.side_mode / overview.side_mode) sortiert dann anhand
     # dessen links (eigenes Team, inkl. Slot 0) vs. rechts (alle anderen).
     "team_assignment": {str(i): None for i in range(8)},
+    # Explizite Team-Farbe (überschreibt die Ausweich-Logik im Gewinn-
+    # wahrscheinlichkeits-Balken: sonst individuelle Spieler-Farbe des
+    # ranghöchsten Spielers dieser Team-Nummer, sonst feste Palette nach
+    # Slot-Nummer, siehe win_bar.html/overlay.html colorForSide()). Team-
+    # Nummern sind 1-8 (wie im Team-Zuordnung-Feld), null = keine
+    # Override-Farbe für diese Nummer gesetzt.
+    "team_colors": {str(i): None for i in range(1, 9)},
     # 5 Speicherplätze für komplette, selbst benannte Anzeige-Setups (nicht
     # nur welche Werte, sondern das volle Aussehen: Design, Farben, Zeilen/
     # Breite, Logo, Pro-Spieler-Farben). null = Platz noch leer. Jeder Platz
@@ -229,6 +271,7 @@ DEFAULT_CONFIG = {
         "show_tax_rate": False,
         "show_monks_trained": False,
         "show_lord_hp": False,
+        "show_win_probability": False,
         "highlight_attack_status": True,
         "show_demo_data": True,
         "show_food_total": False,

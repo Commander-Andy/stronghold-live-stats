@@ -11,6 +11,7 @@ gepackte (fensterlose) Build nicht ins Leere druckt.
 """
 
 import json
+import re
 import time
 
 import pymem
@@ -133,18 +134,27 @@ LORD_STRENGTH_MULTIPLIER = {
 }
 
 
-def get_lord_max_hp(display_name):
+def get_lord_strength_multiplier(display_name):
     """Sucht im (Roster-)Anzeigenamen nach einem bekannten KI-Charakter-
-    Namen und gibt LORD_BASE_HP * dessen Stärke-Multiplikator zurück.
-    Kein Treffer (z.B. menschlicher Spieler mit eigenem Namen) -> Standard-
-    Multiplikator 1.0."""
+    Namen als eigenständigem Wort (Wortgrenzen-Match, kein roher Teilstring
+    - sonst würden z.B. menschliche Spieler namens "Wolfgang" oder "Murat"
+    fälschlich als Wolf/Ratte erkannt) und gibt dessen Stärke-Multiplikator
+    zurück. Kein Treffer (z.B. menschlicher Spieler mit eigenem Namen) ->
+    Standard-Multiplikator 1.0. Einzige Quelle dieser Matching-Logik - auch
+    von strength_score.py genutzt, um den Substring-Bug nicht an einer
+    zweiten Stelle zu wiederholen."""
     if not display_name:
-        return LORD_BASE_HP
+        return 1.0
     lower = display_name.lower()
     for name, multiplier in LORD_STRENGTH_MULTIPLIER.items():
-        if name in lower:
-            return int(LORD_BASE_HP * multiplier)
-    return LORD_BASE_HP
+        if re.search(rf"\b{re.escape(name)}\b", lower):
+            return multiplier
+    return 1.0
+
+
+def get_lord_max_hp(display_name):
+    """LORD_BASE_HP skaliert mit get_lord_strength_multiplier()."""
+    return int(LORD_BASE_HP * get_lord_strength_multiplier(display_name))
 
 
 # Team-/Bündnis-Zugehörigkeit: KEIN Live-Feld gefunden (Stand 2026-09-01),
@@ -312,14 +322,25 @@ _last_event_counter = None
 _monk_counts_by_player_num = {}
 
 
+def reset_monk_tracking():
+    """Setzt die Mönch-Zählung komplett zurück (neue Baseline beim nächsten
+    poll_monk_events-Aufruf, alle bisherigen Pro-Spieler-Zählungen verworfen).
+    Muss bei jedem frischen Verbinden mit dem Spielprozess aufgerufen werden
+    (siehe worker.py::_ensure_connected) - sonst überleben die Zählungen
+    einen Prozess-Neustart und zeigen falsche Alt-Werte."""
+    global _last_event_counter
+    _last_event_counter = None
+    _monk_counts_by_player_num.clear()
+
+
 def poll_monk_events(pm):
     """Muss bei JEDEM Poll-Tick aufgerufen werden (nicht nur bei Bedarf!),
     damit keine Ringpuffer-Einträge verloren gehen. Zählt neue Mönche
     (Typ-ID 101) seit dem letzten Aufruf pro Spielernummer (1-8) mit.
-    Der erste Aufruf nach Tool-Start setzt nur die Baseline (die
-    Vergangenheit im Ringpuffer könnte längst überschriebene, nicht mehr
-    gültige Einträge enthalten - deshalb wird ab Tool-Start gezählt,
-    nicht rückwirkend)."""
+    Der erste Aufruf nach Tool-Start (oder nach reset_monk_tracking()) setzt
+    nur die Baseline (die Vergangenheit im Ringpuffer könnte längst
+    überschriebene, nicht mehr gültige Einträge enthalten - deshalb wird ab
+    Tool-Start gezählt, nicht rückwirkend)."""
     global _last_event_counter
     try:
         counter = pm.read_int(EVENT_COUNTER_ADDR)
@@ -330,6 +351,21 @@ def poll_monk_events(pm):
         _last_event_counter = counter
         return
     if counter == _last_event_counter:
+        return
+    if counter < _last_event_counter:
+        # Zähler ist gesunken - Annahme: die Ereignis-Tabelle wurde
+        # zurückgesetzt (z.B. neues Match im selben, weiterlaufenden
+        # Spielprozess gestartet), alte Pro-Spieler-Zählung ist damit
+        # ungültig geworden.
+        # UNVERIFIZIERT (Stand 2026-09-02, kein Live-Spiel zum Testen
+        # verfügbar): ob EVENT_COUNTER_ADDR bei einem Match-Neustart im
+        # selben Prozess tatsächlich sinkt, ist nicht bestätigt. Zählt er
+        # stattdessen über Match-Grenzen hinweg einfach weiter hoch, greift
+        # dieser Zweig nie - dann bleibt der ursprüngliche Bug (alte
+        # Mönch-Zahlen überleben einen Match-Neustart in derselben Session)
+        # bestehen und bräuchte ein anderes Signal (z.B. game-state-Events).
+        _monk_counts_by_player_num.clear()
+        _last_event_counter = counter
         return
 
     # WICHTIG: der Zähler zeigt immer den NÄCHSTEN NOCH LEEREN Slot (noch

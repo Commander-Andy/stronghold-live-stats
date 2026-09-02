@@ -29,6 +29,15 @@
     --you-color: #78c8ff;
     --attack-color: #e6463c;
     --text-color: #f2e9d8;
+    --logo-opacity: 1;
+    /* Dieselbe dunkle Karten-Hintergrundfarbe wie .player-row (dort als
+       --row-bg, hier zentral für Wiederverwendung in den Win-Bar-Panels -
+       siehe .segment/.individual-row unten). */
+    --panel-bg: #241a10;
+    --win-bar-width: 400px;
+    --win-bar-height: 26px;
+    --win-bar-offset-y: 6px;
+    --win-bar-opacity: 1;
   }
 
   @keyframes attack-pulse {
@@ -84,6 +93,7 @@
   #logo {
     position: fixed;
     display: none;
+    opacity: var(--logo-opacity);
   }
 
   #logo img {
@@ -93,8 +103,112 @@
     object-fit: contain;
   }
 
+  /* Gewinnwahrscheinlichkeits-Balken, direkt im Overlay eingebaut (siehe
+     applyWinBar()) - mittig oben, Größe/Abstand/Transparenz über
+     config.win_bar steuerbar. Kein Teil des Spieler-Karten-Größenmodells
+     (siehe .player-row) - eigenständiges Element wie #logo, keine feste
+     Größen-Invariante nötig, da es kein Karten-Inhalt ist. */
+  #win-bar {
+    position: fixed;
+    top: var(--win-bar-offset-y);
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--win-bar-width);
+    height: var(--win-bar-height);
+    opacity: var(--win-bar-opacity);
+    display: none;
+  }
+
+  /* EIN gemeinsamer Rahmen (Standard-Rahmenfarbe, wie bei .player-row ohne
+     individuelle Farbe) um den GESAMTEN Balken - die Segmente darin liegen
+     ohne Lücke/eigenen Rahmen direkt aneinander und gehen fließend
+     ineinander über (nur die Füllfarbe unterscheidet sie). "overflow:hidden"
+     sorgt dafür, dass die äußeren Segmente an den abgerundeten Ecken des
+     Rahmens nicht überstehen. */
+  #win-bar-segmented {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    background: var(--panel-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  #win-bar .segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    white-space: nowrap;
+    font-weight: bold;
+    font-size: 13px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+    transition: flex-grow 0.4s ease;
+  }
+
+  /* EIN gemeinsamer Rahmen (Standard-Rahmenfarbe, wie ein Spieler ohne
+     individuelle Farbe) um den GESAMTEN Balken - die einzelnen Zeilen
+     darin sind reine Füllung ohne eigenen Rahmen (siehe .individual-row).
+     Vorher hatte JEDE Zeile ihren eigenen farbigen Rahmen, was zwischen
+     den Zeilen unruhig/zerstückelt wirkte statt wie EIN Balken. */
+  #win-bar-individual {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    gap: 3px;
+    background: var(--panel-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+    box-sizing: border-box;
+    padding: 4px 8px;
+  }
+  #win-bar .individual-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #win-bar .individual-label {
+    flex: 0 0 auto;
+    min-width: 60px;
+    font-size: 12px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #win-bar .individual-track {
+    position: relative;
+    flex: 1 1 auto;
+    height: 70%;
+    min-height: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #win-bar .individual-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transition: width 0.4s ease;
+  }
+  #win-bar .individual-percent {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    font-weight: bold;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  }
+
   .player-row {
-    --row-bg: #241a10;
+    --row-bg: var(--panel-bg);
     position: relative;
     display: flex;
     flex-direction: column;
@@ -330,6 +444,10 @@
   <div id="board-left" class="side left"></div>
   <div id="board-right" class="side right"></div>
   <div id="logo"><img id="logo-img" src="/logo.png" alt=""></div>
+  <div id="win-bar">
+    <div id="win-bar-segmented" style="display:none;"></div>
+    <div id="win-bar-individual" style="display:none;"></div>
+  </div>
   <div id="empty-msg" style="display:none;">Warte auf Spieldaten &hellip;</div>
 
   <script>
@@ -398,6 +516,7 @@
       { flag: "show_tax_rate",     key: "tax_rate",            isTaxRate: true },
       { flag: "show_population",   key: "population",          img: "/icons/population.png", isPopulation: true },
       { flag: "show_lord_hp",      key: "lord_hp_percent",     icon: "&#10084;&#65039;", isLordHp: true },
+      { flag: "show_win_probability", key: "win_probability_percent", icon: "&#9878;&#65039;", isWinProb: true },
     ];
 
     // Rubrik-Zuordnung für line_distribution "category" - dieselben 5
@@ -409,7 +528,7 @@
       "show_food_total", "show_bread", "show_cheese", "show_meat", "show_apples",
       "show_bows", "show_crossbows", "show_spears", "show_pikes", "show_maces", "show_swords", "show_leather_armor", "show_metal_armor",
       "show_troops_total", "show_monks_trained",
-      "show_popularity", "show_tax_rate", "show_population", "show_lord_hp",
+      "show_popularity", "show_tax_rate", "show_population", "show_lord_hp", "show_win_probability",
     ];
 
     let cfg = { display: {} };
@@ -460,7 +579,25 @@
         const pct = p.lord_hp_percent;
         return (pct === null || pct === undefined) ? "-" : pct + "%";
       }
+      if (def.isWinProb) {
+        const wp = p.win_probability_percent;
+        return (wp === null || wp === undefined) ? "-" : wp + "%";
+      }
       return fmt(p[def.key]);
+    }
+
+    // Wiederverwendet dieselben Ampel-Farbklassen wie Popularity (siehe
+    // popClass) - bei 3+ Seiten (FFA/mehr als 2 Teams) rechnet
+    // win_probability_percent "diese Seite gegen den kompletten Rest
+    // gleichzeitig", liegt bei einem fairen Kräfteverhältnis also
+    // systematisch UNTER 50% für alle Seiten (siehe Info-Tooltip in den
+    // Einstellungen) - die Schwellwerte hier sind bewusst dieselben wie bei
+    // Popularity, nicht extra dafür angepasst.
+    function winProbClass(wp) {
+      if (wp === null || wp === undefined) return "pop-ok";
+      if (wp < 35) return "pop-bad";
+      if (wp >= 65) return "pop-good";
+      return "pop-ok";
     }
 
     function taxIconSrc(tax) {
@@ -478,6 +615,9 @@
       }
       if (def.isTaxRate) {
         return `<div class="stat"><span class="tax-combo-icon"><img class="tax-gold-icon" src="/icons/resource_gold.png" alt=""><img class="tax-mood-icon" src="${taxIconSrc(p.tax_rate)}" alt=""></span><span class="val">${text}</span></div>`;
+      }
+      if (def.isWinProb) {
+        return `<div class="stat">${iconHtml(def)}<span class="val ${winProbClass(p.win_probability_percent)}">${text}</span></div>`;
       }
       return `<div class="stat">${iconHtml(def)}<span class="val">${text}</span></div>`;
     }
@@ -647,11 +787,79 @@
     const DEMO_FOOD = { bread: 40, cheese: 15, meat: 10, apples: 25, ale: 8, pitch: 18, hops: 22, wheat: 60, flour: 35, food_total: 90 };
     const DEMO_WEAPONS = { bows: 12, crossbows: 6, spears: 20, pikes: 4, maces: 3, swords: 9, leather_armor: 14, metal_armor: 5 };
     const DEMO_PLAYERS = [
-      { slot: 0, label: "Du", gold: 3200, wood: 145, stone: 60, iron: 20, troops: 42, siege_movable_total: 2, popularity: 78, population: 34, population_capacity: 42, tax_rate: 3, monks_trained: 4, lord_hp: 150000, lord_hp_percent: 100, is_you: true, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
-      { slot: 1, label: "Gegner 1", gold: 1800, wood: 90, stone: 30, iron: 5, troops: 27, siege_movable_total: 0, popularity: 55, population: 21, population_capacity: 26, tax_rate: 7, monks_trained: 0, lord_hp: 132000, lord_hp_percent: 88, is_you: false, units: DEMO_UNITS, attack_status: "baut auf", ...DEMO_FOOD, ...DEMO_WEAPONS },
-      { slot: 2, label: "Gegner 2", gold: 640, wood: 55, stone: 12, iron: 0, troops: 61, siege_movable_total: 4, popularity: 40, population: 15, population_capacity: 18, tax_rate: 1, monks_trained: 2, lord_hp: 98000, lord_hp_percent: 65, is_you: false, units: DEMO_UNITS, attack_status: "ANGRIFF MÖGLICH", attack_base: 55, ...DEMO_FOOD, ...DEMO_WEAPONS },
-      { slot: 3, label: "Gegner 3", gold: 12500, wood: 310, stone: 180, iron: 90, troops: 15, siege_movable_total: 0, popularity: 92, population: 58, population_capacity: 66, tax_rate: 10, monks_trained: 7, lord_hp: 150000, lord_hp_percent: 100, is_you: false, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 0, label: "Du", gold: 3200, wood: 145, stone: 60, iron: 20, troops: 42, siege_movable_total: 2, popularity: 78, population: 34, population_capacity: 42, tax_rate: 3, monks_trained: 4, lord_hp: 150000, lord_hp_percent: 100, win_probability_percent: 71, is_you: true, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 1, label: "Gegner 1", gold: 1800, wood: 90, stone: 30, iron: 5, troops: 27, siege_movable_total: 0, popularity: 55, population: 21, population_capacity: 26, tax_rate: 7, monks_trained: 0, lord_hp: 132000, lord_hp_percent: 88, win_probability_percent: 29, is_you: false, units: DEMO_UNITS, attack_status: "baut auf", ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 2, label: "Gegner 2", gold: 640, wood: 55, stone: 12, iron: 0, troops: 61, siege_movable_total: 4, popularity: 40, population: 15, population_capacity: 18, tax_rate: 1, monks_trained: 2, lord_hp: 98000, lord_hp_percent: 65, win_probability_percent: 58, is_you: false, units: DEMO_UNITS, attack_status: "ANGRIFF MÖGLICH", attack_base: 55, ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 3, label: "Gegner 3", gold: 12500, wood: 310, stone: 180, iron: 90, troops: 15, siege_movable_total: 0, popularity: 92, population: 58, population_capacity: 66, tax_rate: 10, monks_trained: 7, lord_hp: 150000, lord_hp_percent: 100, win_probability_percent: 42, is_you: false, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
     ];
+
+    // Ausweich-Palette nach Slot-Nummer (nicht Array-Position) indiziert,
+    // damit eine Seite ihre Farbe nicht wechselt, nur weil sich die
+    // Sortierreihenfolge (Stärke-Ranking bei FFA) zwischen zwei Ticks
+    // ändert - siehe win_bar.html für dieselbe Logik (bewusst dupliziert,
+    // kein Shared-JS-Mechanismus in diesem Projekt, siehe restliche Datei).
+    const WIN_BAR_FALLBACK_PALETTE = [
+      "#4f8fef", "#e6463c", "#3ecf6e", "#e6b93e",
+      "#b56ce6", "#3ecfc9", "#e68f3e", "#8f8f8f",
+    ];
+    const DEMO_SIDES = [
+      { key: "team:1", label: "Team 1", representative_slot: 0, team_number: 1, share_percent: 63, win_probability_percent: 71 },
+      { key: "team:2", label: "Team 2", representative_slot: 2, team_number: 2, share_percent: 37, win_probability_percent: 29 },
+    ];
+
+    function winBarColorForSide(side) {
+      if (side.team_number !== null && side.team_number !== undefined) {
+        const teamColor = (cfg.team_colors || {})[String(side.team_number)];
+        if (teamColor) return teamColor;
+      }
+      const pc = (cfg.player_colors || {})[String(side.representative_slot)];
+      if (pc && pc.border_color) return pc.border_color;
+      return WIN_BAR_FALLBACK_PALETTE[side.representative_slot % WIN_BAR_FALLBACK_PALETTE.length];
+    }
+
+    function renderWinBarSegmented(sides) {
+      document.getElementById("win-bar-segmented").innerHTML = sides.map((s) => `
+        <div class="segment" style="flex-grow:${Math.max(s.share_percent, 0.001)};background:${winBarColorForSide(s)}">
+          ${escapeHtml(s.label)} &middot; ${s.share_percent.toFixed(0)}%
+        </div>
+      `).join("");
+    }
+
+    function renderWinBarIndividual(sides) {
+      document.getElementById("win-bar-individual").innerHTML = sides.map((s) => `
+        <div class="individual-row">
+          <div class="individual-label">${escapeHtml(s.label)}</div>
+          <div class="individual-track">
+            <div class="individual-fill" style="width:${s.win_probability_percent}%;background:${winBarColorForSide(s)}"></div>
+            <div class="individual-percent">${s.win_probability_percent}%</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderWinBar(sidesFromData) {
+      const winBarCfg = cfg.win_bar || {};
+      const box = document.getElementById("win-bar");
+      if (!winBarCfg.show_in_overlay) {
+        box.style.display = "none";
+        return;
+      }
+      box.style.display = "block";
+      let sides = sidesFromData || [];
+      if (sides.length === 0) sides = DEMO_SIDES;
+
+      const segBox = document.getElementById("win-bar-segmented");
+      const indBox = document.getElementById("win-bar-individual");
+      if ((winBarCfg.mode || "segmented") === "individual") {
+        segBox.style.display = "none";
+        indBox.style.display = "flex";
+        renderWinBarIndividual(sides);
+      } else {
+        indBox.style.display = "none";
+        segBox.style.display = "flex";
+        renderWinBarSegmented(sides);
+      }
+    }
 
     // Statt bei JEDEM Poll (alle 500ms) das komplette Zeilen-HTML (inkl.
     // aller <img>-Tags) neu einzusetzen - was den Browser dazu bringt, jedes
@@ -838,6 +1046,7 @@
         const res = await fetch(DATA_URL + "?t=" + Date.now(), { cache: "no-store" });
         const data = await res.json();
         render(data);
+        renderWinBar(data && data.sides);
       } catch (e) {
         // Server noch nicht erreichbar - stiller Retry
       }
@@ -899,6 +1108,16 @@
       else if (corner === "top-left") { box.style.left = ox; box.style.top = oy; }
       else if (corner === "top-right") { box.style.right = ox; box.style.top = oy; }
       box.style.width = width;
+      document.documentElement.style.setProperty("--logo-opacity", (logo.opacity_percent ?? 100) / 100);
+    }
+
+    function applyWinBarLayout(winBar) {
+      winBar = winBar || {};
+      const root = document.documentElement.style;
+      root.setProperty("--win-bar-width", (winBar.width_px ?? 400) + "px");
+      root.setProperty("--win-bar-height", (winBar.height_px ?? 26) + "px");
+      root.setProperty("--win-bar-offset-y", (winBar.offset_y_px ?? 6) + "px");
+      root.setProperty("--win-bar-opacity", (winBar.opacity_percent ?? 100) / 100);
     }
 
     async function pollConfig() {
@@ -908,6 +1127,7 @@
         applyLogoVisibility();
         applyLayout(cfg.layout);
         applyLogo(cfg.logo);
+        applyWinBarLayout(cfg.win_bar);
       } catch (e) {
         // stiller Retry
       }

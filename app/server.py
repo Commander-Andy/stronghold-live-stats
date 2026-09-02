@@ -105,6 +105,16 @@ def make_handler(ctx: AppContext):
             self.send_response(200)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(data)))
+            if path.suffix == ".html":
+                # overlay.html/win_bar.html/etc. ändern sich bei App-Updates -
+                # OBS-Browser-Quellen (CEF) UND normale Browser-Tabs cachen die
+                # Seite selbst sonst und holen bei einem simplen Reload nicht
+                # zwingend eine neue Version, nur die per JS gepollten
+                # /overlay.json-Werte aktualisieren sich (das hat schon einmal
+                # zu Verwirrung geführt: ein CSS-Fix "kam nicht an", obwohl der
+                # Server längst die neue Datei auslieferte - die offene Seite
+                # hatte einfach nur nie neu nachgefragt).
+                self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(data)
 
@@ -146,6 +156,8 @@ def make_handler(ctx: AppContext):
                 self._send_file(resource_path("assets", "overlay.html"), "text/html; charset=utf-8")
             elif path == "/overview.html":
                 self._send_file(resource_path("assets", "overview.html"), "text/html; charset=utf-8")
+            elif path == "/win_bar.html":
+                self._send_file(resource_path("assets", "win_bar.html"), "text/html; charset=utf-8")
             elif path == "/overview-settings.html":
                 ctx.touch_settings()
                 self._send_file(resource_path("assets", "overview_settings.html"), "text/html; charset=utf-8")
@@ -159,6 +171,8 @@ def make_handler(ctx: AppContext):
                     "logo": ctx.config.get("logo", {}),
                     "player_colors": ctx.config.get("player_colors", {}),
                     "team_assignment": ctx.config.get("team_assignment", {}),
+                    "team_colors": ctx.config.get("team_colors", {}),
+                    "win_bar": ctx.config.get("win_bar", {}),
                 })
             elif path == "/api/config":
                 self._send_json(ctx.config)
@@ -166,6 +180,9 @@ def make_handler(ctx: AppContext):
                 self._send_json({
                     **ctx.config.get("overview", {}),
                     "team_assignment": ctx.config.get("team_assignment", {}),
+                    "player_colors": ctx.config.get("player_colors", {}),
+                    "team_colors": ctx.config.get("team_colors", {}),
+                    "win_bar": ctx.config.get("win_bar", {}),
                 })
             elif path == "/api/status":
                 self._send_json(ctx.state.status())
@@ -205,18 +222,24 @@ def make_handler(ctx: AppContext):
                 self._send_json(ctx.config)
             elif path == "/api/overview-config":
                 patch = self._read_json_body()
-                # team_assignment ist TOP-LEVEL geteilt (Overlay + Übersicht
-                # nutzen dieselbe Zuordnung, kein "overview"-Duplikat) -
-                # deshalb hier rausgezogen und separat gemerged statt unter
-                # "overview" verschachtelt zu werden.
+                # team_assignment/win_bar sind TOP-LEVEL geteilt (Overlay +
+                # Übersicht nutzen dieselbe Zuordnung/Balken-Config, kein
+                # "overview"-Duplikat) - deshalb hier rausgezogen und separat
+                # gemerged statt unter "overview" verschachtelt zu werden.
                 team_patch = patch.pop("team_assignment", None)
+                win_bar_patch = patch.pop("win_bar", None)
                 full_patch = {"overview": patch}
                 if team_patch is not None:
                     full_patch["team_assignment"] = team_patch
+                if win_bar_patch is not None:
+                    full_patch["win_bar"] = win_bar_patch
                 ctx.config = config_module.merge_and_save(ctx.config, full_patch)
                 self._send_json({
                     **ctx.config.get("overview", {}),
                     "team_assignment": ctx.config.get("team_assignment", {}),
+                    "player_colors": ctx.config.get("player_colors", {}),
+                    "team_colors": ctx.config.get("team_colors", {}),
+                    "win_bar": ctx.config.get("win_bar", {}),
                 })
             elif path == "/api/heartbeat":
                 ctx.touch_settings()

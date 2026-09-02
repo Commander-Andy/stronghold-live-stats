@@ -150,6 +150,21 @@
 
   <div id="status-line"><span class="dot dot-waiting"></span>Status wird geladen &hellip;</div>
 
+  <h2>Gewinnwahrscheinlichkeits-Balken <span class="info-tip" title='EXPERIMENTELL - derselbe Balken wie im OBS-Overlay, hier oben in der Übersicht (kein Positions-/Größen-Regler nötig, sitzt einfach im normalen Seitenfluss). Modus UND Team-Farben gelten gemeinsam mit dem Overlay-Balken (dieselbe Einstellung) - Team-Farben werden aktuell nur in den normalen Overlay-Einstellungen (Bereich "Teams") gesetzt.'>&#9432;</span></h2>
+  <div class="card">
+    <div class="row">
+      <label>Balken oben in der Übersicht anzeigen</label>
+      <input type="checkbox" id="win-bar-overview-toggle">
+    </div>
+    <div class="row">
+      <label>Balken-Modus</label>
+      <select id="win-bar-mode-input">
+        <option value="segmented">Segmentiert (ein Balken, Anteile)</option>
+        <option value="individual">Einzel-Balken pro Fraktion</option>
+      </select>
+    </div>
+  </div>
+
   <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen dieser Übersicht unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.'>&#9432;</span></h2>
   <div class="card">
     <div id="saved-layouts-list"></div>
@@ -297,6 +312,7 @@
           ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
           ["show_population", "Bevölkerung (aktuell/Kapazität)"],
           ["show_lord_hp", "Burgherr-HP (noch nicht funktional)"],
+          ["show_win_probability", "Gewinnwahrscheinlichkeit (experimentell)", "EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als \"führend\" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) eine echte Gewinnwahrscheinlichkeit. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet jede Seite gegen den kompletten Rest des Feldes gleichzeitig - bei einem fairen Kräfteverhältnis liegt der Wert dann für ALLE Seiten unter 50%, das ist kein Fehler, sondern die Definition."],
           ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel läuft"],
         ],
       },
@@ -331,7 +347,7 @@
             </span>
           </summary>
           <div style="margin-top:8px;">
-            ${cat.items.map(([key, label]) => `<div class="row"><label>${label}</label><input type="checkbox" data-key="${key}"></div>`).join("")}
+            ${cat.items.map(([key, label, tooltip]) => `<div class="row"><label>${label}${tooltip ? ` <span class="info-tip" title='${tooltip}'>&#9432;</span>` : ""}</label><input type="checkbox" data-key="${key}"></div>`).join("")}
           </div>
         </details>
       `).join("");
@@ -514,6 +530,8 @@
       document.getElementById("you-color-input").value = cfg.you_color;
       document.getElementById("attack-color-input").value = cfg.attack_color;
       document.getElementById("attack-pulse-input").checked = !!cfg.attack_pulse;
+      document.getElementById("win-bar-overview-toggle").checked = !!(cfg.win_bar && cfg.win_bar.show_in_overview);
+      document.getElementById("win-bar-mode-input").value = (cfg.win_bar && cfg.win_bar.mode) || "segmented";
       SLIDER_PAIRS.forEach(([rangeId, numberId]) => {
         document.getElementById(rangeId).value = document.getElementById(numberId).value;
       });
@@ -595,7 +613,7 @@
       "show_gold", "show_wood", "show_stone", "show_iron",
       "show_troops_total", "show_troop_breakdown", "show_siege_movable",
       "show_popularity", "show_population", "show_tax_rate",
-      "show_monks_trained", "show_lord_hp",
+      "show_monks_trained", "show_lord_hp", "show_win_probability",
       "highlight_attack_status", "show_demo_data",
       "show_food_total", "show_bread", "show_cheese", "show_meat", "show_apples",
       "show_ale", "show_pitch", "show_hops", "show_wheat", "show_flour",
@@ -639,6 +657,12 @@
     });
     document.getElementById("attack-pulse-input").addEventListener("change", (e) => {
       savePatch({ attack_pulse: e.target.checked });
+    });
+    document.getElementById("win-bar-overview-toggle").addEventListener("change", (e) => {
+      savePatch({ win_bar: { show_in_overview: e.target.checked } });
+    });
+    document.getElementById("win-bar-mode-input").addEventListener("change", (e) => {
+      savePatch({ win_bar: { mode: e.target.value } });
     });
 
     let debounceTimer = null;

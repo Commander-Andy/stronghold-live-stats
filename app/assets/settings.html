@@ -293,6 +293,47 @@
     <div class="path-box"><code id="overlay-url">http://127.0.0.1:8765/overlay.html</code></div>
   </div>
 
+  <h2>Gewinnwahrscheinlichkeit <span class="info-tip" title='EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als "führend" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) eine echte Gewinnwahrscheinlichkeit. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet der Balken echte Anteile (Summe=100%), die Prozentzahl im Spieler-Rahmen dagegen "diese Seite gegen den Rest" (liegt dann für ALLE Seiten unter 50%, kein Fehler, sondern die Definition).'>&#9432;</span></h2>
+  <div class="card">
+    <div class="row">
+      <label>Prozentzahl im Spieler-Rahmen anzeigen</label>
+      <input type="checkbox" data-key="show_win_probability">
+    </div>
+    <div class="row">
+      <label>Als Balken direkt ins Overlay einbauen (mittig oben)</label>
+      <input type="checkbox" id="win-bar-overlay-toggle">
+    </div>
+    <div class="row">
+      <label>Balken-Modus</label>
+      <select id="win-bar-mode-input">
+        <option value="segmented">Segmentiert (ein Balken, Anteile)</option>
+        <option value="individual">Einzel-Balken pro Fraktion</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Balken-Breite (px)</label>
+      <input type="range" id="win-bar-width-range" min="100" max="1600" step="1">
+      <input type="number" id="win-bar-width-input" min="100" max="1600" step="1">
+    </div>
+    <div class="row">
+      <label>Balken-Höhe (px)</label>
+      <input type="range" id="win-bar-height-range" min="8" max="150" step="1">
+      <input type="number" id="win-bar-height-input" min="8" max="150" step="1">
+    </div>
+    <div class="row">
+      <label>Abstand oben (px)</label>
+      <input type="range" id="win-bar-offset-y-range" min="0" max="400" step="1">
+      <input type="number" id="win-bar-offset-y-input" min="0" max="400" step="1">
+    </div>
+    <div class="row">
+      <label>Transparenz Balken (%) <span class="info-tip" title='100 = voll deckend, 0 = unsichtbar. Gilt für den eingebauten Balken UND die eigenständige OBS-Quelle unten.'>&#9432;</span></label>
+      <input type="range" id="win-bar-opacity-range" min="0" max="100" step="1">
+      <input type="number" id="win-bar-opacity-input" min="0" max="100" step="1">
+    </div>
+    <p style="font-size:13px; margin-top:14px;">Alternativ (oder zusätzlich) als eigenständige, in OBS frei zieh-/skalierbare <b>Browser-Quelle</b> mit dieser URL - unabhängig vom Haupt-Overlay einsetzbar:</p>
+    <div class="path-box"><code id="win-bar-url">http://127.0.0.1:8765/win_bar.html</code></div>
+  </div>
+
   <h2>Übersichtsmodus</h2>
   <div class="card">
     <p style="font-size:13px;">Große, gut lesbare Ansicht aller Werte - nicht fürs Overlay/OBS gedacht, sondern zum selbst Draufschauen während des Castens (z.B. auf einem zweiten Monitor).</p>
@@ -309,7 +350,7 @@
     <div class="drop-hint">... oder Datei einfach hier reinziehen</div>
   </div>
 
-  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen (Design, Farben, Zeilen/Breite, Logo, Pro-Spieler-Farben) unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.'>&#9432;</span></h2>
+  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen (Design, Farben, Zeilen/Breite, Logo, Pro-Spieler-Farben, Gewinnwahrscheinlichkeits-Balken) unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.'>&#9432;</span></h2>
   <div class="card">
     <div id="saved-layouts-list"></div>
   </div>
@@ -364,6 +405,11 @@
       <label>Breite (px, Höhe passt sich proportional an)</label>
       <input type="range" id="logo-width-range" min="10" max="500" step="1">
       <input type="number" id="logo-width-input" min="10" max="500" step="1">
+    </div>
+    <div class="row">
+      <label>Transparenz (%)</label>
+      <input type="range" id="logo-opacity-range" min="0" max="100" step="1">
+      <input type="number" id="logo-opacity-input" min="0" max="100" step="1">
     </div>
   </div>
 
@@ -492,6 +538,10 @@
     <details class="card" id="team-assignment-details">
       <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Team-Zuordnung pro Spieler ausklappen <span class="info-tip" title='Keine Live-Erkennung im Spielspeicher möglich (ausführlich gesucht) - hier von Hand pro Match eintragen. Leer = keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam für Overlay und Übersicht.'>&#9432;</span></summary>
       <div id="team-assignment-list" style="margin-top:10px;"></div>
+      <div style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(198,161,91,0.3);">
+        <span style="font-size:11px; color:#a89478;">Team-Farben <span class="info-tip" title='Überschreibt für den Gewinnwahrscheinlichkeits-Balken die Ausweich-Logik (sonst: individuelle Farbe des ranghöchsten Spielers dieser Team-Nummer, sonst feste Palette). "Zurücksetzen" entfernt die Override-Farbe wieder.'>&#9432;</span></span>
+        <div id="team-color-list" style="margin-top:6px;"></div>
+      </div>
     </details>
 
     <h2>Individuelle Spieler-Farben</h2>
@@ -612,7 +662,7 @@
             </span>
           </summary>
           <div style="margin-top:8px;">
-            ${cat.items.map(([key, label]) => `<div class="row"><label>${label}</label><input type="checkbox" data-key="${key}"></div>`).join("")}
+            ${cat.items.map(([key, label, tooltip]) => `<div class="row"><label>${label}${tooltip ? ` <span class="info-tip" title='${tooltip}'>&#9432;</span>` : ""}</label><input type="checkbox" data-key="${key}"></div>`).join("")}
           </div>
         </details>
       `).join("");
@@ -676,6 +726,7 @@
         layout: JSON.parse(JSON.stringify(currentConfig.layout)),
         logo: JSON.parse(JSON.stringify(currentConfig.logo)),
         player_colors: JSON.parse(JSON.stringify(currentConfig.player_colors)),
+        win_bar: JSON.parse(JSON.stringify(currentConfig.win_bar)),
       };
     }
 
@@ -700,6 +751,10 @@
             layout: slot.layout,
             logo: slot.logo,
             player_colors: slot.player_colors,
+            // win_bar fehlt bei Speicherplätzen, die vor dessen Einführung
+            // gespeichert wurden - Fallback auf den aktuellen Wert, damit
+            // ein Laden ihn dann nicht versehentlich auf "undefined" wirft.
+            win_bar: slot.win_bar || currentConfig.win_bar,
           });
         });
       });
@@ -749,7 +804,10 @@
       document.querySelectorAll("button[data-load-slot]").forEach((btn) => {
         const slot = currentConfig.saved_layouts[parseInt(btn.dataset.loadSlot, 10)];
         const matches = !!slot && deepEqual(
-          { display: slot.display, layout: slot.layout, logo: slot.logo, player_colors: slot.player_colors },
+          {
+            display: slot.display, layout: slot.layout, logo: slot.logo, player_colors: slot.player_colors,
+            win_bar: slot.win_bar || currentConfig.win_bar,
+          },
           snapshot
         );
         btn.classList.toggle("active-preset", matches);
@@ -787,6 +845,14 @@
       document.getElementById("logo-path-box").textContent = cfg.display.logo_path || "- kein Logo ausgewählt -";
       document.getElementById("port-input").value = cfg.http_port;
       document.getElementById("overlay-url").textContent = `http://127.0.0.1:${cfg.http_port}/overlay.html`;
+      document.getElementById("win-bar-url").textContent = `http://127.0.0.1:${cfg.http_port}/win_bar.html`;
+      document.getElementById("win-bar-mode-input").value = (cfg.win_bar && cfg.win_bar.mode) || "segmented";
+      document.getElementById("win-bar-overlay-toggle").checked = !!(cfg.win_bar && cfg.win_bar.show_in_overlay);
+      document.getElementById("win-bar-width-input").value = (cfg.win_bar && cfg.win_bar.width_px) ?? 400;
+      document.getElementById("win-bar-height-input").value = (cfg.win_bar && cfg.win_bar.height_px) ?? 26;
+      document.getElementById("win-bar-offset-y-input").value = (cfg.win_bar && cfg.win_bar.offset_y_px) ?? 6;
+      document.getElementById("win-bar-opacity-input").value = (cfg.win_bar && cfg.win_bar.opacity_percent) ?? 100;
+      document.getElementById("logo-opacity-input").value = cfg.logo.opacity_percent ?? 100;
       document.getElementById("left-offset-input").value = cfg.layout.left_offset_px;
       document.getElementById("right-offset-input").value = cfg.layout.right_offset_px;
       document.getElementById("bottom-offset-input").value = cfg.layout.bottom_offset_px;
@@ -832,6 +898,11 @@
       ["logo-offset-x-range", "logo-offset-x-input"],
       ["logo-offset-y-range", "logo-offset-y-input"],
       ["logo-width-range", "logo-width-input"],
+      ["logo-opacity-range", "logo-opacity-input"],
+      ["win-bar-width-range", "win-bar-width-input"],
+      ["win-bar-height-range", "win-bar-height-input"],
+      ["win-bar-offset-y-range", "win-bar-offset-y-input"],
+      ["win-bar-opacity-range", "win-bar-opacity-input"],
     ];
 
     function syncRangesFromNumbers() {
@@ -877,6 +948,53 @@
         });
       });
       refreshLiveTeamNames();
+      renderTeamColorRows(cfg);
+    }
+
+    // Eine Farbe pro TATSÄCHLICH genutzter Team-Nummer (aus den Werten
+    // oben abgeleitet, kein festes 1-8-Raster) - macht z.B. den
+    // Gewinnwahrscheinlichkeits-Balken team-farbig statt nur nach der
+    // (indirekten) Spieler-Farbe des ranghöchsten Spielers dieser Nummer zu
+    // gehen. Erscheint nur, sobald mindestens einem Spieler oben eine
+    // Team-Nummer zugewiesen ist.
+    function renderTeamColorRows(cfg) {
+      const box = document.getElementById("team-color-list");
+      const assign = cfg.team_assignment || {};
+      const teamColors = cfg.team_colors || {};
+      const usedTeams = [...new Set(Object.values(assign).filter((v) => v !== null && v !== undefined))].sort((a, b) => a - b);
+      if (usedTeams.length === 0) {
+        box.innerHTML = `<p style="font-size:11px; color:#a89478; margin:8px 0 0;">Noch keine Team-Nummer oben vergeben.</p>`;
+        return;
+      }
+      box.innerHTML = usedTeams.map((t) => `
+        <div class="row">
+          <label style="flex:0 0 90px;">Team ${t} Farbe</label>
+          <input type="color" data-team-color="${t}" value="${teamColors[String(t)] || "#c6a15b"}">
+          <button type="button" data-clear-team-color="${t}">Zurücksetzen</button>
+        </div>
+      `).join("");
+      box.querySelectorAll("input[type=color][data-team-color]").forEach((el) => {
+        el.addEventListener("input", () => {
+          saveTeamColorDebounced({ team_colors: { [el.dataset.teamColor]: el.value } });
+        });
+      });
+      box.querySelectorAll("button[data-clear-team-color]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          saveConfigPatch({ team_colors: { [btn.dataset.clearTeamColor]: null } });
+        });
+      });
+    }
+
+    let teamColorDebounceTimer = null;
+    let pendingTeamColorPatch = {};
+    function saveTeamColorDebounced(patch) {
+      pendingTeamColorPatch = mergeDeep(pendingTeamColorPatch, patch);
+      clearTimeout(teamColorDebounceTimer);
+      teamColorDebounceTimer = setTimeout(() => {
+        const toSend = pendingTeamColorPatch;
+        pendingTeamColorPatch = {};
+        saveConfigPatch(toSend);
+      }, 120);
     }
 
     async function refreshLiveTeamNames() {
@@ -1019,6 +1137,9 @@
     document.getElementById("side-mode-input").addEventListener("change", (e) => {
       saveConfigPatch({ layout: { side_mode: e.target.value } });
     });
+    document.getElementById("win-bar-mode-input").addEventListener("change", (e) => {
+      saveConfigPatch({ win_bar: { mode: e.target.value } });
+    });
     document.getElementById("theme-input").addEventListener("change", (e) => {
       saveConfigPatch({ layout: { theme: e.target.value } });
     });
@@ -1065,15 +1186,37 @@
             offset_x_px: parseInt(document.getElementById("logo-offset-x-input").value, 10) || 0,
             offset_y_px: parseInt(document.getElementById("logo-offset-y-input").value, 10) || 0,
             width_px: parseInt(document.getElementById("logo-width-input").value, 10) || 90,
+            opacity_percent: parseInt(document.getElementById("logo-opacity-input").value, 10) ?? 100,
           },
         });
       }, 80);
     }
-    ["logo-offset-x-input", "logo-offset-y-input", "logo-width-input"].forEach((id) => {
+    ["logo-offset-x-input", "logo-offset-y-input", "logo-width-input", "logo-opacity-input"].forEach((id) => {
       document.getElementById(id).addEventListener("input", saveLogoDebounced);
     });
     document.getElementById("logo-corner-input").addEventListener("change", (e) => {
       saveConfigPatch({ logo: { corner: e.target.value } });
+    });
+
+    let winBarDebounceTimer = null;
+    function saveWinBarDebounced() {
+      clearTimeout(winBarDebounceTimer);
+      winBarDebounceTimer = setTimeout(() => {
+        saveConfigPatch({
+          win_bar: {
+            width_px: parseInt(document.getElementById("win-bar-width-input").value, 10) || 400,
+            height_px: parseInt(document.getElementById("win-bar-height-input").value, 10) || 26,
+            offset_y_px: parseInt(document.getElementById("win-bar-offset-y-input").value, 10) || 0,
+            opacity_percent: parseInt(document.getElementById("win-bar-opacity-input").value, 10) ?? 100,
+          },
+        });
+      }, 80);
+    }
+    ["win-bar-width-input", "win-bar-height-input", "win-bar-offset-y-input", "win-bar-opacity-input"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", saveWinBarDebounced);
+    });
+    document.getElementById("win-bar-overlay-toggle").addEventListener("change", (e) => {
+      saveConfigPatch({ win_bar: { show_in_overlay: e.target.checked } });
     });
 
     document.getElementById("pick-aic-btn").addEventListener("click", async () => {

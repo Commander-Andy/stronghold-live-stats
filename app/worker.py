@@ -15,6 +15,7 @@ import time
 import aic_reader as aic
 import attack_monitor
 import reader as res
+import strength_score
 
 
 class StateStore:
@@ -68,6 +69,10 @@ class Worker:
         self._stop_event = threading.Event()
         self._thread = None
         self._pm = None
+        self._strength_tracker = strength_score.StrengthTracker()
+        # Für die (unvollständige, siehe _tick) Match-Neustart-Erkennung:
+        # ob im letzten Tick mindestens ein aktiver Spieler-Slot da war.
+        self._had_active_players = False
         self._reload_aic()
 
     def _reload_aic(self):
@@ -106,6 +111,9 @@ class Worker:
             self.state.set_waiting(err)
             return False
         self._pm = pm
+        res.reset_monk_tracking()
+        self._strength_tracker.reset()
+        self._had_active_players = False
         return True
 
     def _tick(self):
@@ -134,6 +142,24 @@ class Worker:
                 )
 
         payload = res.build_overlay_payload(all_values, lord_labels, attack_status)
+
+        # Heuristik für "neues Match im selben, weiterlaufenden Spielprozess
+        # gestartet": alle Slots waren zuletzt inaktiv (Kartenübergang/
+        # Hauptmenü) und jetzt ist mindestens einer wieder aktiv. Anders als
+        # der Reconnect-Reset oben (sicher, da an einen echten Verbindungs-
+        # verlust gekoppelt) ist das nur eine Annahme - siehe
+        # research/shc_overlay_status.md für die offene Verifikationsfrage,
+        # ob population_capacity zwischen Matches tatsächlich für alle
+        # Slots kurz auf 0 fällt.
+        has_active = bool(payload["players"])
+        if has_active and not self._had_active_players:
+            self._strength_tracker.reset()
+        self._had_active_players = has_active
+
+        team_assignment = self._config.get("team_assignment", {})
+        strengths, _ = strength_score.update_and_get_strengths(payload["players"], self._strength_tracker)
+        strength_score.apply_win_probabilities(payload["players"], team_assignment, strengths)
+        payload["sides"] = strength_score.compute_side_summary(payload["players"], team_assignment, strengths)
         self.state.set_payload(payload)
 
     def _poll_monks_only(self):
