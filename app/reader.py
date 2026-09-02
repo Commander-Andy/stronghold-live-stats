@@ -171,15 +171,9 @@ def get_lord_max_hp(display_name):
 TEAM_SIGNAL_PRIMARY_OFFSET = 0x1BB8
 TEAM_SIGNAL_SECONDARY_OFFSET = 0x1C78
 
-# Alte Team-/Bündnis-Zugehörigkeit: KEIN Live-Feld gefunden (Stand 2026-09-01),
-# trotz mehrerer breiter Korrelations-Scans (bis zu 160 KB Umkreis um die
-# Spieler-Basis, mit 2-, 3- und 4-Team-Mustern, auch mit absichtlich
-# gemischten KI-Personas um Zufallstreffer auszuschließen) UND einem
-# separaten Scan der Namens-Roster-Tabelle. EIN scheinbarer Treffer
-# (Offset +0x9218, 2x2x2x2-Teams) erwies sich im Gegentest mit 3er-Gruppen
-# (3+3+2) als Zufall - siehe project_shc_overlay_status.md für die volle
-# Historie. Team-Zuordnung im Overlay läuft deshalb ausschließlich über
-# die manuelle team_assignment-Einstellung (config["team_assignment"]).
+# (Historie zur alten, lange erfolglosen Team-Erkennungssuche inkl. des
+# widerlegten +0x9218-Kandidaten: siehe research/shc_overlay_status.md -
+# die eigentliche Lösung sind TEAM_SIGNAL_PRIMARY/SECONDARY_OFFSET oben.)
 
 # Steuersatz -> Beliebtheits-Effekt ist KEIN Live-Speicherwert, sondern eine
 # feste Tabelle im Spiel (ändert sich nie zur Laufzeit) - deshalb per
