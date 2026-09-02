@@ -157,7 +157,21 @@ def get_lord_max_hp(display_name):
     return int(LORD_BASE_HP * get_lord_strength_multiplier(display_name))
 
 
-# Team-/Bündnis-Zugehörigkeit: KEIN Live-Feld gefunden (Stand 2026-09-01),
+# Team-/Bündnis-Erkennung (gefunden 2026-09-02, siehe research/
+# shc_overlay_status.md für die volle Herleitungs-/Kalibrierungs-Historie).
+# Kein dediziertes Team-ID-Feld, aber zwei Live-Felder (vermutlich Pro-
+# Team-Aggregatwerte irgendeiner Art, konkrete Bedeutung unbekannt) zeigen
+# über die Dauer eines Matches denselben Wert für Team-Kollegen und nie für
+# Nicht-Kollegen - live verifiziert über 5+ Matches (verschachtelte Teams,
+# ungleiche Größen inkl. Solo-Team, leere Slots, 4v4-Grenzfall, und ein
+# ECHTER Blindtest: Vorhersage "kein Team, Free-for-All" korrekt VOR der
+# Auflösung getroffen). Kalibrierte Ko-Gleichheits-Rate: Team-Kollegen
+# 0.64-0.94, Nicht-Kollegen exakt 0.00 (n=27 Paare, 480 Messungen über die
+# zwei ungünstigsten getesteten Konstellationen) - riesiger Sicherheitsabstand.
+TEAM_SIGNAL_PRIMARY_OFFSET = 0x1BB8
+TEAM_SIGNAL_SECONDARY_OFFSET = 0x1C78
+
+# Alte Team-/Bündnis-Zugehörigkeit: KEIN Live-Feld gefunden (Stand 2026-09-01),
 # trotz mehrerer breiter Korrelations-Scans (bis zu 160 KB Umkreis um die
 # Spieler-Basis, mit 2-, 3- und 4-Team-Mustern, auch mit absichtlich
 # gemischten KI-Personas um Zufallstreffer auszuschließen) UND einem
@@ -275,6 +289,15 @@ def read_player(pm, player_index):
     except Exception:
         values["tax_rate"] = None
     values["tax_popularity_effect"] = TAX_POPULARITY_EFFECT.get(values["tax_rate"])
+
+    try:
+        values["team_signal_primary"] = pm.read_ushort(base + TEAM_SIGNAL_PRIMARY_OFFSET)
+    except Exception:
+        values["team_signal_primary"] = None
+    try:
+        values["team_signal_secondary"] = pm.read_ushort(base + TEAM_SIGNAL_SECONDARY_OFFSET)
+    except Exception:
+        values["team_signal_secondary"] = None
 
     # NOCH NICHT FUNKTIONAL (Stand 2026-09-01, zweiter Anlauf gescheitert).
     # LORD_HP_BASE + player_index*LORD_HP_STRIDE sah in einem Sandbox-Test
@@ -394,6 +417,187 @@ def get_monks_trained(player_index):
     ein Mönch, sinkt dieser Wert NICHT, siehe Docstring von
     poll_monk_events)."""
     return _monk_counts_by_player_num.get(player_index + 1, 0)
+
+
+# --- Team-Erkennung: rollierendes Ko-Gleichheits-Fenster mit Einmal-Latch --
+#
+# Team-Zugehörigkeit steht für die gesamte Dauer eines Matches fest - daher
+# kein Live-Update pro Tick, sondern ein EINMALIGER Schätzer, der über einen
+# Zeitraum Beweise sammelt und dann für den Rest des Matches einfriert
+# ("latcht"), statt bei jedem Poll neu zu entscheiden (was bei den
+# beobachteten kurzen Zufalls-Kollisionen sonst gelegentlich flackern würde).
+#
+# TEAM_RANGE_GATE hat ZWEI Zwecke, nicht nur eines: (1) blendet Felder mit zu
+# wenig Wertespreizung aus (z.B. show_lord_hp-ähnliche Kollisions-Fallen),
+# UND (2) schützt vor den ersten Sekunden nach Matchstart/Reconnect, in denen
+# alle aktiven Spieler noch bei 0 oder sehr ähnlichen Werten stehen (live
+# beobachtet: mehrfache Fehlstarts durch genau dieses Anlauf-Flackern) - bitte
+# NICHT als reine Kollisions-Optimierung wegkürzen, ohne diesen zweiten Zweck
+# zu bedenken.
+TEAM_RANGE_GATE = 10
+TEAM_COEQ_THRESHOLD = 0.35
+TEAM_COEQ_GREY_LOW = 0.15
+TEAM_COEQ_GREY_HIGH = 0.45
+TEAM_LATCH_MIN_USABLE_SAMPLES = 120  # ~60s bei 500ms Poll-Intervall
+TEAM_WARMUP_TICKS = 20  # erste Ticks nach Reset verwerfen (Anlauf-Flackern)
+
+
+class _TeamDetector:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self._counts = {}  # (slot_i, slot_j) -> Anzahl akzeptierter Ko-Gleichheits-Treffer
+        self._usable_samples = 0
+        self._raw_ticks = 0
+        self._locked_partition = None  # Liste von Slot-Mengen, oder None
+
+    def update(self, active_entries):
+        """active_entries: Liste von dicts {'slot', 'team_signal_primary',
+        'team_signal_secondary'} - NUR aktive Slots (is_active_slot() muss
+        VORHER gefiltert haben, siehe Kommentar bei is_active_slot())."""
+        if self._locked_partition is not None:
+            return
+        entries = [e for e in active_entries if e.get("team_signal_primary") is not None]
+        if len(entries) < 2:
+            return
+
+        self._raw_ticks += 1
+        if self._raw_ticks <= TEAM_WARMUP_TICKS:
+            return
+
+        def spread(field):
+            vals = [e[field] for e in entries if e.get(field) is not None]
+            if len(vals) < len(entries):
+                return -1
+            return max(vals) - min(vals)
+
+        use_primary = spread("team_signal_primary") >= TEAM_RANGE_GATE
+        use_secondary = spread("team_signal_secondary") >= TEAM_RANGE_GATE
+        if not use_primary and not use_secondary:
+            return  # Messung übersprungen - zählt NICHT in den Nenner
+
+        self._usable_samples += 1
+        for a in range(len(entries)):
+            for b in range(a + 1, len(entries)):
+                i, j = entries[a]["slot"], entries[b]["slot"]
+                key = (i, j) if i < j else (j, i)
+                agree = True
+                if use_primary:
+                    agree = agree and (entries[a]["team_signal_primary"] == entries[b]["team_signal_primary"])
+                if use_secondary:
+                    agree = agree and (entries[a]["team_signal_secondary"] == entries[b]["team_signal_secondary"])
+                if agree:
+                    self._counts[key] = self._counts.get(key, 0) + 1
+
+        if self._usable_samples >= TEAM_LATCH_MIN_USABLE_SAMPLES:
+            self._try_latch([e["slot"] for e in entries])
+
+    def _try_latch(self, slots):
+        rates = {}
+        for a in range(len(slots)):
+            for b in range(a + 1, len(slots)):
+                i, j = slots[a], slots[b]
+                key = (i, j) if i < j else (j, i)
+                rates[key] = self._counts.get(key, 0) / self._usable_samples
+
+        # Irgendein Paar in der Grauzone -> noch keine eindeutige Evidenz,
+        # weiter sammeln statt vorschnell zu latchen.
+        for rate in rates.values():
+            if TEAM_COEQ_GREY_LOW <= rate <= TEAM_COEQ_GREY_HIGH:
+                return
+
+        # Gruppen per Union-Find bilden: Kante akzeptiert, wenn Rate klar
+        # über der Schwelle liegt (nicht nur > TEAM_COEQ_GREY_HIGH, das ist
+        # oben schon ausgeschlossen worden).
+        parent = {s: s for s in slots}
+
+        def find(x):
+            while parent[x] != x:
+                x = parent[x]
+            return x
+
+        def union(x, y):
+            parent[find(x)] = find(y)
+
+        for (i, j), rate in rates.items():
+            if rate > TEAM_COEQ_THRESHOLD:
+                union(i, j)
+
+        groups = {}
+        for s in slots:
+            groups.setdefault(find(s), set()).add(s)
+        partition = list(groups.values())
+
+        # Sicherheitsregel: ALLE Spieler in einer einzigen Gruppe ist immer
+        # ein Fehler (kein Match wird komplett ohne Gegner gespielt) - schützt
+        # vor dem befürchteten "beide Team-Werte kollidieren zufällig"-Fall
+        # bei 2-Team-Matches.
+        if len(partition) == 1 and len(slots) > 1:
+            return
+
+        # Near-Clique-Prüfung: JEDES interne Paar einer Gruppe muss über der
+        # Schwelle liegen, nicht nur transitiv verbunden sein - eine einzelne
+        # schwache Kante darf nicht zwei echte Gruppen zusammenziehen. Bewusst
+        # strikt gehalten (keine Toleranz für einzelne schwache Kanten in
+        # größeren Gruppen) - kann bei 5+-Personen-Teams zu häufigerem
+        # Abstain statt Erkennung führen, ist aber die sicherere Wahl.
+        for group in partition:
+            g = list(group)
+            for a in range(len(g)):
+                for b in range(a + 1, len(g)):
+                    i, j = g[a], g[b]
+                    key = (i, j) if i < j else (j, i)
+                    if rates.get(key, 0) <= TEAM_COEQ_THRESHOLD:
+                        return
+
+        self._locked_partition = partition
+
+    def detected_teams(self):
+        """dict slot(int)->team_number(int), oder None wenn noch nicht
+        eingefroren oder wenn erkannt wurde, dass es gar keine echten Teams
+        gibt (Free-for-All: jeder Spieler seine eigene Gruppe)."""
+        if self._locked_partition is None:
+            return None
+        if all(len(g) == 1 for g in self._locked_partition):
+            return None
+        result = {}
+        for team_num, group in enumerate(sorted(self._locked_partition, key=min), start=1):
+            for slot in group:
+                result[slot] = team_num
+        return result
+
+
+_team_detector = _TeamDetector()
+
+
+def reset_team_detection():
+    """Muss bei jedem frischen Verbinden UND bei jedem erkannten Match-
+    Neustart aufgerufen werden (siehe worker.py) - sonst überlebt eine
+    eingefrorene Team-Zuordnung einen Match-/Team-Wechsel."""
+    _team_detector.reset()
+
+
+def poll_team_detection(all_values):
+    """Muss bei JEDEM Poll-Tick aufgerufen werden. all_values: wie von
+    read_all_players() (Liste von (slot_index, values_dict)) - Filterung auf
+    aktive Slots passiert hier intern über is_active_slot()."""
+    entries = [
+        {
+            "slot": i,
+            "team_signal_primary": v.get("team_signal_primary"),
+            "team_signal_secondary": v.get("team_signal_secondary"),
+        }
+        for i, v in all_values
+        if is_active_slot(v)
+    ]
+    _team_detector.update(entries)
+
+
+def get_detected_teams():
+    """dict slot(int)->team_number(int) der eingefrorenen Erkennung, oder
+    None (noch nicht genug Daten, oder erkanntes Free-for-All ohne Teams)."""
+    return _team_detector.detected_teams()
 
 
 def is_active_slot(values):

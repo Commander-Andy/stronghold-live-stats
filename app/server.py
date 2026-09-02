@@ -170,7 +170,11 @@ def make_handler(ctx: AppContext):
                     "layout": ctx.config.get("layout", {}),
                     "logo": ctx.config.get("logo", {}),
                     "player_colors": ctx.config.get("player_colors", {}),
-                    "team_assignment": ctx.config.get("team_assignment", {}),
+                    # Manuelle Zuordnung gewinnt immer, automatische
+                    # Erkennung (siehe worker.py) fuellt nur auf, wenn
+                    # manuell nichts gesetzt ist - die Vermischung passiert
+                    # schon in Worker._tick(), hier nur auslesen.
+                    "team_assignment": ctx.state.get_effective_team_assignment(),
                     "team_colors": ctx.config.get("team_colors", {}),
                     "win_bar": ctx.config.get("win_bar", {}),
                 })
@@ -179,7 +183,7 @@ def make_handler(ctx: AppContext):
             elif path == "/api/overview-config":
                 self._send_json({
                     **ctx.config.get("overview", {}),
-                    "team_assignment": ctx.config.get("team_assignment", {}),
+                    "team_assignment": ctx.state.get_effective_team_assignment(),
                     "player_colors": ctx.config.get("player_colors", {}),
                     "team_colors": ctx.config.get("team_colors", {}),
                     "win_bar": ctx.config.get("win_bar", {}),

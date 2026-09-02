@@ -25,6 +25,11 @@ class StateStore:
         self._status = "waiting_for_game"
         self._last_error = None
         self._aic_loaded = False
+        # Effektive Team-Zuordnung (manuell falls gesetzt, sonst automatisch
+        # erkannt falls eingefroren, sonst leer) - server.py serviert das
+        # statt der rohen Config, wenn Overlay/Übersicht danach fragen. Siehe
+        # Worker._tick() für die Merge-Logik.
+        self._effective_team_assignment = {}
 
     def snapshot(self):
         with self._lock:
@@ -59,6 +64,14 @@ class StateStore:
     def set_aic_loaded(self, loaded: bool):
         with self._lock:
             self._aic_loaded = loaded
+
+    def set_effective_team_assignment(self, assignment: dict):
+        with self._lock:
+            self._effective_team_assignment = assignment
+
+    def get_effective_team_assignment(self):
+        with self._lock:
+            return dict(self._effective_team_assignment)
 
 
 class Worker:
@@ -112,6 +125,7 @@ class Worker:
             return False
         self._pm = pm
         res.reset_monk_tracking()
+        res.reset_team_detection()
         self._strength_tracker.reset()
         self._had_active_players = False
         return True
@@ -154,9 +168,29 @@ class Worker:
         has_active = bool(payload["players"])
         if has_active and not self._had_active_players:
             self._strength_tracker.reset()
+            res.reset_team_detection()
         self._had_active_players = has_active
 
-        team_assignment = self._config.get("team_assignment", {})
+        res.poll_team_detection(all_values)
+
+        # Effektive Team-Zuordnung: manuelle config["team_assignment"]
+        # gewinnt IMMER, sobald sie fuer irgendeinen Slot gesetzt ist -
+        # automatische Erkennung fuellt nur auf, wenn manuell gar nichts
+        # eingetragen wurde. Wird sowohl fuer die Gewinnwahrscheinlichkeit
+        # unten als auch (ueber state.set_effective_team_assignment) fuer
+        # Overlay/Uebersicht per server.py verwendet.
+        manual_team_assignment = self._config.get("team_assignment", {})
+        if any(v is not None for v in manual_team_assignment.values()):
+            team_assignment = manual_team_assignment
+        else:
+            detected = res.get_detected_teams()
+            team_assignment = (
+                {str(slot): team for slot, team in detected.items()}
+                if detected
+                else manual_team_assignment
+            )
+        self.state.set_effective_team_assignment(team_assignment)
+
         strengths, _ = strength_score.update_and_get_strengths(payload["players"], self._strength_tracker)
         strength_score.apply_win_probabilities(payload["players"], team_assignment, strengths)
         payload["sides"] = strength_score.compute_side_summary(payload["players"], team_assignment, strengths)
