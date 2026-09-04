@@ -65,13 +65,15 @@ RESOURCE_OFFSETS = {
     "unit_tunneler":    0x1C0C,  # Tunnelbauer
     "unit_builder":     0x1C08,  # Baumeister
 
-    "unit_arab_archer":    0x2558,  # Arabischer Bogenschütze
-    "unit_horse_archer":   0x255C,  # Berittener Bogenschütze
-    "unit_slave":          0x2560,  # Sklave
-    "unit_slinger":        0x2568,  # Schleuderschütze
-    "unit_fire_thrower":   0x256C,  # Feuerwerfer
-    "unit_arab_swordsman": 0x2570,  # Arabischer Schwertkämpfer
-    "unit_assassin":       0x2564,  # Assassine
+    # Die 7 arabischen Einheiten-Zähler standen früher hier als Struct-
+    # Felder (+0x2558..+0x2574). Live widerlegt (2026-09-04, echtes
+    # Match): die Werte pulsen kurz nach dem Training und fallen dann auf
+    # 0 zurück, obwohl die Einheit nachweislich noch lebt, plus Cross-
+    # Slot-Leck in einen unbeteiligten KI-Slot und Allocator-artiges
+    # Rauschen im Rohscan der Umgebung - siehe research/shc_overlay_status.md,
+    # Abschnitt "NEUER BEFUND: arabischer Einheiten-Block". Ersetzt durch
+    # den Live-Zensus über die 0x490-Objekttabelle, siehe
+    # ARAB_UNIT_TYPE_VALUES/poll_arab_units() weiter unten.
 }
 
 # Popularity (Gesamtbeliebtheit) liegt VOR dem fruit_basket-Feld, Rohwert
@@ -219,10 +221,31 @@ ROSTER_POINTER_ADDR = 0x004423A8
 ROSTER_SLOT_SIZE = 90
 ROSTER_NUM_SLOTS = 8
 
-# Unit-Typen, für die es echte Live-Einzel-Offsets gibt (für die
-# "Truppen-Aufschlüsselung"-Anzeige im Overlay) - alle RESOURCE_OFFSETS
-# Keys, die mit "unit_" beginnen.
-UNIT_TYPE_KEYS = [k for k in RESOURCE_OFFSETS if k.startswith("unit_")]
+# Die 7 arabischen Einheitstypen: Live-Zensus über die 0x490-Objekttabelle
+# statt Struct-Feld (siehe RESOURCE_OFFSETS-Kommentar oben). Typwerte über
+# das ECHTE Typfeld (Datensatz-Offset 0x8E, absolut EVENT_PLAYER_NUM_ADDR-8,
+# siehe unten) gelesen, jeweils einzeln per Bauen-und-Zensus live bestätigt
+# (2026-09-04, echtes Match, troops_total-Delta jedes Mal exakt passend).
+# Fallen praktischerweise auf einen durchlaufenden Block 70-76, in exakt
+# der Reihenfolge, die zwei unabhängige UCP3-Quellen (gynt/ucp_startResources
+# troops.lua, CIO61/rebalancer constants.lua) für diese Einheitengruppe
+# nannten - nur der Startindex (dort 68 vermutet) war falsch geraten.
+ARAB_UNIT_TYPE_VALUES = {
+    "unit_arab_archer":    70,  # Arabischer Bogenschütze
+    "unit_slave":          71,  # Sklave
+    "unit_slinger":        72,  # Schleuderschütze
+    "unit_assassin":       73,  # Assassine
+    "unit_horse_archer":   74,  # Berittener Bogenschütze
+    "unit_arab_swordsman": 75,  # Arabischer Schwertkämpfer
+    "unit_fire_thrower":   76,  # Feuerwerfer
+}
+_ARAB_TYPE_VALUE_TO_KEY = {v: k for k, v in ARAB_UNIT_TYPE_VALUES.items()}
+
+# Unit-Typen, für die es eine Live-Quelle gibt (für die "Truppen-
+# Aufschlüsselung"-Anzeige im Overlay) - alle RESOURCE_OFFSETS-Keys, die
+# mit "unit_" beginnen, plus die per Objekttabellen-Zensus gelesenen
+# arabischen Typen.
+UNIT_TYPE_KEYS = [k for k in RESOURCE_OFFSETS if k.startswith("unit_")] + list(ARAB_UNIT_TYPE_VALUES)
 
 # Die 4 essbaren Nahrungsmittel, die im Kornspeicher gezählt werden (Mehl
 # und Hopfen sind Zwischenprodukte für Brot/Bier und zählen NICHT mit).
@@ -311,6 +334,11 @@ def read_player(pm, player_index):
     # (siehe worker.py) - hier wird nur der gecachte Wert gelesen, kein
     # eigener Speicherzugriff mehr nötig.
     values["lord_hp"], values["lord_hp_max_live"] = get_lord_hp(player_index)
+
+    # Arabische Einheiten-Zählung per Objekttabellen-Zensus statt Struct-
+    # Feld (siehe ARAB_UNIT_TYPE_VALUES oben). Setzt wie bei Lord-HP
+    # voraus, dass poll_arab_units(pm) bei jedem Tick VORHER lief.
+    values.update(get_arab_unit_counts(player_index))
 
     return values
 
@@ -564,6 +592,66 @@ def get_lord_hp(player_index):
     gefunden wurde (z.B. kurz nach Match-Start, bevor der erste Vollscan
     lief, oder falls der Lord besiegt/der Spieler eliminiert wurde)."""
     return _lord_hp_by_player_num.get(player_index + 1, (None, None))
+
+
+# --- Live-Zensus für die 7 arabischen Einheitstypen --------------------
+# Ersetzt die früheren Pro-Spieler-Struct-Felder (siehe RESOURCE_OFFSETS-
+# Kommentar oben) - anders als bei Lord-HP gibt es hier keine billige
+# Einzelzeilen-Abkürzung, da JEDE passende Zeile pro Spieler gezählt werden
+# muss, nicht nur eine bekannte wiedergefunden wird. Voller Regions-Scan
+# bei jedem Tick, wie schon für die Belagerungstypen-Zensustests diese
+# Session verwendet.
+
+_arab_unit_counts_by_player_num = {}  # player_num (1-8) -> {key: count}
+
+
+def reset_arab_unit_tracking():
+    """Wie reset_lord_hp_tracking() - bei jedem frischen Verbinden
+    aufrufen, siehe worker.py::_ensure_connected."""
+    _arab_unit_counts_by_player_num.clear()
+
+
+def poll_arab_units(pm):
+    """Muss bei JEDEM Poll-Tick aufgerufen werden (analog zu
+    poll_lord_hp/poll_monk_events), VOR read_all_players()."""
+    try:
+        mbi = pymem.memory.virtual_query(pm.process_handle, EVENT_TYPE_ID_ADDR)
+    except Exception:
+        return
+    region_base = mbi.BaseAddress
+    n_rows = mbi.RegionSize // EVENT_STRIDE
+    try:
+        buf = pm.read_bytes(region_base, n_rows * EVENT_STRIDE)
+    except Exception:
+        return
+
+    player_num_phase = (EVENT_PLAYER_NUM_ADDR - region_base) % EVENT_STRIDE
+    # Echtes Typfeld: Datensatz-Offset 0x8E, absolut EVENT_PLAYER_NUM_ADDR-8
+    # (siehe DURCHBRUCH-Abschnitt) - NICHT das alte type_id-Feld bei 0x2C0.
+    real_type_phase = (player_num_phase - 8) % EVENT_STRIDE
+
+    counts = {p: {k: 0 for k in ARAB_UNIT_TYPE_VALUES} for p in range(1, 9)}
+    for row in range(n_rows):
+        base = row * EVENT_STRIDE
+        real_type = int.from_bytes(buf[base + real_type_phase: base + real_type_phase + 2], "little")
+        key = _ARAB_TYPE_VALUE_TO_KEY.get(real_type)
+        if key is None:
+            continue
+        player_num = int.from_bytes(buf[base + player_num_phase: base + player_num_phase + 2], "little")
+        if not (1 <= player_num <= 8):
+            continue
+        counts[player_num][key] += 1
+
+    _arab_unit_counts_by_player_num.clear()
+    _arab_unit_counts_by_player_num.update(counts)
+
+
+def get_arab_unit_counts(player_index):
+    """player_index: 0-7. Gibt {unit_arab_archer: n, ...} zurück, alle 0
+    falls für diesen Spieler (noch) kein Vollscan lief."""
+    return _arab_unit_counts_by_player_num.get(
+        player_index + 1, {k: None for k in ARAB_UNIT_TYPE_VALUES}
+    )
 
 
 # --- Team-Erkennung: rollierendes Ko-Gleichheits-Fenster mit Einmal-Latch --
