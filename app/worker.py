@@ -10,7 +10,6 @@ bei denen "Spiel noch nicht gestartet" der Normalfall beim App-Start ist.
 """
 
 import threading
-import time
 
 import aic_reader as aic
 import attack_monitor
@@ -138,10 +137,11 @@ class Worker:
 
         try:
             # Muss VOR read_all_players() laufen - read_player() liest die
-            # hier befüllten Caches nur noch aus (siehe reader.py::get_lord_hp
-            # und ::get_arab_unit_counts).
+            # hier befüllten Caches nur noch aus (siehe reader.py::get_lord_hp,
+            # ::get_arab_unit_counts und ::get_monks_trained).
             res.poll_lord_hp(self._pm)
             res.poll_arab_units(self._pm)
+            res.poll_monk_units(self._pm)
             all_values = res.read_all_players(self._pm)
             lord_labels = res.read_roster_names(self._pm)
         except Exception as e:
@@ -203,37 +203,19 @@ class Worker:
         payload["sides"] = strength_score.compute_side_summary(payload["players"], team_assignment, strengths)
         self.state.set_payload(payload)
 
-    def _poll_monks_only(self):
-        """Nur das Mönche-Ereignis-Log abfragen, ohne den vollen Tick
-        (kein read_all_players/roster/payload-Aufbau). Wird deutlich
-        öfter aufgerufen als der volle Tick, weil das Log ein kleiner,
-        sich schnell überschreibender Zähl-Stapel ist (siehe
-        reader.poll_monk_events Docstring) - je seltener wir schauen,
-        desto eher geht ein Mönch-Ereignis unbemerkt verloren, wenn
-        zwischendurch viele andere Einheiten gebaut/verloren werden."""
-        if self._pm is None:
-            return
-        try:
-            res.poll_monk_events(self._pm)
-        except Exception:
-            pass  # nächster _tick() erkennt einen echten Verbindungsverlust
-
-    MONK_POLL_INTERVAL_S = 0.15
-
     def _run(self):
-        last_full_tick = 0.0
+        # Früher gab es hier einen Zwei-Takt-Poll (schnelles Zwischen-Poll
+        # nur fürs Mönche-Ereignis-Log, um dessen Ringpuffer nicht zu
+        # verpassen) - mit dem Umbau auf den Objekttabellen-Zensus
+        # (2026-09-04) liefert jeder Tick einen vollständigen aktuellen
+        # Bestand, ein Zwischen-Poll ist nicht mehr nötig.
         while not self._stop_event.is_set():
-            now = time.monotonic()
             interval = self._config.get("poll_interval_ms", 500) / 1000.0
-            if now - last_full_tick >= interval:
-                try:
-                    self._tick()
-                except Exception as e:
-                    # Absicherung: der Thread darf unter keinen Umständen
-                    # sterben, auch nicht bei einem unerwarteten Fehler.
-                    self.state.set_error(str(e))
-                    self._pm = None
-                last_full_tick = now
-            else:
-                self._poll_monks_only()
-            self._stop_event.wait(min(self.MONK_POLL_INTERVAL_S, interval))
+            try:
+                self._tick()
+            except Exception as e:
+                # Absicherung: der Thread darf unter keinen Umständen
+                # sterben, auch nicht bei einem unerwarteten Fehler.
+                self.state.set_error(str(e))
+                self._pm = None
+            self._stop_event.wait(interval)

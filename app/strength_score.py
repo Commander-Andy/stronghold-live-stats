@@ -58,10 +58,10 @@ UNIT_WEIGHTS = {
 SIEGE_WEIGHT_PER_UNIT = 3.5
 
 MONK_WEIGHT = 0.75
-# monks_trained ist kumulativ seit Tool-Start (kein Live-Bestand, sinkt bei
-# Mönch-Tod nicht, siehe reader.get_monks_trained) - Abwertung, damit das im
-# Score nicht zunehmend überbewertet wird je länger das Match läuft.
-MONK_STALENESS_DISCOUNT = 0.5
+# monks_trained war früher kumulativ seit Tool-Start (daher ein Abwertungs-
+# faktor gegen zunehmende Überbewertung) - seit dem Umbau auf den Objekt-
+# tabellen-Zensus (2026-09-04) ist es ein echter Live-Bestand wie jede
+# andere Einheit, braucht also keine Sonderbehandlung mehr.
 
 # Waffen-/Rüstungslager sind noch keine Truppen (kein freier Bauer, keine
 # Trainingszeit) - stark abgewertete "potenzielle Truppen".
@@ -126,7 +126,7 @@ def military_score(p):
 
     monks = p.get("monks_trained")
     if monks:
-        score += monks * MONK_WEIGHT * MONK_STALENESS_DISCOUNT
+        score += monks * MONK_WEIGHT
 
     score += _stockpile_value(p)
     return score

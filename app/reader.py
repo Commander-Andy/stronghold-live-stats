@@ -343,105 +343,81 @@ def read_player(pm, player_index):
     return values
 
 
-# Live-Ereignis-Log "Einheit fertig ausgebildet" - der einzige bisher
-# gefundene Weg, Mönche pro Spieler zu zählen (es gibt KEIN festes
-# Zählerfeld dafür im Spieler-Struct, siehe Projekt-Notizen: sehr
-# gründlich mit 5+ unabhängigen Methoden gesucht). Reverse engineered per
-# Cheat-Engine-Breakpoint auf troops_total -> Code-Pfad 0x567666 ->
-# Kategorie-Dispatcher -> dieses Log. Ringpuffer mit festem Eintrags-
-# Abstand; die Spielernummer-Konvention ist 1-8 (kein Spieler 0), analog zu
-# CrusaderData. Live-verifiziert über mehrere Spieler (1,3,4) mit sauber
-# isolierten Einzel-Bauten: Typ-ID 101 = Mönch, jedesmal exakt und korrekt
-# dem bauenden Spieler zugeordnet. Belagerungsgeräte (Tribok/Rammbock/
-# Katapult/Feuerballiste/sogar Turm-Balliste) zeigen hier alle dieselbe
-# geteilte Typ-ID 6 - keine Einzelaufschlüsselung möglich, auch hier
-# nicht (bestätigt über 5 verschiedene Typen).
-EVENT_COUNTER_ADDR = 0x00EE0FC8
+# Objekttabelle für den Live-Zensus (Lord-HP, arabische Einheiten, Mönche
+# - alle drei nutzen dieselbe 0x490-Byte-Datensatz-Tabelle, gefiltert auf
+# das ECHTE Typfeld bei Datensatz-Offset 0x8E, siehe DURCHBRUCH-Abschnitt
+# in research/shc_overlay_status.md).
 EVENT_STRIDE = 0x490
 EVENT_PLAYER_NUM_ADDR = 0x013885E2
 EVENT_TYPE_ID_ADDR = 0x0138880C
-MONK_EVENT_TYPE_ID = 101
 
-# Modul-weiter State (persistiert über mehrere poll_monk_events()-Aufrufe
-# hinweg) - nötig, weil das Log ein Ringpuffer ist: wir müssen bei JEDEM
-# Poll die seit dem letzten Mal neu hinzugekommenen Einträge ansehen,
-# sonst gehen Ereignisse verloren, sobald der Puffer sie überschreibt.
-_last_event_counter = None
-_monk_counts_by_player_num = {}
+# Mönch-Zählung per Zensus statt des früheren Ereignis-Log-Ansatzes
+# (EVENT_COUNTER_ADDR-Ringpuffer, gefiltert auf das ALTE, kaputte Typfeld
+# bei 0x2C0 mit Wert 101). Der alte Ansatz war live nachweislich
+# unzuverlässig: der Ringpuffer-Zähler oszilliert unabhängig von echten
+# Mönch-Ereignissen extrem schnell (Test 0, ~60.000 Reads/s im Leerlauf:
+# 2257 Rückgänge in 60s - breites Engine-Allokations-Rauschen, kein torn
+# read, siehe research/shc_overlay_status.md). War außerdem nur ein
+# KUMULATIVER "seit Tool-Start trainiert"-Zähler, kein Live-Bestand.
+#
+# Live per Bauen-und-Zensus bestätigt (2026-09-04): Typ 37 = Mönch.
+MONK_TYPE_VALUE = 37
+
+_monk_counts_by_player_num = {}  # player_num (1-8) -> Anzahl
 
 
 def reset_monk_tracking():
-    """Setzt die Mönch-Zählung komplett zurück (neue Baseline beim nächsten
-    poll_monk_events-Aufruf, alle bisherigen Pro-Spieler-Zählungen verworfen).
-    Muss bei jedem frischen Verbinden mit dem Spielprozess aufgerufen werden
-    (siehe worker.py::_ensure_connected) - sonst überleben die Zählungen
-    einen Prozess-Neustart und zeigen falsche Alt-Werte."""
-    global _last_event_counter
-    _last_event_counter = None
+    """Wie reset_lord_hp_tracking() - bei jedem frischen Verbinden
+    aufrufen, siehe worker.py::_ensure_connected."""
     _monk_counts_by_player_num.clear()
 
 
-def poll_monk_events(pm):
-    """Muss bei JEDEM Poll-Tick aufgerufen werden (nicht nur bei Bedarf!),
-    damit keine Ringpuffer-Einträge verloren gehen. Zählt neue Mönche
-    (Typ-ID 101) seit dem letzten Aufruf pro Spielernummer (1-8) mit.
-    Der erste Aufruf nach Tool-Start (oder nach reset_monk_tracking()) setzt
-    nur die Baseline (die Vergangenheit im Ringpuffer könnte längst
-    überschriebene, nicht mehr gültige Einträge enthalten - deshalb wird ab
-    Tool-Start gezählt, nicht rückwirkend)."""
-    global _last_event_counter
+def poll_monk_units(pm):
+    """Muss bei JEDEM Poll-Tick aufgerufen werden (analog zu
+    poll_lord_hp/poll_arab_units), VOR read_all_players(). Anders als beim
+    alten Ereignis-Log gibt es hier kein "Ereignisse verpassen" mehr - jeder
+    Aufruf liefert den vollständigen aktuellen Bestand, kein zusätzliches
+    Zwischen-Polling zwischen den regulären Ticks mehr nötig (siehe
+    worker.py - der alte MONK_POLL_INTERVAL_S-Sonderweg entfällt)."""
     try:
-        counter = pm.read_int(EVENT_COUNTER_ADDR)
+        mbi = pymem.memory.virtual_query(pm.process_handle, EVENT_TYPE_ID_ADDR)
+    except Exception:
+        return
+    region_base = mbi.BaseAddress
+    n_rows = mbi.RegionSize // EVENT_STRIDE
+    try:
+        buf = pm.read_bytes(region_base, n_rows * EVENT_STRIDE)
     except Exception:
         return
 
-    if _last_event_counter is None:
-        _last_event_counter = counter
-        return
-    if counter == _last_event_counter:
-        return
-    if counter < _last_event_counter:
-        # Zähler ist gesunken - Annahme: die Ereignis-Tabelle wurde
-        # zurückgesetzt (z.B. neues Match im selben, weiterlaufenden
-        # Spielprozess gestartet), alte Pro-Spieler-Zählung ist damit
-        # ungültig geworden.
-        # UNVERIFIZIERT (Stand 2026-09-02, kein Live-Spiel zum Testen
-        # verfügbar): ob EVENT_COUNTER_ADDR bei einem Match-Neustart im
-        # selben Prozess tatsächlich sinkt, ist nicht bestätigt. Zählt er
-        # stattdessen über Match-Grenzen hinweg einfach weiter hoch, greift
-        # dieser Zweig nie - dann bleibt der ursprüngliche Bug (alte
-        # Mönch-Zahlen überleben einen Match-Neustart in derselben Session)
-        # bestehen und bräuchte ein anderes Signal (z.B. game-state-Events).
-        _monk_counts_by_player_num.clear()
-        _last_event_counter = counter
-        return
+    player_num_phase = (EVENT_PLAYER_NUM_ADDR - region_base) % EVENT_STRIDE
+    # Echtes Typfeld: Datensatz-Offset 0x8E, absolut EVENT_PLAYER_NUM_ADDR-8
+    # (siehe DURCHBRUCH-Abschnitt) - NICHT das alte type_id-Feld bei 0x2C0.
+    real_type_phase = (player_num_phase - 8) % EVENT_STRIDE
 
-    # WICHTIG: der Zähler zeigt immer den NÄCHSTEN NOCH LEEREN Slot (noch
-    # nicht geschrieben, liest sich als Spieler=0/Typ-ID=0) - Einträge
-    # 0..counter-1 sind bereits gültig geschrieben. Der alte gemerkte
-    # Zähler-Wert selbst ist also schon der erste NEUE Index, nicht der
-    # letzte alte (off-by-one, live per Vollprotokoll-Vergleich gefunden:
-    # ohne dieses "ohne +1" wurde der erste Mönch nach jedem Checkpoint
-    # verschluckt).
-    for idx in range(_last_event_counter, counter):
-        try:
-            type_id = pm.read_short(EVENT_TYPE_ID_ADDR + idx * EVENT_STRIDE)
-            if type_id == MONK_EVENT_TYPE_ID:
-                player_num = pm.read_short(EVENT_PLAYER_NUM_ADDR + idx * EVENT_STRIDE)
-                _monk_counts_by_player_num[player_num] = _monk_counts_by_player_num.get(player_num, 0) + 1
-        except Exception:
-            pass
+    counts = {p: 0 for p in range(1, 9)}
+    for row in range(n_rows):
+        base = row * EVENT_STRIDE
+        real_type = int.from_bytes(buf[base + real_type_phase: base + real_type_phase + 2], "little")
+        if real_type != MONK_TYPE_VALUE:
+            continue
+        player_num = int.from_bytes(buf[base + player_num_phase: base + player_num_phase + 2], "little")
+        if not (1 <= player_num <= 8):
+            continue
+        counts[player_num] += 1
 
-    _last_event_counter = counter
+    _monk_counts_by_player_num.clear()
+    _monk_counts_by_player_num.update(counts)
 
 
 def get_monks_trained(player_index):
-    """player_index: 0-7 (unsere Slot-Konvention). Das Ereignis-Log nutzt
-    intern 1-8 (kein Spieler 0), also +1 zur Umrechnung. Gibt die Anzahl
-    seit Tool-Start trainierter Mönche zurück (kein Live-Bestand - stirbt
-    ein Mönch, sinkt dieser Wert NICHT, siehe Docstring von
-    poll_monk_events)."""
-    return _monk_counts_by_player_num.get(player_index + 1, 0)
+    """player_index: 0-7. Gibt den aktuellen LIVE-Bestand an Mönchen für
+    diesen Spieler zurück (0 falls keiner, None falls noch kein Vollscan
+    lief). Name aus Kompatibilitätsgründen beibehalten (Payload-Key
+    "monks_trained" in Overlay/Übersicht) - ist aber seit dem Umbau auf den
+    Objekttabellen-Zensus KEIN kumulativer Wert mehr, sondern sinkt wie bei
+    jeder anderen Einheit, wenn ein Mönch stirbt."""
+    return _monk_counts_by_player_num.get(player_index + 1)
 
 
 # --- Live Lord-HP über dieselbe 0x490-Objekttabelle ------------------------
@@ -538,7 +514,7 @@ def _scan_lord_table(pm):
 
 def poll_lord_hp(pm):
     """Muss bei JEDEM Poll-Tick aufgerufen werden (analog zu
-    poll_monk_events). Sucht nur alle LORD_ROW_REVALIDATE_TICKS die
+    poll_monk_units/poll_arab_units). Sucht nur alle LORD_ROW_REVALIDATE_TICKS die
     komplette Tabelle neu ab (teurer Vollscan, ~wenige MB), liest
     dazwischen nur die gecachten Zeilen direkt (billig - ein paar gezielte
     Reads), prüft dabei aber jedes Mal player_num nach - falls eine Zeile
@@ -613,7 +589,7 @@ def reset_arab_unit_tracking():
 
 def poll_arab_units(pm):
     """Muss bei JEDEM Poll-Tick aufgerufen werden (analog zu
-    poll_lord_hp/poll_monk_events), VOR read_all_players()."""
+    poll_lord_hp/poll_monk_units), VOR read_all_players()."""
     try:
         mbi = pymem.memory.virtual_query(pm.process_handle, EVENT_TYPE_ID_ADDR)
     except Exception:
@@ -994,9 +970,13 @@ def main():
     print("Starte Live-Auslesung (Strg+C zum Beenden)...\n")
     try:
         while True:
+            # Muss VOR read_all_players() laufen - read_player() liest die
+            # hier befüllten Caches nur noch aus (siehe worker.py::_tick).
+            poll_lord_hp(pm)
+            poll_arab_units(pm)
+            poll_monk_units(pm)
             all_values = read_all_players(pm)
             lord_labels = read_roster_names(pm)
-            poll_monk_events(pm)
             payload = build_overlay_payload(all_values, lord_labels)
 
             parts = [

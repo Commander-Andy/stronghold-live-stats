@@ -57,14 +57,11 @@ DEFAULT_CONFIG = {
         # Standard ... 11=Grausamste Steuern) - im Overlay als Stufe 1-12
         # angezeigt.
         "show_tax_rate": False,
-        # EXPERIMENTELL: seit Tool-Start trainierte Mönche pro Spieler -
-        # KEIN Live-Bestand (stirbt ein Mönch, sinkt die Zahl nicht), da es
-        # kein festes Zählerfeld dafür gibt - wird aus einem kleinen,
-        # sich ständig überschreibenden Ereignis-Stapel mitgezählt (siehe
-        # reader.poll_monk_events()). Zählung beginnt erst, sobald das Tool
-        # läuft (kein rückwirkendes Zählen möglich). Kann in seltenen
-        # Fällen (sehr viele gleichzeitige Bau-/Verlust-Ereignisse aller
-        # Spieler binnen ~150ms) einzelne Mönche verpassen.
+        # Aktueller Live-Bestand an Mönchen pro Spieler, per Objekttabellen-
+        # Zensus (siehe reader.poll_monk_units()) - sinkt wie bei jeder
+        # anderen Einheit, wenn ein Mönch stirbt. Der Name ("_trained") ist
+        # aus dem früheren, kumulativen Ereignis-Log-Ansatz stehen
+        # geblieben, siehe reader.py-Kommentar bei get_monks_trained().
         "show_monks_trained": False,
         # NOCH NICHT FUNKTIONAL (Stand 2026-09-01) - Live-HP des Burgherren.
         # Basis-HP, Multiplikator-Tabelle und die grobe Speicherregion sind
