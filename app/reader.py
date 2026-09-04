@@ -15,6 +15,7 @@ import re
 import time
 
 import pymem
+import pymem.memory
 import pymem.process
 
 PROCESS_NAME = "Stronghold Crusader.exe"
@@ -98,8 +99,14 @@ POPULATION_CAPACITY_OFFSET = -0x45C
 # bei KI-Slots überall 0 (kein gültiger Steuersatz) und wurden verworfen.
 TAX_RATE_OFFSET = 0x1CB8
 
-# Live-HP des Burgherren pro Slot - eigene Basis/Schrittweite, siehe
-# read_player() für die Herleitung.
+# Alte, widerlegte Lord-HP-Adresse (siehe EVENT_*/LORD_TYPE_ID weiter unten
+# für die tatsächlich funktionierende Live-Lösung). War derselbe geteilte
+# Ereignis-Ringpuffer wie beim Mönch-Log - in einem Sandbox-Test mit rein
+# sequenziellen, isolierten Treffern sah es nach einem Pro-Spieler-Array
+# aus, brach aber in einem echten Match mit Hintergrundgeschehen zusammen
+# (alle Spieler zeigten denselben veralteten Wert). Nur noch als
+# historischer Anker für die Offset-Herleitung von LORD_HP_CURRENT_OFFSET
+# unten interessant, nicht mehr verwenden.
 LORD_HP_BASE = 0x1388DA4
 LORD_HP_STRIDE = 0x490
 
@@ -109,11 +116,16 @@ LORD_HP_STRIDE = 0x490
 # echte vanilla.json der Spielinstallation kennt dieses Feld nicht). Die
 # volle 16-Lord-Tabelle stammt aus einem Mehrheitskonsens über 14
 # unabhängige Custom-AI-Mod-Exporte (jeder Mod überschreibt nur seinen
-# einen Lord-Slot) - zwei Werte (Ratte, Wolf) zusätzlich live im Speicher
-# bestätigt (100000*1.5=150000 für Wolf, exakt getroffen). Menschliche
-# Spieler haben keinen dieser Namen im Roster-String und fallen auf den
-# Standard-Multiplikator 1.0 zurück.
-LORD_BASE_HP = 100000
+# einen Lord-Slot). Menschliche Spieler haben keinen dieser Namen im
+# Roster-String und fallen auf den Standard-Multiplikator 1.0 zurück.
+# LORD_BASE_HP live bestätigt (2026-09-04, siehe EVENT_*/LORD_TYPE_ID
+# unten): ein Multi-Wert-Snapshot über 7 KI-Lords unterschiedlicher
+# Persönlichkeit traf mit 150000 als Basis bei JEDEM einzelnen exakt
+# (Ratte 74635≈75000, Schlange 105000, Schwein 150000, Wolf 224967≈225000,
+# Saladin 210000, Sultan 135000, Richard 210000) - der alte Wert 100000
+# war falsch (stammte aus einer zufälligen Zeile der oben genannten,
+# inzwischen widerlegten LORD_HP_BASE-Adresse).
+LORD_BASE_HP = 150000
 LORD_STRENGTH_MULTIPLIER = {
     "rat": 0.5, "ratte": 0.5,
     "snake": 0.7, "schlange": 0.7,
@@ -293,21 +305,12 @@ def read_player(pm, player_index):
     except Exception:
         values["team_signal_secondary"] = None
 
-    # NOCH NICHT FUNKTIONAL (Stand 2026-09-01, zweiter Anlauf gescheitert).
-    # LORD_HP_BASE + player_index*LORD_HP_STRIDE sah in einem Sandbox-Test
-    # (8 isolierte, nacheinander gesetzte Treffer, sonst keine gleichzeitige
-    # Kampfhandlung) überzeugend nach einem festen Pro-Spieler-Array aus -
-    # war aber ein Trugschluss: es ist derselbe Ereignis-Ringpuffer wie bei
-    # den Mönchen, und die 8 isolierten Treffer landeten nur zufällig in
-    # Slot-Reihenfolge, weil nichts anderes gleichzeitig Ereignisse erzeugte.
-    # In einem echten Match mit gleichzeitigem Hintergrundgeschehen (Bewegung,
-    # KI etc.) zeigte diese Formel für ALLE Spieler denselben (veralteten/
-    # generischen) Wert - live bestätigt falsch. Eine echte Umsetzung
-    # braucht dieselbe Ereignis-Zähler-Technik wie poll_monk_events()
-    # (Ereignis-Typ für "Schaden mit resultierender HP" identifizieren,
-    # Bereich durchlaufen), nicht eine feste Adresse. Siehe
-    # project_shc_overlay_status.md für die volle Historie.
-    values["lord_hp"] = None
+    # Live-Lord-HP über die 0x490-Objekttabelle (LORD_TYPE_ID etc., siehe
+    # unten) statt der alten, widerlegten LORD_HP_BASE-Adresse. Setzt
+    # voraus, dass poll_lord_hp(pm) bei jedem Tick VORHER aufgerufen wurde
+    # (siehe worker.py) - hier wird nur der gecachte Wert gelesen, kein
+    # eigener Speicherzugriff mehr nötig.
+    values["lord_hp"], values["lord_hp_max_live"] = get_lord_hp(player_index)
 
     return values
 
@@ -411,6 +414,156 @@ def get_monks_trained(player_index):
     ein Mönch, sinkt dieser Wert NICHT, siehe Docstring von
     poll_monk_events)."""
     return _monk_counts_by_player_num.get(player_index + 1, 0)
+
+
+# --- Live Lord-HP über dieselbe 0x490-Objekttabelle ------------------------
+#
+# Live gefunden und ausführlich falsifikationsgetestet am 2026-09-04 (volle
+# Herleitungs-/Test-Historie siehe research/shc_overlay_status.md,
+# Sackgasse 7). Dieselbe 0x490-Byte-Datensatz-Tabelle wie das Mönch-
+# Event-Log oben (EVENT_*), hier aber als echtes Objekt-Array genutzt:
+# Datensätze mit type_id==LORD_TYPE_ID sind Lords (genau einer pro aktivem
+# Spieler). LORD_HP_CURRENT_OFFSET/LORD_HP_MAX_OFFSET liegen relativ zum
+# player_num-Feld desselben Datensatzes.
+#
+# Bestätigt über:
+#  - Multi-Wert-Snapshot (kein Kampf nötig): 7 KI-Lords unterschiedlicher
+#    Persönlichkeit, LORD_HP_MAX_OFFSET traf bei JEDEM exakt
+#    150000*LORD_STRENGTH_MULTIPLIER (LORD_BASE_HP war bisher fälschlich
+#    100000, siehe oben).
+#  - Live-Schadenstest am eigenen Lord: LORD_HP_CURRENT_OFFSET fiel unter
+#    echtem Beschuss sauber monoton, LORD_HP_MAX_OFFSET blieb exakt gleich,
+#    player_num blieb über die ganze Messung stabil (feste Zeile).
+#  - Pflicht-Duplikat-Gegentest (zwei identische Lord-Personas, nur einen
+#    beschossen, 60s): nur der beschossene Datensatz fiel, der andere blieb
+#    exakt unverändert - echtes Pro-Objekt-Feld, keine geteilte Tabelle
+#    (genau der Test, der beim alten LORD_HP_BASE-Versuch gefehlt hat).
+#
+# WICHTIG: `type_id` selbst flackert nachweislich (auch bei Nicht-Lords
+# beobachtet, z.B. Bogenschütze kurzzeitig als "Mönch" getaggt) - als
+# alleiniger Identitäts-Anker ungeeignet. Deshalb: Zeilen-Index cachen,
+# aber player_num bei jedem Tick nachprüfen (nicht type_id), und die
+# komplette Tabelle nur alle LORD_ROW_REVALIDATE_TICKS neu absuchen statt
+# bei jedem Tick (Vollscan ist der teure Teil).
+LORD_TYPE_ID = 13
+LORD_HP_CURRENT_OFFSET = 818
+LORD_HP_MAX_OFFSET = 822
+LORD_ROW_REVALIDATE_TICKS = 10  # bei ~500ms Poll-Intervall alle ~5s neu suchen
+
+_lord_rows_by_player_num = {}  # player_num (1-8) -> Datensatz-Index
+_lord_hp_by_player_num = {}    # player_num (1-8) -> (aktuelle_hp, max_hp)
+_lord_row_tick_counter = 0
+
+
+def reset_lord_hp_tracking():
+    """Wie reset_monk_tracking() - bei jedem frischen Verbinden aufrufen,
+    siehe worker.py::_ensure_connected."""
+    global _lord_row_tick_counter
+    _lord_rows_by_player_num.clear()
+    _lord_hp_by_player_num.clear()
+    _lord_row_tick_counter = 0
+
+
+def _scan_lord_table(pm):
+    """Voller Regions-Scan über die gesamte Objekttabelle. Findet für jede
+    Spielernummer (1-8) die plausibelste Zeile mit type_id==LORD_TYPE_ID -
+    bei mehreren Treffern für denselben Spieler (kurzzeitig falsch getaggte,
+    frisch recycelte Zeilen kommen vor) wird die mit dem GRÖSSTEN
+    LORD_HP_MAX_OFFSET-Wert genommen, da Störtreffer erfahrungsgemäß
+    deutlich kleinere, unplausible Werte zeigen. Gibt (rows, hp) zurück:
+    rows={player_num: row_index}, hp={player_num: (aktuell, max)}."""
+    try:
+        mbi = pymem.memory.virtual_query(pm.process_handle, EVENT_TYPE_ID_ADDR)
+    except Exception:
+        return {}, {}
+    region_base = mbi.BaseAddress
+    n_rows = mbi.RegionSize // EVENT_STRIDE
+    try:
+        buf = pm.read_bytes(region_base, n_rows * EVENT_STRIDE)
+    except Exception:
+        return {}, {}
+
+    type_id_phase = (EVENT_TYPE_ID_ADDR - region_base) % EVENT_STRIDE
+    player_num_phase = (EVENT_PLAYER_NUM_ADDR - region_base) % EVENT_STRIDE
+    cur_phase = (player_num_phase + LORD_HP_CURRENT_OFFSET) % EVENT_STRIDE
+    max_phase = (player_num_phase + LORD_HP_MAX_OFFSET) % EVENT_STRIDE
+
+    best = {}  # player_num -> (row, aktuell, max)
+    for row in range(n_rows):
+        base = row * EVENT_STRIDE
+        type_id = int.from_bytes(buf[base + type_id_phase: base + type_id_phase + 2], "little")
+        if type_id != LORD_TYPE_ID:
+            continue
+        player_num = int.from_bytes(buf[base + player_num_phase: base + player_num_phase + 2], "little")
+        if not (1 <= player_num <= 8):
+            continue
+        maximum = int.from_bytes(buf[base + max_phase: base + max_phase + 4], "little")
+        current = int.from_bytes(buf[base + cur_phase: base + cur_phase + 4], "little")
+        prev = best.get(player_num)
+        if prev is None or maximum > prev[2]:
+            best[player_num] = (row, current, maximum)
+
+    rows = {p: v[0] for p, v in best.items()}
+    hp = {p: (v[1], v[2]) for p, v in best.items()}
+    return rows, hp
+
+
+def poll_lord_hp(pm):
+    """Muss bei JEDEM Poll-Tick aufgerufen werden (analog zu
+    poll_monk_events). Sucht nur alle LORD_ROW_REVALIDATE_TICKS die
+    komplette Tabelle neu ab (teurer Vollscan, ~wenige MB), liest
+    dazwischen nur die gecachten Zeilen direkt (billig - ein paar gezielte
+    Reads), prüft dabei aber jedes Mal player_num nach - falls eine Zeile
+    recycelt wurde, wird sie verworfen statt einen falschen Wert zu liefern
+    (bleibt bis zum nächsten Vollscan als 'unbekannt', kein Rateversuch)."""
+    global _lord_row_tick_counter
+    need_full_scan = (
+        not _lord_rows_by_player_num
+        or _lord_row_tick_counter % LORD_ROW_REVALIDATE_TICKS == 0
+    )
+    _lord_row_tick_counter += 1
+
+    if need_full_scan:
+        rows, hp = _scan_lord_table(pm)
+        if rows:
+            _lord_rows_by_player_num.clear()
+            _lord_rows_by_player_num.update(rows)
+            _lord_hp_by_player_num.clear()
+            _lord_hp_by_player_num.update(hp)
+        return
+
+    try:
+        mbi = pymem.memory.virtual_query(pm.process_handle, EVENT_TYPE_ID_ADDR)
+    except Exception:
+        return
+    region_base = mbi.BaseAddress
+    player_num_phase = (EVENT_PLAYER_NUM_ADDR - region_base) % EVENT_STRIDE
+
+    stale = []
+    for player_num, row in _lord_rows_by_player_num.items():
+        record_start = region_base + row * EVENT_STRIDE
+        try:
+            actual_pnum = pm.read_short(record_start + player_num_phase)
+            if actual_pnum != player_num:
+                stale.append(player_num)
+                continue
+            current = pm.read_uint(record_start + player_num_phase + LORD_HP_CURRENT_OFFSET)
+            maximum = pm.read_uint(record_start + player_num_phase + LORD_HP_MAX_OFFSET)
+            _lord_hp_by_player_num[player_num] = (current, maximum)
+        except Exception:
+            stale.append(player_num)
+
+    for player_num in stale:
+        _lord_rows_by_player_num.pop(player_num, None)
+        _lord_hp_by_player_num.pop(player_num, None)
+
+
+def get_lord_hp(player_index):
+    """player_index: 0-7. Gibt (aktuelle_hp, max_hp) zurück, oder
+    (None, None) falls für diesen Spieler (noch) kein Lord-Datensatz
+    gefunden wurde (z.B. kurz nach Match-Start, bevor der erste Vollscan
+    lief, oder falls der Lord besiegt/der Spieler eliminiert wurde)."""
+    return _lord_hp_by_player_num.get(player_index + 1, (None, None))
 
 
 # --- Team-Erkennung: rollierendes Ko-Gleichheits-Fenster mit Einmal-Latch --
@@ -667,7 +820,13 @@ def build_overlay_payload(all_values, lord_labels, attack_status=None, display=N
         if not is_active_slot(values):
             continue
         label = lord_labels.get(i, slot_label(i))
-        lord_max_hp = get_lord_max_hp(label)
+        # Live-Max-HP (aus derselben Objekttabelle wie lord_hp) ist
+        # robuster als die namensbasierte Berechnung (die am bekannten
+        # Substring-Matching-Bug in get_lord_strength_multiplier() hängt) -
+        # bevorzugt verwenden, namensbasiert nur als Rückfallebene, solange
+        # poll_lord_hp() den Datensatz für diesen Spieler noch nicht
+        # gefunden hat (z.B. kurz nach Match-Start).
+        lord_max_hp = values.get("lord_hp_max_live") or get_lord_max_hp(label)
         entry = {
             "slot": i,
             "label": label,

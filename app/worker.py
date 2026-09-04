@@ -125,6 +125,7 @@ class Worker:
             return False
         self._pm = pm
         res.reset_monk_tracking()
+        res.reset_lord_hp_tracking()
         res.reset_team_detection()
         self._strength_tracker.reset()
         self._had_active_players = False
@@ -135,6 +136,9 @@ class Worker:
             return
 
         try:
+            # Muss VOR read_all_players() laufen - read_player() liest den
+            # hier befüllten Cache nur noch aus (siehe reader.py::get_lord_hp).
+            res.poll_lord_hp(self._pm)
             all_values = res.read_all_players(self._pm)
             lord_labels = res.read_roster_names(self._pm)
         except Exception as e:
