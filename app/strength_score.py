@@ -211,9 +211,16 @@ def _lord_prior(label, elapsed_s):
 def _strength_for_slot(tracker, slot, label, now):
     total = tracker.latest_total(slot)
     trend = tracker.trend(slot)
-    projected = total + trend * T_LOOKAHEAD_S
+    # Ohne Untergrenze kann ein scharfer, kurzfristiger Einbruch (z.B. eine
+    # komplette Armee auf einen Schlag verloren) den Trend so stark negativ
+    # ziehen, dass die 5-Minuten-Vorausprojektion ins Negative kippt - eine
+    # echte Staerke (Truppen*Gewicht + Wirtschaft, beides >=0) kann das nie
+    # sein. Live beobachtet (2026-09-05): fuehrte zu absurden Gewinnwahr-
+    # scheinlichkeits-Anteilen wie "502%"/"-402%" in compute_side_summary(),
+    # da deren Anteilsrechnung durch eine negative Seiten-Summe dividiert.
+    projected = max(0.0, total + trend * T_LOOKAHEAD_S)
     prior = _lord_prior(label, tracker.elapsed(slot, now))
-    return projected * (1.0 + prior)
+    return max(0.0, projected * (1.0 + prior))
 
 
 def _sides(players, team_assignment):
