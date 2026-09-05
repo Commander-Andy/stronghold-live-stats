@@ -293,12 +293,8 @@
     <div class="path-box"><code id="overlay-url">http://127.0.0.1:8765/overlay.html</code></div>
   </div>
 
-  <h2>Gewinnwahrscheinlichkeit <span class="info-tip" title='EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als "führend" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) eine echte Gewinnwahrscheinlichkeit. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet der Balken echte Anteile (Summe=100%), die Prozentzahl im Spieler-Rahmen dagegen "diese Seite gegen den Rest" (liegt dann für ALLE Seiten unter 50%, kein Fehler, sondern die Definition).'>&#9432;</span></h2>
+  <h2>Gewinnwahrscheinlichkeit <span class="info-tip" title='EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als "führend" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) eine echte Gewinnwahrscheinlichkeit. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet der Balken echte Anteile (Summe=100%), die Prozentzahl im Spieler-Rahmen dagegen "diese Seite gegen den Rest" (liegt dann für ALLE Seiten unter 50%, kein Fehler, sondern die Definition). Die Prozentzahl im Spieler-Rahmen selbst wird unter "Was soll angezeigt werden?" -> "Sonstiges" ein-/ausgeschaltet, hier nur der Balken.'>&#9432;</span></h2>
   <div class="card">
-    <div class="row">
-      <label>Prozentzahl im Spieler-Rahmen anzeigen</label>
-      <input type="checkbox" data-key="show_win_probability">
-    </div>
     <div class="row">
       <label>Als Balken direkt ins Overlay einbauen (mittig oben)</label>
       <input type="checkbox" id="win-bar-overlay-toggle">
@@ -369,61 +365,6 @@
     <summary style="cursor:pointer; color:#c6a15b; font-size:15px; font-weight:600; margin-top:28px;"><span class="disclosure-arrow">&#9654;</span>Was soll angezeigt werden?</summary>
     <div id="display-categories" style="margin-top:10px;"></div>
   </details>
-
-  <h2>Logo</h2>
-  <div class="card dropzone" id="logo-dropzone">
-    <div class="row">
-      <label>Logo-Bild anzeigen</label>
-      <input type="checkbox" data-key="show_logo">
-    </div>
-    <div class="row">
-      <label>Bilddatei</label>
-      <button id="pick-logo-btn">Bild wählen</button>
-    </div>
-    <div class="path-box" id="logo-path-box">- kein Logo ausgewählt -</div>
-    <div class="drop-hint">... oder Bild einfach hier reinziehen</div>
-    <div class="row">
-      <label>Ecke</label>
-      <select id="logo-corner-input">
-        <option value="bottom-left">unten links</option>
-        <option value="bottom-right">unten rechts</option>
-        <option value="top-left">oben links</option>
-        <option value="top-right">oben rechts</option>
-      </select>
-    </div>
-    <div class="row">
-      <label>Abstand X (px)</label>
-      <input type="range" id="logo-offset-x-range" min="0" max="600" step="1">
-      <input type="number" id="logo-offset-x-input" min="0" max="600" step="1">
-    </div>
-    <div class="row">
-      <label>Abstand Y (px)</label>
-      <input type="range" id="logo-offset-y-range" min="0" max="400" step="1">
-      <input type="number" id="logo-offset-y-input" min="0" max="400" step="1">
-    </div>
-    <div class="row">
-      <label>Breite (px, Höhe passt sich proportional an)</label>
-      <input type="range" id="logo-width-range" min="10" max="500" step="1">
-      <input type="number" id="logo-width-input" min="10" max="500" step="1">
-    </div>
-    <div class="row">
-      <label>Transparenz (%)</label>
-      <input type="range" id="logo-opacity-range" min="0" max="100" step="1">
-      <input type="number" id="logo-opacity-input" min="0" max="100" step="1">
-    </div>
-  </div>
-
-  <h2>Erweitert</h2>
-  <div class="card">
-    <div class="row">
-      <label>Lokaler Port <span class="info-tip" title='Änderung wird erst nach einem Neustart der App wirksam.'>&#9432;</span></label>
-      <input type="number" id="port-input">
-    </div>
-    <div class="row">
-      <label>Automatisch beenden nach (Sekunden ohne Einstellungs-Seite UND ohne OBS-Zugriff) <span class="info-tip" title='0 = nie automatisch beenden (dann nur noch über "Beenden" im Tray-Symbol unten rechts in der Taskleiste).'>&#9432;</span></label>
-      <input type="number" id="idle-shutdown-input" min="0" max="3600" step="5">
-    </div>
-  </div>
 
   <h2>Größe &amp; Abstände</h2>
   <div class="card">
@@ -550,6 +491,61 @@
       <div id="player-colors-list" style="margin-top:10px;"></div>
     </details>
 
+  <h2>Logo</h2>
+  <div class="card dropzone" id="logo-dropzone">
+    <div class="row">
+      <label>Logo-Bild anzeigen</label>
+      <input type="checkbox" data-key="show_logo">
+    </div>
+    <div class="row">
+      <label>Bilddatei</label>
+      <button id="pick-logo-btn">Bild wählen</button>
+    </div>
+    <div class="path-box" id="logo-path-box">- kein Logo ausgewählt -</div>
+    <div class="drop-hint">... oder Bild einfach hier reinziehen</div>
+    <div class="row">
+      <label>Ecke</label>
+      <select id="logo-corner-input">
+        <option value="bottom-left">unten links</option>
+        <option value="bottom-right">unten rechts</option>
+        <option value="top-left">oben links</option>
+        <option value="top-right">oben rechts</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Abstand X (px)</label>
+      <input type="range" id="logo-offset-x-range" min="0" max="600" step="1">
+      <input type="number" id="logo-offset-x-input" min="0" max="600" step="1">
+    </div>
+    <div class="row">
+      <label>Abstand Y (px)</label>
+      <input type="range" id="logo-offset-y-range" min="0" max="400" step="1">
+      <input type="number" id="logo-offset-y-input" min="0" max="400" step="1">
+    </div>
+    <div class="row">
+      <label>Breite (px, Höhe passt sich proportional an)</label>
+      <input type="range" id="logo-width-range" min="10" max="500" step="1">
+      <input type="number" id="logo-width-input" min="10" max="500" step="1">
+    </div>
+    <div class="row">
+      <label>Transparenz (%)</label>
+      <input type="range" id="logo-opacity-range" min="0" max="100" step="1">
+      <input type="number" id="logo-opacity-input" min="0" max="100" step="1">
+    </div>
+  </div>
+
+  <h2>Erweitert</h2>
+  <div class="card">
+    <div class="row">
+      <label>Lokaler Port <span class="info-tip" title='Änderung wird erst nach einem Neustart der App wirksam.'>&#9432;</span></label>
+      <input type="number" id="port-input">
+    </div>
+    <div class="row">
+      <label>Automatisch beenden nach (Sekunden ohne Einstellungs-Seite UND ohne OBS-Zugriff) <span class="info-tip" title='0 = nie automatisch beenden (dann nur noch über "Beenden" im Tray-Symbol unten rechts in der Taskleiste).'>&#9432;</span></label>
+      <input type="number" id="idle-shutdown-input" min="0" max="3600" step="5">
+    </div>
+  </div>
+
   </div><!-- /left-col -->
 
   <div class="right-col">
@@ -624,7 +620,8 @@
           ["show_popularity", "Popularity"],
           ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
           ["show_population", "Bevölkerung (aktuell/Kapazität)"],
-          ["show_lord_hp", "Burgherr-HP (noch nicht funktional)"],
+          ["show_lord_hp", "Burgherr-HP"],
+          ["show_win_probability", "Gewinnwahrscheinlichkeit (experimentell)", "EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als \"führend\" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) eine echte Gewinnwahrscheinlichkeit. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet jede Seite gegen den kompletten Rest des Feldes gleichzeitig - bei einem fairen Kräfteverhältnis liegt der Wert dann für ALLE Seiten unter 50%, das ist kein Fehler, sondern die Definition. Der Balken selbst (Größe/Position/Modus) wird weiter oben unter \"Gewinnwahrscheinlichkeit\" eingestellt."],
           ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel läuft"],
         ],
       },
