@@ -303,6 +303,48 @@
     text-overflow: ellipsis;
   }
 
+  /* Burgherr-HP als eigene senkrechte Saeule zwischen Name und Werten,
+     statt als normaler Grid-Wert (siehe show_lord_hp) - waechst mit der
+     Hoehe von .row-top mit (align-self:stretch), da .row-top selbst durch
+     den Werte-Block daneben seine Hoehe bekommt. */
+  .lord-hp-col {
+    flex: 0 0 16px;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .lord-hp-track {
+    flex: 1 1 auto;
+    width: 10px;
+    min-height: 12px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+
+  .lord-hp-fill {
+    width: 100%;
+    border-radius: 1px;
+  }
+
+  .lord-hp-fill.hp-high { background: #4caf50; }
+  .lord-hp-fill.hp-mid { background: #d8b93a; }
+  .lord-hp-fill.hp-low { background: var(--attack-color); }
+  .lord-hp-fill.hp-none { background: transparent; }
+
+  .lord-hp-pct {
+    font-size: 10px;
+    line-height: 1;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+
   .stat {
     display: grid;
     grid-template-columns: 18px 1fr;
@@ -515,7 +557,6 @@
       { flag: "show_popularity",   key: "popularity",          img: "/icons/resource_popularity.png", isPop: true },
       { flag: "show_tax_rate",     key: "tax_rate",            isTaxRate: true },
       { flag: "show_population",   key: "population",          img: "/icons/population.png", isPopulation: true },
-      { flag: "show_lord_hp",      key: "lord_hp_percent",     icon: "&#10084;&#65039;", isLordHp: true },
       { flag: "show_win_probability", key: "win_probability_percent", icon: "&#9878;&#65039;", isWinProb: true },
     ];
 
@@ -528,7 +569,7 @@
       "show_food_total", "show_bread", "show_cheese", "show_meat", "show_apples",
       "show_bows", "show_crossbows", "show_spears", "show_pikes", "show_maces", "show_swords", "show_leather_armor", "show_metal_armor",
       "show_troops_total", "show_monks_trained",
-      "show_popularity", "show_tax_rate", "show_population", "show_lord_hp", "show_win_probability",
+      "show_popularity", "show_tax_rate", "show_population", "show_win_probability",
     ];
 
     let cfg = { display: {} };
@@ -574,10 +615,6 @@
       if (def.isTaxRate) {
         const tax = p.tax_rate;
         return (tax === null || tax === undefined) ? "-" : `${tax + 1}/12`;
-      }
-      if (def.isLordHp) {
-        const pct = p.lord_hp_percent;
-        return (pct === null || pct === undefined) ? "-" : pct + "%";
       }
       if (def.isWinProb) {
         const wp = p.win_probability_percent;
@@ -743,6 +780,30 @@
       return parts.join(";");
     }
 
+    // Ampel-Schwellen: >66% gruen, 33-66% gelb, <33% rot, GENAU 0% (Burg
+    // gefallen) bewusst OHNE Farbe statt rot - unterscheidet "besiegt" von
+    // "kritisch, aber noch im Spiel". Fehlende Daten (null/undefined)
+    // ebenfalls ohne Farbe, Balken bleibt leer.
+    function lordHpClass(pct) {
+      if (pct === null || pct === undefined || pct <= 0) return "hp-none";
+      if (pct > 66) return "hp-high";
+      if (pct >= 33) return "hp-mid";
+      return "hp-low";
+    }
+
+    function lordHpBarHtml(p, display) {
+      if (!display.show_lord_hp) return "";
+      const pct = p.lord_hp_percent;
+      const fillPct = (pct === null || pct === undefined) ? 0 : Math.max(0, Math.min(100, pct));
+      const label = (pct === null || pct === undefined) ? "-" : `${pct}%`;
+      return `
+        <div class="lord-hp-col" title="Burgherr-HP">
+          <div class="lord-hp-track"><div class="lord-hp-fill ${lordHpClass(pct)}" style="height:${fillPct}%"></div></div>
+          <div class="lord-hp-pct">${label}</div>
+        </div>
+      `;
+    }
+
     function attackBadgeHtml(p, isAttacking) {
       const display = cfg.display || {};
       if (!display.show_attack_badge || !display.highlight_attack_status) return "";
@@ -776,6 +837,7 @@
           ${attackBadgeHtml(p, isAttacking)}
           <div class="row-top">
             <div class="label">${escapeHtml(p.label)}</div>
+            ${lordHpBarHtml(p, display)}
             ${statsGridHtml(p)}
           </div>
           ${breakdownHtml(p)}
@@ -897,6 +959,7 @@
         layout.line_count, layout.stats_per_line, layout.line_distribution,
         defs.map((d) => d.flag).join(","),
         (cfg.display || {}).show_troop_breakdown ? 1 : 0,
+        (cfg.display || {}).show_lord_hp ? 1 : 0,
         "L:" + leftPlayers.map((p) => p.slot).join(","),
         "R:" + rightPlayers.map((p) => p.slot).join(","),
       ].join("|");
@@ -928,6 +991,23 @@
           }
         }
       });
+
+      // Burgherr-HP-Saeule: aendert sich oft (jeder Treffer), aber die
+      // Struktur (an/aus) nicht - nur Fuellhoehe/Farbe/Text aktualisieren
+      // statt komplett neu einzusetzen, sonst blinkt die Saeule bei jedem
+      // Poll wie frueher die Haupt-Icon-Zeile.
+      const lordHpCol = rowEl.querySelector(".lord-hp-col");
+      if (lordHpCol) {
+        const pct = p.lord_hp_percent;
+        const fillPct = (pct === null || pct === undefined) ? 0 : Math.max(0, Math.min(100, pct));
+        const fillEl = lordHpCol.querySelector(".lord-hp-fill");
+        const pctEl = lordHpCol.querySelector(".lord-hp-pct");
+        const newCls = "lord-hp-fill " + lordHpClass(pct);
+        if (fillEl && fillEl.className !== newCls) fillEl.className = newCls;
+        if (fillEl && fillEl.style.height !== `${fillPct}%`) fillEl.style.height = `${fillPct}%`;
+        const newLabel = (pct === null || pct === undefined) ? "-" : `${pct}%`;
+        if (pctEl && pctEl.textContent !== newLabel) pctEl.textContent = newLabel;
+      }
 
       // Truppen-Aufschlüsselung: seltener genutztes Extra, wird bei
       // Änderung einfach komplett neu eingesetzt (kleinerer, separater
