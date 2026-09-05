@@ -536,7 +536,7 @@
 
     <h2>Teams</h2>
     <details class="card" id="team-assignment-details">
-      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Team-Zuordnung pro Spieler ausklappen <span class="info-tip" title='Wird seit Kurzem automatisch live erkannt (braucht ca. 60-90s Spielzeit nach Matchstart, bis die Erkennung "einrastet") - hier von Hand einzutragen ist optional und gewinnt IMMER, falls gesetzt (nützlich als sofortige Überbrückung oder falls die Erkennung mal falsch liegt). Leer = automatische Erkennung, sonst keinem Team zugeordnet. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam für Overlay und Übersicht.'>&#9432;</span></summary>
+      <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Team-Zuordnung pro Spieler ausklappen <span class="info-tip" title='Automatisch: live erkannt, korrekt ab dem ersten Tick nach Matchstart, kein Warten nötig. Manuell: du trägst die Team-Nummern selbst ein - z.B. falls die Erkennung mal falsch liegt. Es gilt IMMER nur einer der beiden Modi, nie eine Mischung pro Spieler - im Modus "Manuell" sind die Felder unten aktiv, im Modus "Automatisch" gesperrt. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam für Overlay und Übersicht.'>&#9432;</span></summary>
       <div id="team-assignment-list" style="margin-top:10px;"></div>
       <div style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(198,161,91,0.3);">
         <span style="font-size:11px; color:#a89478;">Team-Farben <span class="info-tip" title='Überschreibt für den Gewinnwahrscheinlichkeits-Balken die Ausweich-Logik (sonst: individuelle Farbe des ranghöchsten Spielers dieser Team-Nummer, sonst feste Palette). "Zurücksetzen" entfernt die Override-Farbe wieder.'>&#9432;</span></span>
@@ -926,7 +926,27 @@
     function renderTeamAssignmentRows(cfg) {
       const list = document.getElementById("team-assignment-list");
       const assign = cfg.team_assignment || {};
+      const mode = cfg.team_assignment_mode || "auto";
+      const isManual = mode === "manual";
       list.innerHTML = "";
+
+      const modeRow = document.createElement("div");
+      modeRow.className = "row";
+      modeRow.style.marginBottom = "8px";
+      modeRow.innerHTML = `
+        <label style="flex:0 0 90px;">Modus</label>
+        <select id="team-mode-input" style="flex:1;">
+          <option value="auto">Automatisch (Live-Erkennung)</option>
+          <option value="manual">Manuell</option>
+        </select>
+      `;
+      list.appendChild(modeRow);
+      const modeSelect = modeRow.querySelector("#team-mode-input");
+      modeSelect.value = mode;
+      modeSelect.addEventListener("change", (e) => {
+        saveConfigPatch({ team_assignment_mode: e.target.value });
+      });
+
       for (let i = 0; i < 8; i++) {
         const val = assign[String(i)];
         const row = document.createElement("div");
@@ -935,7 +955,7 @@
           <label style="flex:0 0 90px;">Spieler ${i + 1}</label>
           <span class="team-live-name" data-slot="${i}" style="flex:1; font-size:11px; color:#a89478;"></span>
           <span style="font-size:11px; color:#a89478;">Team</span>
-          <input type="number" data-team-slot="${i}" min="1" max="8" step="1" style="width:60px;" value="${val === null || val === undefined ? "" : val}" placeholder="-">
+          <input type="number" data-team-slot="${i}" min="1" max="8" step="1" style="width:60px;" value="${val === null || val === undefined ? "" : val}" placeholder="-" ${isManual ? "" : "disabled"}>
         `;
         list.appendChild(row);
       }

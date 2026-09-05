@@ -4,7 +4,7 @@
     {
       "name": "shc-overlay",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8765"],
+      "runtimeArgs": ["app/dev_server.py"],
       "port": 8765
     }
   ]

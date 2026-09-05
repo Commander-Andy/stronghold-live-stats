@@ -170,10 +170,10 @@ def make_handler(ctx: AppContext):
                     "layout": ctx.config.get("layout", {}),
                     "logo": ctx.config.get("logo", {}),
                     "player_colors": ctx.config.get("player_colors", {}),
-                    # Manuelle Zuordnung gewinnt immer, automatische
-                    # Erkennung (siehe worker.py) fuellt nur auf, wenn
-                    # manuell nichts gesetzt ist - die Vermischung passiert
-                    # schon in Worker._tick(), hier nur auslesen.
+                    # EFFEKTIVE Zuordnung (je nach team_assignment_mode
+                    # entweder komplett automatisch erkannt oder komplett
+                    # manuell, siehe worker.py) - hier fuer die tatsaechliche
+                    # Overlay-Darstellung, nicht die rohe Config.
                     "team_assignment": ctx.state.get_effective_team_assignment(),
                     "team_colors": ctx.config.get("team_colors", {}),
                     "win_bar": ctx.config.get("win_bar", {}),
@@ -183,7 +183,16 @@ def make_handler(ctx: AppContext):
             elif path == "/api/overview-config":
                 self._send_json({
                     **ctx.config.get("overview", {}),
-                    "team_assignment": ctx.state.get_effective_team_assignment(),
+                    # ROHE Config hier (nicht die effektive Zuordnung wie bei
+                    # /overlay-config.json oben) - das ist die Einstellungs-
+                    # seite, sie soll immer zeigen, was tatsaechlich
+                    # gespeichert ist, nicht was die Live-Erkennung gerade
+                    # ausgibt (sonst sehen die Eingabefelder bei "auto" so
+                    # aus, als waeren sie manuell befuellt - Agenten-Review
+                    # 2026-09-05 hat diese Inkonsistenz zur Overlay-Seite
+                    # aufgedeckt).
+                    "team_assignment": ctx.config.get("team_assignment", {}),
+                    "team_assignment_mode": ctx.config.get("team_assignment_mode", "auto"),
                     "player_colors": ctx.config.get("player_colors", {}),
                     "team_colors": ctx.config.get("team_colors", {}),
                     "win_bar": ctx.config.get("win_bar", {}),
@@ -226,21 +235,26 @@ def make_handler(ctx: AppContext):
                 self._send_json(ctx.config)
             elif path == "/api/overview-config":
                 patch = self._read_json_body()
-                # team_assignment/win_bar sind TOP-LEVEL geteilt (Overlay +
-                # Übersicht nutzen dieselbe Zuordnung/Balken-Config, kein
-                # "overview"-Duplikat) - deshalb hier rausgezogen und separat
-                # gemerged statt unter "overview" verschachtelt zu werden.
+                # team_assignment/team_assignment_mode/win_bar sind
+                # TOP-LEVEL geteilt (Overlay + Übersicht nutzen dieselbe
+                # Zuordnung/Balken-Config, kein "overview"-Duplikat) -
+                # deshalb hier rausgezogen und separat gemerged statt unter
+                # "overview" verschachtelt zu werden.
                 team_patch = patch.pop("team_assignment", None)
+                team_mode_patch = patch.pop("team_assignment_mode", None)
                 win_bar_patch = patch.pop("win_bar", None)
                 full_patch = {"overview": patch}
                 if team_patch is not None:
                     full_patch["team_assignment"] = team_patch
+                if team_mode_patch is not None:
+                    full_patch["team_assignment_mode"] = team_mode_patch
                 if win_bar_patch is not None:
                     full_patch["win_bar"] = win_bar_patch
                 ctx.config = config_module.merge_and_save(ctx.config, full_patch)
                 self._send_json({
                     **ctx.config.get("overview", {}),
                     "team_assignment": ctx.config.get("team_assignment", {}),
+                    "team_assignment_mode": ctx.config.get("team_assignment_mode", "auto"),
                     "player_colors": ctx.config.get("player_colors", {}),
                     "team_colors": ctx.config.get("team_colors", {}),
                     "win_bar": ctx.config.get("win_bar", {}),

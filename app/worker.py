@@ -180,15 +180,17 @@ class Worker:
 
         res.poll_team_detection(all_values)
 
-        # Effektive Team-Zuordnung: manuelle config["team_assignment"]
-        # gewinnt IMMER, sobald sie fuer irgendeinen Slot gesetzt ist -
-        # automatische Erkennung fuellt nur auf, wenn manuell gar nichts
-        # eingetragen wurde. Wird sowohl fuer die Gewinnwahrscheinlichkeit
-        # unten als auch (ueber state.set_effective_team_assignment) fuer
-        # Overlay/Uebersicht per server.py verwendet.
-        manual_team_assignment = self._config.get("team_assignment", {})
-        if any(v is not None for v in manual_team_assignment.values()):
-            team_assignment = manual_team_assignment
+        # Effektive Team-Zuordnung: ENTWEDER/ODER je nach
+        # config["team_assignment_mode"], keine Vermischung pro Slot (siehe
+        # config.py-Kommentar - ein Agenten-Review deckte auf, dass die
+        # frühere "manuell gewinnt, sobald irgendein Slot gesetzt ist"-Logik
+        # bei nur teilweise ausgefüllter manueller Liste ALLE anderen Slots
+        # fälschlich aus der automatischen Erkennung rausfallen ließ). Wird
+        # sowohl fuer die Gewinnwahrscheinlichkeit unten als auch (ueber
+        # state.set_effective_team_assignment) fuer Overlay/Uebersicht per
+        # server.py verwendet.
+        if self._config.get("team_assignment_mode", "auto") == "manual":
+            team_assignment = self._config.get("team_assignment", {})
         else:
             # get_diplomatic_teams() (literales Gruppen-ID-Array,
             # 0x0117D54C) statt der alten Ko-Gleichheits-Heuristik
@@ -200,7 +202,7 @@ class Worker:
             team_assignment = (
                 {str(slot): team for slot, team in detected.items()}
                 if detected
-                else manual_team_assignment
+                else {}
             )
         self.state.set_effective_team_assignment(team_assignment)
 

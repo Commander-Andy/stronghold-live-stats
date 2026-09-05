@@ -224,11 +224,17 @@ DEFAULT_CONFIG = {
     # wird separat als Datei verwaltet (kein Pfad hier nötig) - siehe
     # server.py Routen /player-bg/<slot>.png.
     "player_colors": {str(i): {"border_color": None, "bg_color": None} for i in range(8)},
-    # Manuelle Team-Zuordnung pro Slot (0=Spieler 1..7=Spieler 8): null = keinem Team
-    # zugeordnet, sonst eine beliebige Team-Nummer (z.B. 1/2). Es gibt KEINE
-    # live ausgelesene Team-/Bündnis-Adresse im Spielspeicher (ausführlich
-    # gesucht, siehe project_shc_overlay_status.md) - der User trägt das pro
-    # Match von Hand ein. Wird von BEIDEN Einstellungsseiten (Overlay +
+    # "auto" = Team-Zuordnung kommt ausschließlich aus der Live-Erkennung
+    # (reader.get_diplomatic_teams(), korrekt ab dem ersten Tick nach
+    # Matchstart - siehe research/shc_overlay_status.md). "manual" = kommt
+    # ausschließlich aus team_assignment unten, die Live-Erkennung wird dann
+    # komplett ignoriert. Bewusst ENTWEDER/ODER, keine Vermischung pro Slot -
+    # sonst ist nie eindeutig, welcher Slot gerade woher stammt.
+    "team_assignment_mode": "auto",
+    # Team-Zuordnung pro Slot (0=Spieler 1..7=Spieler 8): null = keinem Team
+    # zugeordnet, sonst eine beliebige Team-Nummer (z.B. 1/2). Nur relevant
+    # (und in den Einstellungen editierbar) wenn team_assignment_mode =
+    # "manual" ist, siehe oben. Wird von BEIDEN Einstellungsseiten (Overlay +
     # Übersicht) gemeinsam genutzt (kein separates "overview"-Duplikat,
     # siehe server.py) - Team-Zugehörigkeit ist Match-Realität, kein
     # Design-Unterschied zwischen Overlay und Übersicht. "teams" als
