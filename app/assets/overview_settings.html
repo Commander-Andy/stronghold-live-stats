@@ -338,7 +338,7 @@
     function renderDisplayCategories() {
       const container = document.getElementById("display-categories");
       container.innerHTML = DISPLAY_CATEGORIES.map((cat, idx) => `
-        <details class="card" open>
+        <details class="card">
           <summary style="cursor:pointer; color:#c6a15b; display:flex; align-items:center; justify-content:space-between; gap:10px;">
             <span><span class="disclosure-arrow">&#9654;</span>${cat.name} <span class="cat-count" data-cat-badge="${idx}"></span></span>
             <span>
