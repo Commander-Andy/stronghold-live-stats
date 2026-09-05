@@ -54,7 +54,12 @@
     font-weight: bold;
     font-size: 14px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-    transition: flex-grow 0.4s ease;
+    /* --transition-ms wird per JS auf 90% von POLL_MS gesetzt (siehe
+       TRANSITION_MS) - der Balken bewegt sich fliessend zum neuen Zielwert
+       statt bei jedem Poll zu springen, ist aber kurz VOR dem naechsten
+       Poll fertig (nicht genau bei 100%), damit nie eine sichtbare Pause
+       zwischen "angekommen" und "naechster Sprung" entsteht. */
+    transition: flex-grow var(--transition-ms, 450ms) linear;
   }
 
   /* "individual": pro Seite eine eigene, unabhängig 0-100% gefüllte Leiste
@@ -105,7 +110,7 @@
     top: 0;
     left: 0;
     bottom: 0;
-    transition: width 0.4s ease;
+    transition: width var(--transition-ms, 450ms) linear;
   }
   .individual-percent {
     position: absolute;
@@ -127,6 +132,11 @@
     const CONFIG_URL = "/overlay-config.json";
     const POLL_MS = 500;
     const CONFIG_POLL_MS = 200;
+    // 90% von POLL_MS - der Balken erreicht den Zielwert kurz VOR dem
+    // naechsten Poll, statt genau zum Poll-Zeitpunkt (sonst kaeme es je
+    // nach Timing-Jitter gelegentlich zu einer kurzen sichtbaren Pause).
+    const TRANSITION_MS = Math.round(POLL_MS * 0.9);
+    document.documentElement.style.setProperty("--transition-ms", TRANSITION_MS + "ms");
 
     // Feste Ausweich-Palette, falls für den repräsentativen Spieler-Slot
     // einer Seite keine individuelle Farbe (player_colors) gesetzt ist -
@@ -161,26 +171,79 @@
       return FALLBACK_PALETTE[side.representative_slot % FALLBACK_PALETTE.length];
     }
 
+    // Segmente/Zeilen werden NICHT bei jedem Poll neu gebaut (das wuerde
+    // die frisch erzeugten Elemente ohne "vorherigen" Wert rendern - eine
+    // CSS-transition kann dann nichts animieren, da es keinen Ausgangswert
+    // gibt). Stattdessen bleiben die Elemente ueber Polls hinweg bestehen
+    // (nach side.key gemerkt) und nur ihre Werte werden aktualisiert - nur
+    // bei einer echten Struktur-Aenderung (Seite kommt/geht, z.B. Team-
+    // Wechsel oder Elimination) wird neu aufgebaut.
+    let lastSegKeys = null;
+    const segElements = new Map(); // side.key -> Element
+
     function renderSegmented(sides) {
       const box = document.getElementById("bar-segmented");
-      box.innerHTML = sides.map((s) => `
-        <div class="segment" style="flex-grow:${Math.max(s.share_percent, 0.001)};background:${colorForSide(s)}">
-          ${escapeHtml(s.label)} &middot; ${s.share_percent.toFixed(0)}%
-        </div>
-      `).join("");
+      const keys = sides.map((s) => s.key).join("|");
+      if (keys !== lastSegKeys) {
+        box.innerHTML = "";
+        segElements.clear();
+        sides.forEach((s) => {
+          const el = document.createElement("div");
+          el.className = "segment";
+          box.appendChild(el);
+          segElements.set(s.key, el);
+        });
+        lastSegKeys = keys;
+      }
+      sides.forEach((s) => {
+        const el = segElements.get(s.key);
+        if (!el) return;
+        const grow = String(Math.max(s.share_percent, 0.001));
+        if (el.style.flexGrow !== grow) el.style.flexGrow = grow;
+        el.style.background = colorForSide(s);
+        const text = `${s.label} · ${s.share_percent.toFixed(0)}%`;
+        if (el.textContent !== text) el.textContent = text;
+      });
     }
+
+    let lastIndKeys = null;
+    const indElements = new Map(); // side.key -> {label, fill, pct}
 
     function renderIndividual(sides) {
       const box = document.getElementById("bar-individual");
-      box.innerHTML = sides.map((s) => `
-        <div class="individual-row">
-          <div class="individual-label">${escapeHtml(s.label)}</div>
-          <div class="individual-track">
-            <div class="individual-fill" style="width:${s.win_probability_percent}%;background:${colorForSide(s)}"></div>
-            <div class="individual-percent">${s.win_probability_percent}%</div>
-          </div>
-        </div>
-      `).join("");
+      const keys = sides.map((s) => s.key).join("|");
+      if (keys !== lastIndKeys) {
+        box.innerHTML = "";
+        indElements.clear();
+        sides.forEach((s) => {
+          const row = document.createElement("div");
+          row.className = "individual-row";
+          row.innerHTML = `
+            <div class="individual-label"></div>
+            <div class="individual-track">
+              <div class="individual-fill"></div>
+              <div class="individual-percent"></div>
+            </div>
+          `;
+          box.appendChild(row);
+          indElements.set(s.key, {
+            label: row.querySelector(".individual-label"),
+            fill: row.querySelector(".individual-fill"),
+            pct: row.querySelector(".individual-percent"),
+          });
+        });
+        lastIndKeys = keys;
+      }
+      sides.forEach((s) => {
+        const refs = indElements.get(s.key);
+        if (!refs) return;
+        if (refs.label.textContent !== s.label) refs.label.textContent = s.label;
+        const widthStr = `${s.win_probability_percent}%`;
+        if (refs.fill.style.width !== widthStr) refs.fill.style.width = widthStr;
+        refs.fill.style.background = colorForSide(s);
+        const pctText = `${s.win_probability_percent}%`;
+        if (refs.pct.textContent !== pctText) refs.pct.textContent = pctText;
+      });
     }
 
     function applyOpacity(winBar) {

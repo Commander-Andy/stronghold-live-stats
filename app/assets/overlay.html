@@ -145,7 +145,11 @@
     font-weight: bold;
     font-size: 13px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-    transition: flex-grow 0.4s ease;
+    /* --transition-ms wird per JS auf 90% von POLL_MS gesetzt (siehe
+       TRANSITION_MS) - der Balken bewegt sich fliessend zum neuen Zielwert
+       statt bei jedem Poll zu springen, ist aber kurz VOR dem naechsten
+       Poll fertig, damit nie eine sichtbare Pause entsteht. */
+    transition: flex-grow var(--transition-ms, 450ms) linear;
   }
 
   /* EIN gemeinsamer Rahmen (Standard-Rahmenfarbe, wie ein Spieler ohne
@@ -195,7 +199,7 @@
     top: 0;
     left: 0;
     bottom: 0;
-    transition: width 0.4s ease;
+    transition: width var(--transition-ms, 450ms) linear;
   }
   #win-bar .individual-percent {
     position: absolute;
@@ -510,6 +514,10 @@
     const CONFIG_URL = "/overlay-config.json";
     const POLL_MS = 500;
     const CONFIG_POLL_MS = 200;
+    // 90% von POLL_MS - der Gewinnwahrscheinlichkeits-Balken (siehe
+    // renderWinBar) erreicht den Zielwert kurz VOR dem naechsten Poll.
+    const TRANSITION_MS = Math.round(POLL_MS * 0.9);
+    document.documentElement.style.setProperty("--transition-ms", TRANSITION_MS + "ms");
 
     // Feste Reihenfolge fuer die Truppen-Aufschluesselung (.breakdown) -
     // kaempfende Europaeer vor kaempfenden Arabern vor Moenchen vor der
@@ -912,24 +920,77 @@
       return WIN_BAR_FALLBACK_PALETTE[side.representative_slot % WIN_BAR_FALLBACK_PALETTE.length];
     }
 
+    // Wie bei den Spieler-Zeilen (siehe patchRow) NICHT bei jedem Poll neu
+    // aufbauen - frisch erzeugte Elemente haben keinen "vorherigen" Wert,
+    // die CSS-transition auf .segment/.individual-fill koennte also nie
+    // etwas animieren. Elemente bleiben nach side.key bestehen, nur bei
+    // echter Struktur-Aenderung (Seite kommt/geht) neu gebaut.
+    let lastWinBarSegKeys = null;
+    const winBarSegElements = new Map(); // side.key -> Element
+
     function renderWinBarSegmented(sides) {
-      document.getElementById("win-bar-segmented").innerHTML = sides.map((s) => `
-        <div class="segment" style="flex-grow:${Math.max(s.share_percent, 0.001)};background:${winBarColorForSide(s)}">
-          ${escapeHtml(s.label)} &middot; ${s.share_percent.toFixed(0)}%
-        </div>
-      `).join("");
+      const box = document.getElementById("win-bar-segmented");
+      const keys = sides.map((s) => s.key).join("|");
+      if (keys !== lastWinBarSegKeys) {
+        box.innerHTML = "";
+        winBarSegElements.clear();
+        sides.forEach((s) => {
+          const el = document.createElement("div");
+          el.className = "segment";
+          box.appendChild(el);
+          winBarSegElements.set(s.key, el);
+        });
+        lastWinBarSegKeys = keys;
+      }
+      sides.forEach((s) => {
+        const el = winBarSegElements.get(s.key);
+        if (!el) return;
+        const grow = String(Math.max(s.share_percent, 0.001));
+        if (el.style.flexGrow !== grow) el.style.flexGrow = grow;
+        el.style.background = winBarColorForSide(s);
+        const text = `${s.label} · ${s.share_percent.toFixed(0)}%`;
+        if (el.textContent !== text) el.textContent = text;
+      });
     }
 
+    let lastWinBarIndKeys = null;
+    const winBarIndElements = new Map(); // side.key -> {label, fill, pct}
+
     function renderWinBarIndividual(sides) {
-      document.getElementById("win-bar-individual").innerHTML = sides.map((s) => `
-        <div class="individual-row">
-          <div class="individual-label">${escapeHtml(s.label)}</div>
-          <div class="individual-track">
-            <div class="individual-fill" style="width:${s.win_probability_percent}%;background:${winBarColorForSide(s)}"></div>
-            <div class="individual-percent">${s.win_probability_percent}%</div>
-          </div>
-        </div>
-      `).join("");
+      const box = document.getElementById("win-bar-individual");
+      const keys = sides.map((s) => s.key).join("|");
+      if (keys !== lastWinBarIndKeys) {
+        box.innerHTML = "";
+        winBarIndElements.clear();
+        sides.forEach((s) => {
+          const row = document.createElement("div");
+          row.className = "individual-row";
+          row.innerHTML = `
+            <div class="individual-label"></div>
+            <div class="individual-track">
+              <div class="individual-fill"></div>
+              <div class="individual-percent"></div>
+            </div>
+          `;
+          box.appendChild(row);
+          winBarIndElements.set(s.key, {
+            label: row.querySelector(".individual-label"),
+            fill: row.querySelector(".individual-fill"),
+            pct: row.querySelector(".individual-percent"),
+          });
+        });
+        lastWinBarIndKeys = keys;
+      }
+      sides.forEach((s) => {
+        const refs = winBarIndElements.get(s.key);
+        if (!refs) return;
+        if (refs.label.textContent !== s.label) refs.label.textContent = s.label;
+        const widthStr = `${s.win_probability_percent}%`;
+        if (refs.fill.style.width !== widthStr) refs.fill.style.width = widthStr;
+        refs.fill.style.background = winBarColorForSide(s);
+        const pctText = `${s.win_probability_percent}%`;
+        if (refs.pct.textContent !== pctText) refs.pct.textContent = pctText;
+      });
     }
 
     function renderWinBar(sidesFromData) {
