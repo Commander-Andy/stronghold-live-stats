@@ -630,7 +630,15 @@ def get_arab_unit_counts(player_index):
     )
 
 
-# --- Team-Erkennung: rollierendes Ko-Gleichheits-Fenster mit Einmal-Latch --
+# --- Team-Erkennung (ALT/Fallback): rollierendes Ko-Gleichheits-Fenster ----
+#
+# Seit 2026-09-05 NICHT mehr die primäre Quelle (siehe
+# get_diplomatic_teams() weiter unten) - bleibt aber im Code als
+# Sicherheitsnetz, falls das neue Feld sich doch mal als unzuverlässig
+# herausstellt. Läuft weiterhin bei jedem Tick mit (poll_team_detection),
+# ihr Ergebnis (get_detected_teams()) wird aber aktuell nirgends mehr
+# angezeigt/verwendet. Um zurückzuschalten: in worker.py wieder
+# res.get_detected_teams() statt res.get_diplomatic_teams(...) verwenden.
 #
 # Team-Zugehörigkeit steht für die gesamte Dauer eines Matches fest - daher
 # kein Live-Update pro Tick, sondern ein EINMALIGER Schätzer, der über einen
@@ -807,8 +815,64 @@ def poll_team_detection(all_values):
 
 def get_detected_teams():
     """dict slot(int)->team_number(int) der eingefrorenen Erkennung, oder
-    None (noch nicht genug Daten, oder erkanntes Free-for-All ohne Teams)."""
+    None (noch nicht genug Daten, oder erkanntes Free-for-All ohne Teams).
+    ALT/Fallback, siehe Kommentar oben - nicht mehr die primäre Quelle."""
     return _team_detector.detected_teams()
+
+
+# --- Team-/Bündnis-Erkennung (NEU, primär): literales Gruppen-ID-Array ----
+#
+# Live gefunden und ausführlich falsifikationsgetestet 2026-09-04/05 (volle
+# Herleitungs-/Test-Historie: 7 echte Matches, siehe
+# research/shc_overlay_status.md, Abschnitt "DURCHBRUCH: literales
+# Team-ID-Array live bestätigt"). Ersetzt die Ko-Gleichheits-Heuristik oben
+# als primäre Quelle: eine feste, absolute Adresse im statischen .exe-Image
+# (wie BASE_ADDR - kein ASLR-Risiko, per Modul-Grenzen-Check bestätigt),
+# 8 aufeinanderfolgende u32-Werte (Slot 0-7), kein Struct-relativer Offset,
+# kein Polling/Latch nötig - korrekt ab dem allerersten Tick nach
+# Match-Start.
+#
+# Semantik bewusst als "diplomatische Gruppen-ID" verstanden, nicht als
+# reine "Team-ID": jeder unallierte Solo-Spieler bekommt automatisch seine
+# eigene, global eindeutige Nummer (fortlaufend nach den echten
+# Team-Nummern), statt eines geteilten Sonderwerts - genau das war der
+# Unterschied zu drei anderen, äußerlich fast identischen Kandidaten-
+# Adressen, die bei zwei GLEICHZEITIGEN Solo-Spielern beide denselben Wert
+# zeigten (für uns ein echter Fehler, da zwei unabhängige Solo-Spieler
+# fälschlich als verbündet erkannt worden wären) - siehe Doku für die
+# vollständige Abgrenzung.
+#
+# Bestätigt über: 4 unterschiedliche Team-Aufteilungen (inkl. Duplikat-
+# Charakter-Test, auch mit 5 gleichzeitig SOLO spielenden identischen
+# Personas), ein reines FFA-Match, einen kompletten Spiel-Prozess-Neustart,
+# einen Lobby-Umsortier-Test (die FINALE, nicht eine zwischenzeitliche
+# Aufteilung wird übernommen) und einen Elimination-Test (Wert eines
+# besiegten Spielers bleibt stabil, kein Recycling).
+DIPLOMATIC_GROUP_ARRAY_ADDR = 0x0117D54C
+
+
+def get_diplomatic_teams(pm, all_values):
+    """all_values: wie von read_all_players() (Liste von (slot_index,
+    values_dict)). Liest das Gruppen-ID-Array direkt (8 einzelne Reads,
+    kein Vollscan/Cache nötig) und baut daraus dieselbe slot->team_number-
+    Zuordnung wie die alte get_detected_teams() - inklusive derselben
+    FFA-Sonderregel: None, wenn alle aktiven Spieler eine je eigene,
+    einzigartige Nummer haben (kein einziges echtes Team im Match)."""
+    active_slots = [i for i, v in all_values if is_active_slot(v)]
+    if not active_slots:
+        return None
+
+    groups = {}
+    for i in active_slots:
+        try:
+            groups[i] = pm.read_uint(DIPLOMATIC_GROUP_ARRAY_ADDR + i * 4)
+        except Exception:
+            return None
+
+    if len(set(groups.values())) == len(groups):
+        return None  # FFA: jeder Wert einzigartig, keine echten Teams
+
+    return groups
 
 
 def is_active_slot(values):

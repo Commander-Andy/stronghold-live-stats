@@ -190,7 +190,13 @@ class Worker:
         if any(v is not None for v in manual_team_assignment.values()):
             team_assignment = manual_team_assignment
         else:
-            detected = res.get_detected_teams()
+            # get_diplomatic_teams() (literales Gruppen-ID-Array,
+            # 0x0117D54C) statt der alten Ko-Gleichheits-Heuristik
+            # (get_detected_teams()) - siehe reader.py-Kommentar. Die
+            # alte Erkennung läuft über poll_team_detection() weiter
+            # im Hintergrund mit, nur als Sicherheitsnetz, aktuell ohne
+            # Auswirkung auf die Anzeige.
+            detected = res.get_diplomatic_teams(self._pm, all_values)
             team_assignment = (
                 {str(slot): team for slot, team in detected.items()}
                 if detected
