@@ -55,7 +55,8 @@ UNIT_WEIGHTS = {
 # Live-Aufschlüsselung nur ein grob geblendeter Mittelwert. Schwächste Zahl
 # in diesem ganzen Modell, siehe research/shc_opus_review_2026-09-02.md
 # Abschnitt D.1 für den Plan, das durch eine echte Aufschlüsselung zu ersetzen.
-SIEGE_WEIGHT_PER_UNIT = 3.5
+# Vom Nutzer nach erster Live-Erfahrung 2026-09-05 von 3.5 auf 3 gesenkt.
+SIEGE_WEIGHT_PER_UNIT = 3.0
 
 MONK_WEIGHT = 0.75
 # monks_trained war früher kumulativ seit Tool-Start (daher ein Abwertungs-
@@ -85,22 +86,33 @@ AVG_MELEE_WEIGHT = sum(UNIT_WEIGHTS[k] for k in _MELEE_KEYS) / len(_MELEE_KEYS)
 # strategische Bewertung. Doppelzählungs-Risiko gegenüber dem Lagerwert oben
 # (z.B. Holz für Belagerungsgeräte wird hier UND dort erfasst) ist bekannt
 # und ungelöst, siehe Design-Dokument.
+# Nutzer-Entscheidung 2026-09-05: nur noch Gold/Holz/Stein, Eisen/Nahrung/
+# Bevölkerungskapazität/Popularität/Steuerstimmung bewusst rausgenommen -
+# Nahrung fließt stattdessen separat als Verhungern-Malus ein (siehe
+# STARVATION_PENALTY), keine der anderen wird durch irgendwas ersetzt.
 ECONOMY_WEIGHTS = {
     "gold": 0.001,
     "wood": 0.001,
     "stone": 0.001,
-    "iron": 0.002,
-    "food_total": 0.01,
-    "population_capacity": 0.1,
 }
-POPULARITY_WEIGHT = 0.02  # popularity: 0..100
-TAX_POPULARITY_WEIGHT = 0.02  # tax_popularity_effect: etwa -24..+7
+
+# Kein abgestufter Nahrungs-Score, nur ein Ja/Nein-Signal: food_total<=0
+# heisst am Verhungern (Truppen/Bevoelkerung sterben), das ist ein echter
+# Schwaeche-Indikator unabhaengig von der sonstigen Wirtschaftslage. Erster
+# Schaetzwert ohne Kalibrierung, ca. eine Handvoll schwacher Truppen wert -
+# Nutzer testet noch, wie sich das in echten Matches auswirkt.
+STARVATION_PENALTY = 5.0
 
 K_ECON = 0.3  # Wirtschaft->Militär-Äquivalenz, Platzhalter ohne Herleitung
 
 # --- Trend/Momentum ---
-T_WINDOW_S = 180.0  # Rückblick-Fenster für die Trend-Berechnung
-T_LOOKAHEAD_S = 300.0  # Vorausprojektion
+# Nutzer-Entscheidung 2026-09-05: von 180s/300s auf 60s/60s gesenkt - das
+# lange Rueckblick-/Vorausschau-Fenster fuehrte am Matchbeginn zu haeufigem
+# Hin-und-Her, weil zu Beginn ohnehin nur ein Weg (aufwaerts) moeglich ist
+# und die 5-Minuten-Projektion das ueberproportional aufblies. Erster
+# Testwert, noch nicht gegen echte Matches verifiziert.
+T_WINDOW_S = 60.0  # Rückblick-Fenster für die Trend-Berechnung
+T_LOOKAHEAD_S = 60.0  # Vorausprojektion
 MIN_HISTORY_SPAN_S = 5.0  # unter dieser Spanne wird Trend als 0 behandelt
 
 # --- Lord-Stärke-Prior (schwach, klingt mit der Zeit ab) ---
@@ -150,12 +162,9 @@ def economy_score(p):
         v = p.get(key)
         if v:
             score += v * weight
-    pop = p.get("popularity")
-    if pop:
-        score += pop * POPULARITY_WEIGHT
-    tax_effect = p.get("tax_popularity_effect")
-    if tax_effect:
-        score += tax_effect * TAX_POPULARITY_WEIGHT
+    food_total = p.get("food_total")
+    if food_total is not None and food_total <= 0:
+        score -= STARVATION_PENALTY
     return score
 
 
@@ -198,8 +207,18 @@ class StrengthTracker:
         return 0.0 if start is None else now - start
 
     def latest_total(self, slot):
+        # Median der letzten 3 Rohwerte statt einfach nur der neueste Wert:
+        # ein einzelner Fehl-Read (z.B. kurzzeitig 0, live beobachtet
+        # 2026-09-05) schlaegt sonst ungefiltert 1:1 auf die Anzeige durch.
+        # Ein isolierter Ausreisser unter 3 Werten wird so unterdrueckt,
+        # echte Aenderungen brauchen dafuer minimal laenger (bis zu 2
+        # Polls), bis sie sich voll durchsetzen - der vom Nutzer selbst als
+        # akzeptabel genannte Trade-off "Delay einbauen".
         hist = self._history.get(slot)
-        return hist[-1][1] if hist else 0.0
+        if not hist:
+            return 0.0
+        recent = sorted(v for _, v in list(hist)[-3:])
+        return recent[len(recent) // 2]
 
 
 def _lord_prior(label, elapsed_s):
@@ -265,6 +284,21 @@ def update_and_get_strengths(players, tracker, now=None):
     return strengths, now
 
 
+def _floor_win_prob(percent, own_strength):
+    """Rundet win_probability_percent, haelt es aber bei mindestens 1%,
+    solange diese Seite noch ueberhaupt Staerke hat (own_strength > 0) -
+    der Sigmoid naehert sich 0% nur asymptotisch an, ein gerundetes 0%
+    wuerde bei einem sehr ungleichen Match faelschlich "chancenlos"
+    suggerieren, obwohl die Seite noch existiert (Nutzeridee 2026-09-06:
+    "sollte nie unter 1% fallen, es sei denn alle aus dem Team sind tot").
+    Bei own_strength<=0 (Seite wirklich komplett vernichtet) bleibt 0%
+    weiterhin moeglich."""
+    rounded = round(percent)
+    if own_strength > 0 and rounded < 1:
+        return 1
+    return rounded
+
+
 def apply_win_probabilities(players, team_assignment, strengths):
     """Setzt pro Spieler "strength_score" (roher Stärke-Wert, v.a. zum
     Debuggen/als Tooltip) und "win_probability_percent" (0-100, diese Seite
@@ -288,25 +322,32 @@ def apply_win_probabilities(players, team_assignment, strengths):
             diff_ratio = (own - rest) / (own + rest)
             prob = _sigmoid(SIGMOID_K * diff_ratio)
         p["strength_score"] = round(strengths[p["slot"]], 1)
-        p["win_probability_percent"] = round(prob * 100)
+        p["win_probability_percent"] = _floor_win_prob(prob * 100, own)
 
     return players
 
 
-def compute_side_summary(players, team_assignment, strengths):
+def compute_side_summary(players, team_assignment, strengths, team_names=None):
     """Seiten-Zusammenfassung fürs Balken-Overlay (win_bar.html): pro Seite
     ein Anteil ("share_percent", summiert IMMER auf ~100% - anders als
     win_probability_percent oben, das bei 3+ Seiten nicht aufsummiert) plus
     zusätzlich dieselbe "gegen den Rest"-Wahrscheinlichkeit wie im
     Spieler-Rahmen (für den Einzel-Balken-pro-Fraktion-Modus). Reihenfolge:
     nach Team-Nummer aufsteigend, WENN jeder aktive Spieler einem Team
-    zugeordnet ist (damit der Balken nicht bei jedem Vorsprungswechsel die
-    Seiten tauscht) - sonst nach Stärke absteigend (FFA ohne Teams hat kein
-    natürliches Links/Rechts). "representative_slot" (niedrigste Slot-Nummer
-    der Seite) ist als stabiler Farb-Anker gedacht, siehe win_bar.html."""
+    zugeordnet ist, sonst nach representative_slot aufsteigend - NIE nach
+    aktueller Stärke, damit jede Seite dauerhaft auf ihrer Position im
+    Balken bleibt (siehe win_bar.html-Kommentar zur selben Regel).
+    "representative_slot" (niedrigste Slot-Nummer der Seite) ist außerdem
+    als stabiler Farb-Anker gedacht, siehe win_bar.html.
+
+    `team_names` (optional, dict team_number(str)->Name, wie team_colors
+    aufgebaut): überschreibt das Standard-Label "Team N" für Seiten mit
+    einer echten Team-Nummer - betrifft NUR benannte Team-Seiten, eine
+    solo/nicht-zugeordnete Seite zeigt weiterhin den Spielernamen."""
     if not players:
         return []
 
+    team_names = team_names or {}
     labels = {p["slot"]: p.get("label") for p in players}
     sides = _sides(players, team_assignment)
     side_strength = {key: sum(strengths[slot] for slot in slots) for key, slots in sides.items()}
@@ -324,19 +365,25 @@ def compute_side_summary(players, team_assignment, strengths):
         share = (own / total * 100) if total > 0 else (100.0 / len(sides))
         rep_slot = min(slots)
         team_number = int(key.split(":", 1)[1]) if key.startswith("team:") else None
+        custom_name = team_names.get(str(team_number)) if team_number is not None else None
         entries.append({
             "key": key,
-            "label": f"Team {team_number}" if team_number is not None else labels.get(rep_slot),
+            "label": custom_name or (f"Team {team_number}" if team_number is not None else labels.get(rep_slot)),
             "slots": sorted(slots),
             "representative_slot": rep_slot,
             "team_number": team_number,
             "share_percent": round(share, 1),
-            "win_probability_percent": round(win_prob),
+            "win_probability_percent": _floor_win_prob(win_prob, own),
         })
 
+    # Immer nach einem stabilen Identitaets-Merkmal sortieren (Team-Nummer
+    # bzw. Slot), NIE nach aktueller Staerke - sonst tauscht eine Seite im
+    # Balken staendig die Position, sobald sie den anderen ueberholt (vom
+    # Nutzer live als stoerend gemeldet, 2026-09-05: "Jeder bleibt auf
+    # seiner Seite/Position").
     if all_teamed:
         entries.sort(key=lambda e: e["team_number"])
     else:
-        entries.sort(key=lambda e: side_strength[e["key"]], reverse=True)
+        entries.sort(key=lambda e: e["representative_slot"])
 
     return entries

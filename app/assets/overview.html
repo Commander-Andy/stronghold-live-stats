@@ -58,6 +58,13 @@
   .row.attacking.pulse {
     animation: pulse 1s ease-in-out infinite;
   }
+  /* Besiegter Lord: Karte bleibt bestehen statt zu verschwinden (siehe
+     worker.py::_debounce_active_slots), wird stattdessen ausgegraut
+     (Nutzerwunsch 2026-09-06). */
+  .row.defeated {
+    filter: grayscale(0.85);
+    opacity: 0.55;
+  }
   /* Theme "SHC Single": ein gemeinsames Pergament liegt hinter allen
      Rahmen (siehe #rows.theme-single-bg / .side-backdrop) - die einzelnen
      Zeilen werden dafür komplett transparent, damit es unverändert
@@ -82,15 +89,6 @@
     0%, 100% { box-shadow: 0 0 8px 2px var(--attack-color, #e6463c); }
     50% { box-shadow: 0 0 24px 8px var(--attack-color, #e6463c); }
   }
-  .label {
-    flex: 0 0 220px;
-    min-width: 0;
-    font-size: 26px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
   .stats {
     display: flex;
     flex-wrap: wrap;
@@ -104,8 +102,34 @@
     gap: 8px;
     font-size: 26px;
     font-variant-numeric: tabular-nums;
+    /* Ohne Mindestbreite hat .stat nur seinen reinen Inhalt als Breite -
+       bei schmaleren Kartenbreiten (z.B. 2-spaltige "Geteilt"/"Nach Team"-
+       Ansicht in einem nicht sehr breiten Fenster) passte dann oft nur
+       EIN Wert pro Zeile in .stats, wodurch die ganze Karte (und mit ihr
+       die Lord-HP-Säule, die per align-self:stretch auf Kartenhöhe
+       mitwächst) absurd hoch wurde - die Säule sah dadurch wie ein
+       duenner Strich statt einer richtigen Fuellstandsanzeige aus (vom
+       Nutzer mit Screenshot gemeldet, 2026-09-06 - Ursache war NICHT die
+       Saeule selbst, siehe Live-Messung: Kartenhoehe von 852px statt der
+       paar hundert Pixel, die eine normale Karte braucht). 140px reicht
+       fuer Icon+Zahl bequem und lässt trotzdem mehrere Werte pro Zeile
+       zu, bevor wirklich umgebrochen wird. */
+    flex: 0 0 auto;
+    min-width: 140px;
   }
   .stat img { width: 30px; height: 30px; object-fit: contain; }
+  /* Feste Mindestbreite fuer den Zahlen-Text (Nutzeridee 2026-09-06):
+     anders als im Overlay (dort hat .stat schon eine feste Gesamtbreite
+     per Grid, siehe overlay.html) wächst hier jedes .stat-Element bisher
+     mit der Ziffernanzahl seines Werts - sobald z.B. Gold von 4- auf
+     5-stellig wechselt, schiebt das alle folgenden Icons in derselben
+     Zeile nach rechts. 5ch (Breite von 5 Ziffern in der aktuellen
+     Schriftgröße dank font-variant-numeric:tabular-nums oben, skaliert
+     also mit "Schriftgröße" in den Einstellungen mit) deckt Gold im
+     5-stelligen Bereich als Referenzgröße ab, wie vom Nutzer vorgeschlagen -
+     kleinere Werte lassen dann einfach etwas Leerraum vor dem naechsten
+     Icon, statt dass die Icons bei jeder Ziffern-Änderung wandern. */
+  .stat > span:last-child { min-width: 5ch; }
   .stat .icon { font-size: 26px; }
 
   /* Truppen-Aufschlüsselung nach Typ: eigene Zeile unter den Haupt-Werten
@@ -161,12 +185,20 @@
     object-fit: contain;
   }
   .status {
-    /* Sitzt mittig auf der oberen Rahmenlinie der Karte (halb drüber/halb
-       drunter), statt eine eigene Zeile im Layout zu belegen. */
+    /* Sitzt rechts auf der oberen Rahmenlinie der Karte (halb drüber/halb
+       drunter), statt eine eigene Zeile im Layout zu belegen - spiegel-
+       bildlich zum Namens-Badge (sitzt links, siehe .name-badge). Vorher
+       mittig (left:50%) positioniert - bei schmalen Fenstern/Karten und
+       einem langen Status-Text wie "ANGRIFF BEVORSTEHEND" konnte das den
+       Namens-Badge überlappen, weil beide unabhängig voneinander
+       positioniert waren (vom Nutzer mit Screenshot gemeldet, 2026-09-06).
+       Rechts statt mittig + eigenes max-width/Kürzung als zusätzliches
+       Sicherheitsnetz schließt eine Kollision jetzt strukturell aus, bei
+       jeder Kartenbreite. */
     position: absolute;
     top: 0;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    right: 22px;
+    transform: translateY(-50%);
     z-index: 1;
     font-size: 16px;
     font-weight: 700;
@@ -175,8 +207,81 @@
     background: #1b140c;
     border: 2px solid #c6a15b;
     white-space: nowrap;
+    /* 35%, nicht mehr - zusammen mit dem Namens-Badge (max-width 45%, s.o.)
+       und je 22px Randabstand auf beiden Seiten bleibt so rechnerisch bei
+       JEDER Kartenbreite eine Luecke zwischen beiden, keine Kollision mehr
+       moeglich (45%+35%+2×22px-Abstand < 100% der Kartenbreite, auch bei
+       sehr schmalen Karten - vorher 50% reichte dafuer noch nicht). */
+    max-width: 35%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .status.attack { color: #ff8a7a; border-color: var(--attack-color, #e6463c); }
+
+  /* Namens-Badge - dieselbe schwebende Pille wie .status, nur links statt
+     mittig (deckt sich mit dem Look, den overlay.html schon für Namen
+     nutzt - 2026-09-06 auf Nutzerwunsch auch hier ergänzt, vorher war der
+     Name nur ein normaler, flach im Zeilenfluss stehender Text). */
+  .name-badge {
+    position: absolute;
+    top: 0;
+    left: 22px;
+    transform: translateY(-50%);
+    z-index: 1;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background: #1b140c;
+    border: 2px solid #c6a15b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 45%;
+  }
+
+  /* Burgherr-HP als eigene Säule links (2026-09-06 auf Nutzerwunsch ergänzt
+     - vorher nur ein normaler Prozent-Wert mitten in .stats). Gleiches
+     Prinzip wie overlay.html (siehe dortiger .lord-hp-col-Kommentar für die
+     Herleitung), hier aber größer skaliert und per align-self:stretch auf
+     volle Zeilenhöhe gebracht statt einer per-JS berechneten Fixhöhe - die
+     Übersicht hat kein festes Zeilenhöhen-System wie das Overlay. */
+  .lord-hp-col {
+    flex: 0 0 44px;
+    min-width: 0;
+    min-height: 64px;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0;
+  }
+  .lord-hp-track {
+    flex: 1 1 auto;
+    width: 18px;
+    min-height: 0;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid #c6a15b;
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .lord-hp-fill { width: 100%; border-radius: 2px; }
+  .lord-hp-fill.hp-high { background: #4caf50; }
+  .lord-hp-fill.hp-mid { background: #d8b93a; }
+  .lord-hp-fill.hp-low { background: var(--attack-color, #e6463c); }
+  .lord-hp-fill.hp-none { background: transparent; }
+  .lord-hp-pct {
+    flex: 0 0 auto;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
   #empty-msg {
     font-size: 18px;
     color: #a89478;
@@ -202,7 +307,12 @@
     overflow: hidden;
   }
   #win-bar .segment {
+    position: relative;
     display: flex;
+    /* flex-basis:0 - siehe ausfuehrlichen Kommentar bei derselben Regel in
+       win_bar.html (sonst verschiebt der Textinhalt/Labellaenge die
+       Aufteilung weg vom echten share_percent-Verhaeltnis). */
+    flex-basis: 0;
     align-items: center;
     justify-content: center;
     overflow: hidden;
@@ -210,9 +320,35 @@
     font-weight: 700;
     font-size: 22px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-    transition: flex-grow 0.4s ease;
+    /* --transition-ms wird per JS auf 90% des Poll-Intervalls gesetzt -
+       siehe ausfuehrlichen Kommentar bei derselben Regel in win_bar.html. */
+    transition: flex-grow var(--transition-ms, 450ms) linear;
     padding: 10px;
   }
+
+  /* Leuchten an jeder Nahtstelle - siehe ausfuehrlicher Kommentar bei
+     derselben Regel in win_bar.html (Original dieser duplizierten Regel).
+     KEIN mix-blend-mode - siehe dortige Begruendung ("nicht weiss"). */
+  #win-bar .segment::after,
+  #win-bar .segment::before {
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    width: 3px;
+    border-radius: 2px;
+    z-index: 2;
+    pointer-events: none;
+    background: var(--seam-color, transparent);
+    animation: seam-glow 1.1s ease-in-out infinite;
+  }
+  #win-bar .segment:not(:last-child)::after { content: ""; right: -4px; }
+  #win-bar .segment:not(:first-child)::before { content: ""; left: -4px; animation-delay: 0.55s; }
+
+  @keyframes seam-glow {
+    0%, 100% { opacity: 0.55; box-shadow: 0 0 4px 2px var(--seam-color); }
+    50%      { opacity: 0.9;  box-shadow: 0 0 12px 4.5px var(--seam-color); }
+  }
+
   #win-bar-individual {
     display: flex;
     flex-direction: column;
@@ -252,7 +388,7 @@
     top: 0;
     left: 0;
     bottom: 0;
-    transition: width 0.4s ease;
+    transition: width var(--transition-ms, 450ms) linear;
   }
   #win-bar .individual-percent {
     position: absolute;
@@ -380,7 +516,6 @@
       { flag: "show_popularity",   key: "popularity",          img: "/icons/resource_popularity.png", isPercent: true },
       { flag: "show_tax_rate",     key: "tax_rate",            isTaxRate: true },
       { flag: "show_population",   key: "population",          img: "/icons/population.png", isPopulation: true },
-      { flag: "show_lord_hp",      key: "lord_hp_percent",     icon: "&#10084;&#65039;", isLordHp: true },
       { flag: "show_win_probability", key: "win_probability_percent", icon: "&#9878;&#65039;", isWinProb: true },
     ];
 
@@ -407,10 +542,6 @@
       if (def.isPopulation) {
         return (p.population === null || p.population === undefined) ? "-" : `${p.population}/${fmt(p.population_capacity)}`;
       }
-      if (def.isLordHp) {
-        const pct = p.lord_hp_percent;
-        return (pct === null || pct === undefined) ? "-" : pct + "%";
-      }
       if (def.isWinProb) {
         const wp = p.win_probability_percent;
         return (wp === null || wp === undefined) ? "-" : wp + "%";
@@ -435,12 +566,42 @@
       return `<div class="stat">${icon}<span>${val}</span></div>`;
     }
 
+    function lordHpClass(pct) {
+      if (pct === null || pct === undefined || pct <= 0) return "hp-none";
+      if (pct > 66) return "hp-high";
+      if (pct >= 33) return "hp-mid";
+      return "hp-low";
+    }
+
+    // Eigene Säule statt normaler .stat-Eintrag (siehe .lord-hp-col-CSS-
+    // Kommentar oben) - gleiches Prinzip wie overlay.html.
+    function lordHpColHtml(p) {
+      if (!cfg.show_lord_hp) return "";
+      const pct = p.lord_hp_percent;
+      const fillPct = (pct === null || pct === undefined) ? 0 : Math.max(0, Math.min(100, pct));
+      const label = (pct === null || pct === undefined) ? "-" : `${pct}%`;
+      return `
+        <div class="lord-hp-col" title="Burgherr-HP">
+          <div class="lord-hp-track"><div class="lord-hp-fill ${lordHpClass(pct)}" style="height:${fillPct}%"></div></div>
+          <div class="lord-hp-pct">${label}</div>
+        </div>
+      `;
+    }
+
+    function nameBadgeHtml(p) {
+      return `<div class="name-badge">${escapeHtml(p.label)}</div>`;
+    }
+
     function rowHtml(p, gridCol, gridRow) {
       const classes = ["row"];
       if (p.is_you) classes.push("you");
+      if (p.is_defeated) classes.push("defeated");
       const theme = cfg.theme || "rgb";
       if (theme !== "rgb") classes.push("theme-shc");
-      const isAttacking = cfg.highlight_attack_status && p.attack_status === "ANGRIFF MÖGLICH";
+      // Nur "GREIFT AN" (reaktiv, bestätigt) löst den Puls aus - "ANGRIFF
+      // BEVORSTEHEND" ist nur eine Vorhersage, gleicher neutraler Look wie
+      // "baut auf" (Nutzerwunsch 2026-09-06).
+      const isAttacking = cfg.highlight_attack_status && p.attack_status === "GREIFT AN";
       const styleParts = [];
       if (gridCol && gridRow) {
         // Explizite Grid-Position statt zweier unabhängiger Flex-Spalten:
@@ -480,8 +641,9 @@
       }
       return `
         <div class="${classes.join(' ')}" data-slot="${p.slot}"${styleAttr}>
+          ${nameBadgeHtml(p)}
           ${statusHtml}
-          <div class="label">${escapeHtml(p.label)}</div>
+          ${lordHpColHtml(p)}
           <div class="stats">${stats}</div>
           ${breakdownHtml(p)}
         </div>
@@ -494,7 +656,7 @@
         const entries = sortUnitEntries(Object.entries(p.units).filter(([, v]) => v && v > 0));
         items = entries
           .map(([key, val]) => `
-            <div class="unit">
+            <div class="unit" data-key="${key}">
               <img src="/icons/${key}.png" alt="">
               <span>${val}</span>
             </div>
@@ -509,7 +671,7 @@
       // sichtbar mehr ausfüllt.
       if (cfg.show_siege_movable && p.siege_movable_total) {
         items += `
-          <div class="unit siege-combo">
+          <div class="unit siege-combo" data-key="__siege__">
             <img src="/icons/unit_catapult_large.png" alt="">
             <span>${p.siege_movable_total}</span>
           </div>
@@ -519,13 +681,62 @@
       return `<div class="breakdown">${items}</div>`;
     }
 
+    // Patcht die Truppen-Aufschlüsselung gezielt statt sie komplett neu
+    // einzusetzen - gleiche Logik wie in overlay.html (siehe dortiger
+    // Kommentar für die Herleitung), hier dupliziert, da beide Seiten kein
+    // gemeinsames JS teilen (Projekt-Konvention). Jedes .unit-Element trägt
+    // data-key (Einheitentyp bzw. "__siege__"), wird per Key gematcht und
+    // per insertBefore in die richtige Reihenfolge gebracht.
+    function patchBreakdown(breakdownEl, p) {
+      const desired = [];
+      if (cfg.show_troop_breakdown && p.units) {
+        sortUnitEntries(Object.entries(p.units).filter(([, v]) => v && v > 0))
+          .forEach(([key, val]) => desired.push({ key, val, siege: false }));
+      }
+      if (cfg.show_siege_movable && p.siege_movable_total) {
+        desired.push({ key: "__siege__", val: p.siege_movable_total, siege: true });
+      }
+
+      const existing = new Map();
+      Array.from(breakdownEl.children).forEach((el) => existing.set(el.dataset.key, el));
+
+      let cursor = breakdownEl.firstChild;
+      desired.forEach(({ key, val, siege }) => {
+        let el = existing.get(key);
+        if (el) {
+          existing.delete(key);
+          const span = el.querySelector("span");
+          const newVal = String(val);
+          if (span && span.textContent !== newVal) span.textContent = newVal;
+        } else {
+          el = document.createElement("div");
+          el.className = siege ? "unit siege-combo" : "unit";
+          el.dataset.key = key;
+          const img = document.createElement("img");
+          img.src = siege ? "/icons/unit_catapult_large.png" : `/icons/${key}.png`;
+          img.alt = "";
+          const span = document.createElement("span");
+          span.textContent = String(val);
+          el.appendChild(img);
+          el.appendChild(span);
+        }
+        if (cursor !== el) {
+          breakdownEl.insertBefore(el, cursor);
+        } else {
+          cursor = cursor.nextSibling;
+        }
+      });
+
+      existing.forEach((el) => el.remove());
+    }
+
     const DEMO_UNITS = { unit_archer: 12, unit_swordsman: 8, unit_knight: 3 };
     const DEMO_FOOD = { bread: 40, cheese: 15, meat: 10, apples: 25, ale: 8, pitch: 18, hops: 22, wheat: 60, flour: 35, food_total: 90 };
     const DEMO_WEAPONS = { bows: 12, crossbows: 6, spears: 20, pikes: 4, maces: 3, swords: 9, leather_armor: 14, metal_armor: 5 };
     const DEMO_PLAYERS = [
       { slot: 0, label: "Du", gold: 3200, wood: 145, stone: 60, iron: 20, troops: 42, siege_movable_total: 2, popularity: 78, population: 34, population_capacity: 42, tax_rate: 3, monks_trained: 4, lord_hp: 150000, lord_hp_percent: 100, win_probability_percent: 71, is_you: true, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
       { slot: 1, label: "Gegner 1", gold: 1800, wood: 90, stone: 30, iron: 5, troops: 27, siege_movable_total: 0, popularity: 55, population: 21, population_capacity: 26, tax_rate: 7, monks_trained: 0, lord_hp: 132000, lord_hp_percent: 88, win_probability_percent: 29, is_you: false, units: DEMO_UNITS, attack_status: "baut auf", ...DEMO_FOOD, ...DEMO_WEAPONS },
-      { slot: 2, label: "Gegner 2", gold: 640, wood: 55, stone: 12, iron: 0, troops: 61, siege_movable_total: 4, popularity: 40, population: 15, population_capacity: 18, tax_rate: 1, monks_trained: 2, lord_hp: 98000, lord_hp_percent: 65, win_probability_percent: 58, is_you: false, units: DEMO_UNITS, attack_status: "ANGRIFF MÖGLICH", attack_base: 55, ...DEMO_FOOD, ...DEMO_WEAPONS },
+      { slot: 2, label: "Gegner 2", gold: 640, wood: 55, stone: 12, iron: 0, troops: 61, siege_movable_total: 4, popularity: 40, population: 15, population_capacity: 18, tax_rate: 1, monks_trained: 2, lord_hp: 98000, lord_hp_percent: 65, win_probability_percent: 58, is_you: false, units: DEMO_UNITS, attack_status: "ANGRIFF BEVORSTEHEND", attack_base: 55, ...DEMO_FOOD, ...DEMO_WEAPONS },
       { slot: 3, label: "Gegner 3", gold: 12500, wood: 310, stone: 180, iron: 90, troops: 15, siege_movable_total: 0, popularity: 92, population: 58, population_capacity: 66, tax_rate: 10, monks_trained: 7, lord_hp: 150000, lord_hp_percent: 100, win_probability_percent: 42, is_you: false, units: DEMO_UNITS, ...DEMO_FOOD, ...DEMO_WEAPONS },
     ];
 
@@ -555,6 +766,18 @@
       }
       const left = players.filter((p) => assign[String(p.slot)] === myTeam);
       const right = players.filter((p) => assign[String(p.slot)] !== myTeam);
+      // Bei mehr als 2 Teams (z.B. 2v2v2) nach Team-Nummer gruppieren,
+      // sonst koennten zwei gegnerische Teams auf der rechten Seite
+      // durcheinandergemischt werden, nur weil ihre Spieler-Slots verstreut
+      // liegen (Nutzerwunsch 2026-09-06, gleicher Fix wie in overlay.html).
+      right.sort((a, b) => {
+        const ta = assign[String(a.slot)];
+        const tb = assign[String(b.slot)];
+        if (ta === tb) return 0;
+        if (ta === null || ta === undefined) return 1;
+        if (tb === null || tb === undefined) return -1;
+        return ta - tb;
+      });
       return [left, right];
     }
 
@@ -569,6 +792,12 @@
         cfg.side_mode || "split",
         cfg.theme || "rgb",
         defs.map((d) => d.flag).join(","),
+        // show_lord_hp steuert seit 2026-09-06 eine eigene Säule statt
+        // eines normalen Eintrags in defs - muss deshalb jetzt explizit
+        // mit rein, sonst bleibt ein Umschalten bis zum nächsten "echten"
+        // Strukturwechsel unsichtbar (gleiches Prinzip wie bei
+        // team_assignment unten).
+        cfg.show_lord_hp ? 1 : 0,
         players.map((p) => p.slot).join(","),
         // team_assignment beeinflusst bei side_mode "teams" die Links/Rechts-
         // Zuordnung, ohne dass sich die Spielerliste selbst ändert - muss
@@ -579,9 +808,16 @@
     }
 
     function patchRow(rowEl, p, defs, gridCol, gridRow) {
-      const isAttacking = cfg.highlight_attack_status && p.attack_status === "ANGRIFF MÖGLICH";
+      // Ausgrauen bei Niederlage - kein Struktur-Rebuild noetig (Slot
+      // bleibt derselbe), deshalb hier per Toggle statt in structKeyFor.
+      rowEl.classList.toggle("defeated", !!p.is_defeated);
 
-      const labelEl = rowEl.querySelector(".label");
+      // Nur "GREIFT AN" (reaktiv, bestätigt) löst den Puls aus - "ANGRIFF
+      // BEVORSTEHEND" ist nur eine Vorhersage, gleicher neutraler Look wie
+      // "baut auf" (Nutzerwunsch 2026-09-06).
+      const isAttacking = cfg.highlight_attack_status && p.attack_status === "GREIFT AN";
+
+      const labelEl = rowEl.querySelector(".name-badge");
       if (labelEl && labelEl.textContent !== p.label) labelEl.textContent = p.label;
 
       const statEls = rowEl.querySelectorAll(".stats .stat");
@@ -600,13 +836,35 @@
         }
       });
 
-      // Truppen-Aufschlüsselung: seltener genutztes Extra, wird bei
-      // Änderung einfach komplett neu eingesetzt statt einzeln gepatcht.
+      // Burgherr-HP-Säule: nur Füllhöhe/Farbe/Text aktualisieren, nicht
+      // neu einsetzen (gleiches Prinzip wie overlay.html).
+      const lordHpCol = rowEl.querySelector(".lord-hp-col");
+      if (lordHpCol) {
+        const pct = p.lord_hp_percent;
+        const fillPct = (pct === null || pct === undefined) ? 0 : Math.max(0, Math.min(100, pct));
+        const fillEl = lordHpCol.querySelector(".lord-hp-fill");
+        const pctEl = lordHpCol.querySelector(".lord-hp-pct");
+        const newCls = "lord-hp-fill " + lordHpClass(pct);
+        if (fillEl && fillEl.className !== newCls) fillEl.className = newCls;
+        if (fillEl && fillEl.style.height !== `${fillPct}%`) fillEl.style.height = `${fillPct}%`;
+        const newLabel = (pct === null || pct === undefined) ? "-" : `${pct}%`;
+        if (pctEl && pctEl.textContent !== newLabel) pctEl.textContent = newLabel;
+      }
+
+      // Truppen-Aufschlüsselung: gezielt patchen statt komplett neu
+      // einzusetzen (siehe patchBreakdown) - vorher blinkten hier bei jeder
+      // Wertänderung alle Icons (gleicher Fix wie in overlay.html,
+      // 2026-09-06 vom Nutzer gemeldet). Anders als overlay.html existiert
+      // .breakdown hier NICHT permanent (siehe breakdownHtml() - gibt ""
+      // zurück, wenn nichts anzuzeigen ist, wegen der sichtbaren
+      // padding/border-top auch im leeren Zustand) - also selbst um
+      // Erzeugen/Entfernen kümmern statt nur um den Inhalt.
       const oldBreakdownEl = rowEl.querySelector(".breakdown");
-      const newBreakdownOuter = breakdownHtml(p);
-      const oldBreakdownOuter = oldBreakdownEl ? oldBreakdownEl.outerHTML : "";
-      if (newBreakdownOuter !== oldBreakdownOuter) {
-        if (oldBreakdownEl) oldBreakdownEl.remove();
+      if (oldBreakdownEl) {
+        patchBreakdown(oldBreakdownEl, p);
+        if (!oldBreakdownEl.children.length) oldBreakdownEl.remove();
+      } else {
+        const newBreakdownOuter = breakdownHtml(p);
         if (newBreakdownOuter) {
           const tmp = document.createElement("div");
           tmp.innerHTML = newBreakdownOuter;
@@ -672,24 +930,80 @@
       return WIN_BAR_FALLBACK_PALETTE[side.representative_slot % WIN_BAR_FALLBACK_PALETTE.length];
     }
 
+    // Segmente/Zeilen werden NICHT bei jedem Poll neu gebaut - siehe
+    // ausfuehrlicher Kommentar bei derselben Logik in win_bar.html (sonst
+    // haette eine frisch erzeugte CSS-transition keinen Ausgangswert zum
+    // Animieren). Stattdessen bleiben die Elemente ueber Polls hinweg
+    // bestehen (nach side.key gemerkt), nur bei echter Struktur-Aenderung
+    // (Seite kommt/geht) wird neu aufgebaut.
+    let lastWinBarSegKeys = null;
+    const winBarSegElements = new Map(); // side.key -> Element
+
     function renderWinBarSegmented(sides) {
-      document.getElementById("win-bar-segmented").innerHTML = sides.map((s) => `
-        <div class="segment" style="flex-grow:${Math.max(s.share_percent, 0.001)};background:${winBarColorForSide(s)}">
-          ${escapeHtml(s.label)} &middot; ${s.share_percent.toFixed(0)}%
-        </div>
-      `).join("");
+      const box = document.getElementById("win-bar-segmented");
+      const keys = sides.map((s) => s.key).join("|");
+      if (keys !== lastWinBarSegKeys) {
+        box.innerHTML = "";
+        winBarSegElements.clear();
+        sides.forEach((s) => {
+          const el = document.createElement("div");
+          el.className = "segment";
+          box.appendChild(el);
+          winBarSegElements.set(s.key, el);
+        });
+        lastWinBarSegKeys = keys;
+      }
+      sides.forEach((s) => {
+        const el = winBarSegElements.get(s.key);
+        if (!el) return;
+        const grow = String(Math.max(s.share_percent, 0.001));
+        if (el.style.flexGrow !== grow) el.style.flexGrow = grow;
+        const color = winBarColorForSide(s);
+        el.style.background = color;
+        el.style.setProperty("--seam-color", color);
+        const text = `${s.label} · ${s.share_percent.toFixed(0)}%`;
+        if (el.textContent !== text) el.textContent = text;
+      });
     }
 
+    let lastWinBarIndKeys = null;
+    const winBarIndElements = new Map(); // side.key -> {label, fill, pct}
+
     function renderWinBarIndividual(sides) {
-      document.getElementById("win-bar-individual").innerHTML = sides.map((s) => `
-        <div class="individual-row">
-          <div class="individual-label">${escapeHtml(s.label)}</div>
-          <div class="individual-track">
-            <div class="individual-fill" style="width:${s.win_probability_percent}%;background:${winBarColorForSide(s)}"></div>
-            <div class="individual-percent">${s.win_probability_percent}%</div>
-          </div>
-        </div>
-      `).join("");
+      const box = document.getElementById("win-bar-individual");
+      const keys = sides.map((s) => s.key).join("|");
+      if (keys !== lastWinBarIndKeys) {
+        box.innerHTML = "";
+        winBarIndElements.clear();
+        sides.forEach((s) => {
+          const row = document.createElement("div");
+          row.className = "individual-row";
+          row.innerHTML = `
+            <div class="individual-label"></div>
+            <div class="individual-track">
+              <div class="individual-fill"></div>
+              <div class="individual-percent"></div>
+            </div>
+          `;
+          box.appendChild(row);
+          winBarIndElements.set(s.key, {
+            label: row.querySelector(".individual-label"),
+            fill: row.querySelector(".individual-fill"),
+            pct: row.querySelector(".individual-percent"),
+          });
+        });
+        lastWinBarIndKeys = keys;
+      }
+      sides.forEach((s) => {
+        const refs = winBarIndElements.get(s.key);
+        if (!refs) return;
+        if (refs.label.textContent !== s.label) refs.label.textContent = s.label;
+        const widthStr = `${s.win_probability_percent}%`;
+        if (refs.fill.style.width !== widthStr) refs.fill.style.width = widthStr;
+        refs.fill.style.background = winBarColorForSide(s);
+        const pctText = `${s.win_probability_percent}%`;
+        if (refs.pct.textContent !== pctText) refs.pct.textContent = pctText;
+      });
     }
 
     function renderWinBar(sidesFromData) {
@@ -818,6 +1132,10 @@
         // stiller Retry
       }
     }
+
+    // 90% des Poll-Intervalls (500ms) - siehe ausfuehrlicher Kommentar zu
+    // TRANSITION_MS in win_bar.html.
+    document.documentElement.style.setProperty("--transition-ms", Math.round(500 * 0.9) + "ms");
 
     function applyLayout() {
       const root = document.documentElement.style;

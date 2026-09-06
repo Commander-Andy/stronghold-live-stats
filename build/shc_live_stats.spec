@@ -24,6 +24,7 @@ a = Analysis(
         (os.path.join(APP_DIR, "assets", "settings.html"), "assets"),
         (os.path.join(APP_DIR, "assets", "overview.html"), "assets"),
         (os.path.join(APP_DIR, "assets", "overview_settings.html"), "assets"),
+        (os.path.join(APP_DIR, "assets", "win_bar.html"), "assets"),
         (os.path.join(APP_DIR, "assets", "icons"), "assets/icons"),
         (os.path.join(APP_DIR, "assets", "backgrounds"), "assets/backgrounds"),
     ],

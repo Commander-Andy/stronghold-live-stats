@@ -10,6 +10,11 @@ env/
 build/shc_live_stats/
 dist/
 
+# release/ ist der aufgeraeumte Verteil-Ordner (Struktur + README + .lnk-
+# Verknuepfung bleiben versioniert) - die exe-Kopien selbst sind nur ein
+# Abzug von dist/, genauso regenerierbar, keine eigene Quelle.
+release/bin/
+
 # Claude Code lokaler Laufzeit-Zustand (maschinenspezifisch)
 .claude/*.lock
 .claude/settings.local.json

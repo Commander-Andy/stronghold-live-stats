@@ -293,6 +293,42 @@
     <div class="path-box"><code id="overlay-url">http://127.0.0.1:8765/overlay.html</code></div>
   </div>
 
+  <h2>Übersichtsmodus</h2>
+  <div class="card">
+    <p style="font-size:13px;">Große, gut lesbare Ansicht aller Werte - nicht fürs Overlay/OBS gedacht, sondern zum selbst Draufschauen während des Castens (z.B. auf einem zweiten Monitor).</p>
+    <button id="open-overview-btn" type="button">Übersicht in neuem Tab öffnen</button>
+  </div>
+
+  <h2>KI-Personalities (für Angriffs-Warnung)</h2>
+  <div class="card dropzone" id="aic-dropzone">
+    <div class="row">
+      <label>.aic-Datei (z.B. vanilla.json aus deiner Spiel-Installation)</label>
+      <button id="pick-aic-btn">Datei wählen</button>
+    </div>
+    <div class="path-box" id="aic-path-box">- keine ausgewählt -</div>
+    <div class="drop-hint">... oder Datei einfach hier reinziehen</div>
+  </div>
+
+  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen (Design, Farben, Zeilen/Breite, Logo, Pro-Spieler-Farben, Gewinnwahrscheinlichkeits-Balken) unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.'>&#9432;</span></h2>
+  <div class="card">
+    <div id="saved-layouts-list"></div>
+  </div>
+
+  <h2>Anzeige-Vorlagen <span class="info-tip" title='Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben ("Design &amp; Anordnung" weiter unten) oder die Häkchen unter "Sonstiges".'>&#9432;</span></h2>
+  <div class="card">
+    <div class="row" style="flex-wrap:wrap; gap:8px;">
+      <button type="button" data-preset="standard">Standard</button>
+      <button type="button" data-preset="minimal">Minimal</button>
+      <button type="button" data-preset="militär">Militär</button>
+      <button type="button" data-preset="alles">Alles an</button>
+    </div>
+  </div>
+
+  <details id="display-section" open>
+    <summary style="cursor:pointer; color:#c6a15b; font-size:15px; font-weight:600; margin-top:28px;"><span class="disclosure-arrow">&#9654;</span>Was soll angezeigt werden?</summary>
+    <div id="display-categories" style="margin-top:10px;"></div>
+  </details>
+
   <h2>Gewinnwahrscheinlichkeit <span class="info-tip" title='EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als "führend" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) eine echte Gewinnwahrscheinlichkeit. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet der Balken echte Anteile (Summe=100%), die Prozentzahl im Spieler-Rahmen dagegen "diese Seite gegen den Rest" (liegt dann für ALLE Seiten unter 50%, kein Fehler, sondern die Definition). Die Prozentzahl im Spieler-Rahmen selbst wird unter "Was soll angezeigt werden?" -> "Sonstiges" ein-/ausgeschaltet, hier nur der Balken.'>&#9432;</span></h2>
   <div class="card">
     <div class="row">
@@ -329,42 +365,6 @@
     <p style="font-size:13px; margin-top:14px;">Alternativ (oder zusätzlich) als eigenständige, in OBS frei zieh-/skalierbare <b>Browser-Quelle</b> mit dieser URL - unabhängig vom Haupt-Overlay einsetzbar:</p>
     <div class="path-box"><code id="win-bar-url">http://127.0.0.1:8765/win_bar.html</code></div>
   </div>
-
-  <h2>Übersichtsmodus</h2>
-  <div class="card">
-    <p style="font-size:13px;">Große, gut lesbare Ansicht aller Werte - nicht fürs Overlay/OBS gedacht, sondern zum selbst Draufschauen während des Castens (z.B. auf einem zweiten Monitor).</p>
-    <button id="open-overview-btn" type="button">Übersicht in neuem Tab öffnen</button>
-  </div>
-
-  <h2>KI-Personalities (für Angriffs-Warnung)</h2>
-  <div class="card dropzone" id="aic-dropzone">
-    <div class="row">
-      <label>.aic-Datei (z.B. vanilla.json aus deiner Spiel-Installation)</label>
-      <button id="pick-aic-btn">Datei wählen</button>
-    </div>
-    <div class="path-box" id="aic-path-box">- keine ausgewählt -</div>
-    <div class="drop-hint">... oder Datei einfach hier reinziehen</div>
-  </div>
-
-  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen (Design, Farben, Zeilen/Breite, Logo, Pro-Spieler-Farben, Gewinnwahrscheinlichkeits-Balken) unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.'>&#9432;</span></h2>
-  <div class="card">
-    <div id="saved-layouts-list"></div>
-  </div>
-
-  <h2>Anzeige-Vorlagen <span class="info-tip" title='Setzt mit einem Klick, welche Werte unten angezeigt werden. Betrifft nicht Design/Farben ("Design &amp; Anordnung" weiter unten) oder die Häkchen unter "Sonstiges".'>&#9432;</span></h2>
-  <div class="card">
-    <div class="row" style="flex-wrap:wrap; gap:8px;">
-      <button type="button" data-preset="standard">Standard</button>
-      <button type="button" data-preset="minimal">Minimal</button>
-      <button type="button" data-preset="militär">Militär</button>
-      <button type="button" data-preset="alles">Alles an</button>
-    </div>
-  </div>
-
-  <details id="display-section" open>
-    <summary style="cursor:pointer; color:#c6a15b; font-size:15px; font-weight:600; margin-top:28px;"><span class="disclosure-arrow">&#9654;</span>Was soll angezeigt werden?</summary>
-    <div id="display-categories" style="margin-top:10px;"></div>
-  </details>
 
   <h2>Größe &amp; Abstände</h2>
   <div class="card">
@@ -444,14 +444,21 @@
     <div class="row">
       <label>Rahmenfarbe (Standard für alle, siehe unten für Ausnahmen pro Spieler)</label>
       <input type="color" id="border-color-input">
+      <button type="button" data-reset-color-input="border-color-input" data-reset-color-key="border_color" data-reset-color-default="#c6a15b">Standard</button>
     </div>
     <div class="row">
       <label>Textfarbe (Beschriftung/Werte)</label>
       <input type="color" id="text-color-input">
+      <button type="button" data-reset-color-input="text-color-input" data-reset-color-key="text_color" data-reset-color-default="#f2e9d8">Standard</button>
     </div>
     <div class="row">
       <label>Farbe für dein eigenes Feld</label>
       <input type="color" id="you-color-input">
+      <button type="button" data-reset-color-input="you-color-input" data-reset-color-key="you_color" data-reset-color-default="#78c8ff">Standard</button>
+    </div>
+    <div class="row">
+      <label>Preset: Teamfarben <span class="info-tip" title='Setzt in einem Schritt sowohl die Rahmenfarbe jedes Spielers (nach seiner aktuellen Team-Zugehörigkeit) als auch die passende Team-Farbe für den Gewinnwahrscheinlichkeits-Balken - beides bekommt dieselbe Farbe pro Team. Braucht eine erkannte/eingetragene Team-Zuordnung (siehe "Teams" weiter unten), sonst passiert nichts.'>&#9432;</span></label>
+      <button type="button" id="team-color-preset-btn">Anwenden (Gelb + Orange)</button>
     </div>
   </div>
 
@@ -464,6 +471,7 @@
     <div class="row">
       <label>Farbe bei Angriffs-Warnung</label>
       <input type="color" id="attack-color-input">
+      <button type="button" data-reset-color-input="attack-color-input" data-reset-color-key="attack_color" data-reset-color-default="#e6463c">Standard</button>
     </div>
     <div class="row">
       <label>Angriffs-Warnung pulsierend leuchten lassen</label>
@@ -825,7 +833,7 @@
         } else if (s.last_error) {
           setStatus("dot-error", s.last_error);
         } else {
-          setStatus("dot-waiting", "Warte auf laufendes Spiel (Stronghold Crusader.exe) &hellip;");
+          setStatus("dot-waiting", "Warte auf laufendes Spiel (Stronghold Crusader HD oder Extreme) &hellip;");
         }
       } catch (e) {
         setStatus("dot-error", "Server nicht erreichbar.");
@@ -978,14 +986,24 @@
       const box = document.getElementById("team-color-list");
       const assign = cfg.team_assignment || {};
       const teamColors = cfg.team_colors || {};
+      const teamNames = cfg.team_names || {};
       const usedTeams = [...new Set(Object.values(assign).filter((v) => v !== null && v !== undefined))].sort((a, b) => a - b);
       if (usedTeams.length === 0) {
         box.innerHTML = `<p style="font-size:11px; color:#a89478; margin:8px 0 0;">Noch keine Team-Nummer oben vergeben.</p>`;
         return;
       }
+      // Fokus/Cursor-Position des Namensfelds merken, bevor wir das
+      // gesamte Grid neu aufbauen (sonst springt der Fokus beim Tippen
+      // nach jedem debounced Speichern raus) - nach dem Neuaufbau wieder
+      // herstellen.
+      const activeEl = document.activeElement;
+      const focusedTeam = activeEl && activeEl.dataset && activeEl.dataset.teamName;
+      const caretPos = focusedTeam ? activeEl.selectionStart : null;
+
       box.innerHTML = usedTeams.map((t) => `
         <div class="row">
-          <label style="flex:0 0 90px;">Team ${t} Farbe</label>
+          <label style="flex:0 0 90px;">Team ${t}</label>
+          <input type="text" data-team-name="${t}" placeholder="Team ${t}" maxlength="24" style="flex:1;" value="${escapeHtmlAttr(teamNames[String(t)] || "")}">
           <input type="color" data-team-color="${t}" value="${teamColors[String(t)] || "#c6a15b"}">
           <button type="button" data-clear-team-color="${t}">Zurücksetzen</button>
         </div>
@@ -1000,6 +1018,32 @@
           saveConfigPatch({ team_colors: { [btn.dataset.clearTeamColor]: null } });
         });
       });
+      box.querySelectorAll("input[type=text][data-team-name]").forEach((el) => {
+        el.addEventListener("input", () => {
+          const val = el.value.trim();
+          saveTeamNameDebounced({ team_names: { [el.dataset.teamName]: val === "" ? null : val } });
+        });
+      });
+      if (focusedTeam) {
+        const toFocus = box.querySelector(`input[data-team-name="${focusedTeam}"]`);
+        if (toFocus) {
+          toFocus.focus();
+          if (caretPos !== null) toFocus.setSelectionRange(caretPos, caretPos);
+        }
+      }
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s == null ? "" : s;
+      return div.innerHTML;
+    }
+
+    // Escaped fuer die Verwendung als HTML-Attributwert (zusaetzlich zu
+    // escapeHtml() auch Anführungszeichen escapen, sonst koennte ein
+    // Team-Name mit " das value-Attribut vorzeitig beenden).
+    function escapeHtmlAttr(s) {
+      return escapeHtml(s).replace(/"/g, "&quot;");
     }
 
     let teamColorDebounceTimer = null;
@@ -1010,6 +1054,18 @@
       teamColorDebounceTimer = setTimeout(() => {
         const toSend = pendingTeamColorPatch;
         pendingTeamColorPatch = {};
+        saveConfigPatch(toSend);
+      }, 120);
+    }
+
+    let teamNameDebounceTimer = null;
+    let pendingTeamNamePatch = {};
+    function saveTeamNameDebounced(patch) {
+      pendingTeamNamePatch = mergeDeep(pendingTeamNamePatch, patch);
+      clearTimeout(teamNameDebounceTimer);
+      teamNameDebounceTimer = setTimeout(() => {
+        const toSend = pendingTeamNamePatch;
+        pendingTeamNamePatch = {};
         saveConfigPatch(toSend);
       }, 120);
     }
@@ -1108,6 +1164,51 @@
       applyConfigToForm(await res.json());
     }
 
+    // Gelb+Orange zuerst (Nutzerwunsch), Rest dient nur als Reserve fuer
+    // mehr als 2 Teams gleichzeitig - dieselbe Farbfamilie wie die
+    // Ausweich-Palette in overlay.html/win_bar.html, nur anders sortiert.
+    const TEAM_COLOR_PRESET_PALETTE = [
+      "#e6b93e", "#e68f3e", "#4f8fef", "#3ecf6e",
+      "#b56ce6", "#3ecfc9", "#e6463c", "#8f8f8f",
+    ];
+
+    // Setzt Rahmenfarbe (pro Spieler) UND Team-Farbe (fuer den
+    // Gewinnwahrscheinlichkeits-Balken) in einem Rutsch auf dieselbe Farbe
+    // je Team-Nummer - liest dafuer die EFFEKTIVE (automatisch erkannte
+    // oder manuell eingetragene) Team-Zuordnung direkt vom laufenden
+    // Overlay, nicht die evtl. leere rohe Config (bei Modus "Automatisch"
+    // steht dort nichts, die Zuordnung existiert nur live).
+    async function applyTeamColorPreset() {
+      let teamAssignment = {};
+      try {
+        const res = await fetch("/overlay-config.json?t=" + Date.now(), { cache: "no-store" });
+        const data = await res.json();
+        teamAssignment = data.team_assignment || {};
+      } catch (e) {
+        return;
+      }
+      const usedTeams = [...new Set(Object.values(teamAssignment).filter((v) => v !== null && v !== undefined))]
+        .sort((a, b) => a - b);
+      if (usedTeams.length === 0) return;
+
+      const colorForTeam = {};
+      usedTeams.forEach((team, i) => {
+        colorForTeam[team] = TEAM_COLOR_PRESET_PALETTE[i % TEAM_COLOR_PRESET_PALETTE.length];
+      });
+
+      const playerColorsPatch = {};
+      Object.entries(teamAssignment).forEach(([slot, team]) => {
+        if (team === null || team === undefined) return;
+        playerColorsPatch[slot] = { border_color: colorForTeam[team] };
+      });
+      const teamColorsPatch = {};
+      usedTeams.forEach((team) => { teamColorsPatch[team] = colorForTeam[team]; });
+
+      await saveConfigPatch({ player_colors: playerColorsPatch, team_colors: teamColorsPatch });
+    }
+
+    document.getElementById("team-color-preset-btn").addEventListener("click", applyTeamColorPreset);
+
     document.querySelectorAll("input[type=checkbox][data-key]").forEach((el) => {
       el.addEventListener("change", () => {
         saveConfigPatch({ display: { [el.dataset.key]: el.checked } });
@@ -1151,6 +1252,22 @@
       saveConfigPatch({ layout: { attack_pulse: e.target.checked } });
     });
     document.getElementById("border-color-input").addEventListener("input", saveLayoutDebounced);
+
+    // Generischer "Standard"-Button fuer alle globalen Farbwaehler
+    // (Nutzerwunsch 2026-09-06) - setzt den Eingabewert auf den mitge-
+    // gebenen Default und feuert danach ein normales "input"-Event, statt
+    // die jeweilige Speicher-Logik hier zu duplizieren - laeuft dadurch
+    // exakt derselbe Pfad wie eine manuelle Farbauswahl (siehe
+    // saveLayoutDebounced oben).
+    document.querySelectorAll("button[data-reset-color-input]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const input = document.getElementById(btn.dataset.resetColorInput);
+        if (!input) return;
+        input.value = btn.dataset.resetColorDefault;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    });
+
     document.getElementById("side-mode-input").addEventListener("change", (e) => {
       saveConfigPatch({ layout: { side_mode: e.target.value } });
     });

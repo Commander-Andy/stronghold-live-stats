@@ -224,10 +224,12 @@
     <div class="row">
       <label>Textfarbe (Beschriftung/Werte)</label>
       <input type="color" id="text-color-input">
+      <button type="button" data-reset-color-input="text-color-input" data-reset-color-key="text_color" data-reset-color-default="#f2e9d8">Standard</button>
     </div>
     <div class="row">
       <label>Farbe für dein eigenes Feld</label>
       <input type="color" id="you-color-input">
+      <button type="button" data-reset-color-input="you-color-input" data-reset-color-key="you_color" data-reset-color-default="#78c8ff">Standard</button>
     </div>
   </div>
 
@@ -240,6 +242,7 @@
     <div class="row">
       <label>Farbe bei Angriffs-Warnung</label>
       <input type="color" id="attack-color-input">
+      <button type="button" data-reset-color-input="attack-color-input" data-reset-color-key="attack_color" data-reset-color-default="#e6463c">Standard</button>
     </div>
     <div class="row">
       <label>Angriffs-Warnung pulsierend leuchten lassen</label>
@@ -493,7 +496,7 @@
         } else if (s.last_error) {
           setStatus("dot-error", s.last_error);
         } else {
-          setStatus("dot-waiting", "Warte auf laufendes Spiel (Stronghold Crusader.exe) &hellip;");
+          setStatus("dot-waiting", "Warte auf laufendes Spiel (Stronghold Crusader HD oder Extreme) &hellip;");
         }
       } catch (e) {
         setStatus("dot-error", "Server nicht erreichbar.");
@@ -700,6 +703,19 @@
     }
     ["row-gap-input", "text-color-input", "you-color-input", "attack-color-input", "breakdown-icon-input"].forEach((id) => {
       document.getElementById(id).addEventListener("input", saveDebounced);
+    });
+
+    // Generischer "Standard"-Button fuer alle Farbwaehler (Nutzerwunsch
+    // 2026-09-06) - setzt den Eingabewert auf den mitgegebenen Default und
+    // feuert danach ein normales "input"-Event, statt die Speicher-Logik
+    // hier zu duplizieren (gleiches Prinzip wie in settings.html).
+    document.querySelectorAll("button[data-reset-color-input]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const input = document.getElementById(btn.dataset.resetColorInput);
+        if (!input) return;
+        input.value = btn.dataset.resetColorDefault;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
     });
 
     function heartbeat() {

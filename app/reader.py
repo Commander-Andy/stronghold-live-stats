@@ -18,12 +18,81 @@ import pymem
 import pymem.memory
 import pymem.process
 
-PROCESS_NAME = "Stronghold Crusader.exe"
+PROCESS_NAME_HD = "Stronghold Crusader.exe"
+PROCESS_NAME_EXTREME = "Stronghold_Crusader_Extreme.exe"
+# Rueckwaerts-kompatibler Name (frueher die einzige unterstuetzte Version) -
+# von aussen weiterhin lesbar, aber nicht mehr an connect() beteiligt.
+PROCESS_NAME = PROCESS_NAME_HD
 
-# Basis-Adresse von Spieler 1 (fruit_basket, erstes Feld des Structs).
-BASE_ADDR = 0x115FCBC
+# HD ("Stronghold Crusader.exe") und Extreme ("Stronghold_Crusader_Extreme.exe")
+# sind NACHWEISLICH unterschiedliche Binaries (unterschiedliche Dateigroesse
+# UND Hash) mit komplett eigenem Speicherlayout - HDs Adressen lesen bei
+# Extreme durchgehend -1/0/Muell und umgekehrt (live getestet 2026-08-26 und
+# 2026-09-05). Alle vier Extreme-Werte unten wurden 2026-09-05 LIVE gegen
+# den echten Prozess bestaetigt (nicht nur aus einer Quelle uebernommen):
+#  - base_addr: per Exact-Value-Scan (Cheat-Engine-Stil) auf den echten,
+#    vom Nutzer genannten Goldstand gefunden, dann als echtes Array
+#    verifiziert (2 unterschiedliche aktive Spieler mit eigenen, plausiblen
+#    Gold/Holz/Stein/Truppen-Werten - kein "nur der Mensch"-Fallstrick).
+#  - object_table_base: aus dem GitHub-Repo CIO61/rebalancer
+#    (addresses.lua, "Extreme"-Wert von unit_array_base_addr) uebernommen,
+#    live bestaetigt ueber denselben Typ-ID-/player_num-Zensus wie bei HD
+#    (plausible Einheiten-Typen 0-77, plausible player_num 0-7) UND ueber
+#    das Burgherr-HP-Verfahren (zwei Lords mit sauberen, runden Vielfachen
+#    der Basis-HP 150000 gefunden).
+#  - diplomatic_group_array_addr: ueber denselben relativen Byte-Abstand
+#    zu base_addr wie bei HD extrapoliert, live plausibel (zwei aktive
+#    Solo-Spieler mit unterschiedlichen Gruppennummern, Rest 0) - NOCH NICHT
+#    mit einem echten Team-Match (zwei Spieler in derselben Gruppe)
+#    gegengetestet, siehe [[project_team_id_field_validation]]-Nachfolge.
+#  - Roster-Namen: bei HD ein Zeiger, der erst dereferenziert werden muss
+#    (roster_pointer_addr). Bei Extreme per String-Suche nach dem live vom
+#    Nutzer genannten eigenen Namen ("Lord Andy") gefunden - die Tabelle
+#    liegt dort OHNE Zeiger-Indirektion direkt als fester Block im
+#    statischen Programm-Abbild (roster_base_direct), bestaetigt durch den
+#    zweiten Spielernamen exakt 90 Byte (ROSTER_SLOT_SIZE) dahinter. Da die
+#    Adresse im STATISCHEN Abbild liegt (nicht im Heap), sollte sie ueber
+#    Neustarts stabil sein wie BASE_ADDR/die Objekttabelle - aber bisher nur
+#    aus EINER Spielsitzung bestaetigt, noch kein Neustart-Test.
+VERSION_PROFILES = {
+    "hd": {
+        "base_addr": 0x115FCBC,
+        "event_type_id_addr": 0x0138880C,
+        "event_player_num_addr": 0x013885E2,
+        "diplomatic_group_array_addr": 0x0117D54C,
+        "roster_pointer_addr": 0x004423A8,
+        "roster_base_direct": None,
+    },
+    "extreme": {
+        "base_addr": 0x011F28FC,
+        # object_table_base selbst wird nirgends direkt gebraucht - nur die
+        # daraus abgeleiteten Anker unten (siehe HD: EVENT_TYPE_ID_ADDR/
+        # EVENT_PLAYER_NUM_ADDR sind ebenfalls nur Punkte INNERHALB der
+        # Tabelle, kein eigener Basis-Parameter in den Nutzfunktionen).
+        "event_type_id_addr": 0x0145D03C + 0x2C0,
+        "event_player_num_addr": 0x0145D03C + 0x96,
+        "diplomatic_group_array_addr": 0x0121018C,
+        "roster_pointer_addr": None,
+        "roster_base_direct": 0x024BA286,
+    },
+}
 
-# Fester Byte-Abstand zwischen den Spieler-Slots.
+# Aktuell erkannte Version ("hd"/"extreme") - von connect() gesetzt, None
+# davor. Externe Konsumenten (worker.py) koennen das fuer versionsabhaengige
+# UI-Hinweise auslesen (z.B. "Roster-Namen nicht verfuegbar bei Extreme").
+GAME_VERSION = None
+
+# Alle vier folgenden Werte sind reine Defaults (HD) - werden von connect()
+# via _apply_version_profile() auf die tatsaechlich erkannte Version
+# umgeschaltet. Bewusst als einfache Modul-Globals gehalten statt ueberall
+# durchgereicht: die Version aendert sich nie waehrend der Laufzeit eines
+# verbundenen Prozesses, ein einmaliger Umschalter bei connect() ist hier
+# pragmatischer als jede Funktion in dieser Datei um einen Versions-
+# Parameter zu erweitern.
+BASE_ADDR = VERSION_PROFILES["hd"]["base_addr"]
+
+# Fester Byte-Abstand zwischen den Spieler-Slots - IDENTISCH bei HD und
+# Extreme (live bestaetigt 2026-09-05), deshalb keine eigene Profil-Zeile.
 PLAYER_STRIDE = 0x39F4
 
 # SHC Extreme/HD erlaubt bis zu 8 Spieler-Slots (Mensch + KI zusammen).
@@ -171,6 +240,272 @@ def get_lord_max_hp(display_name):
     return int(LORD_BASE_HP * get_lord_strength_multiplier(display_name))
 
 
+# Live-KI-Personality-Tabelle (Lead 1) - dieselben Felder wie eine
+# .aic-Datei (AttForceBase/AttForceRandom etc.), aber direkt aus dem
+# laufenden Spiel gelesen statt aus einer vom Nutzer geladenen Datei.
+# Tabellenformel und HD-Adresse live bestätigt (siehe
+# [[project_aic_memory_field_investigation]]): ein Sequenzvergleich gegen
+# alle 16 Personas in vanilla.json traf 16/16 exakt für AttForceBase.
+# persona_index ist NICHT 0-basiert - Index 0 ist ein leerer Platzhalter,
+# echte Personas sind 1-16 in der festen Reihenfolge, die PERSONA_INDEX
+# unten kodiert.
+AI_TABLE_STRIDE = 676  # 169 Felder * 4 Byte
+AI_TABLE_FIELD_ATTFORCEBASE = 125
+AI_TABLE_FIELD_ATTFORCERANDOM = 126
+
+# HD: statische Adresse, 1:1 von der 1.41-Referenz übernommen (kein ASLR-
+# Problem, wie BASE_ADDR). Extreme: noch NICHT verifiziert - laut UCP3s
+# extension-aicloader müsste sich die Basis per AOB-Scan auf den Code-
+# Bytes finden lassen. Für Extreme wird das per AOB-Scan gelöst (siehe
+# _scan_extreme_ai_table_base() unten, von _apply_version_profile() bei
+# jedem connect() aufgerufen) - "extreme" startet hier als Platzhalter
+# None und wird bei Erfolg live überschrieben. Schlägt der Scan fehl
+# (z.B. Spielversion mit anderem Code-Layout), bleibt es None und
+# read_ai_personality_table() liefert für Extreme weiterhin bewusst
+# (None, None) statt eines falschen Werts - kein Absturz.
+AI_TABLE_BASE = {
+    "hd": 0x023FC8E8,
+    "extreme": None,
+}
+
+# UCP3s eigenes AOB-Pattern für "extension-aicloader" (core.readInteger(
+# core.AOBScan(...))) - laut UCP3-Quelle für BEIDE Versionen gültig, liest
+# 4 Byte ab Match-Beginn = aicArrayBaseAddr. Für HD war das nie nötig
+# (dort reicht die statische Adresse oben), für Extreme ist es der
+# einzige bekannte Weg, live an die Tabellen-Basis zu kommen. Live
+# bestätigt 2026-09-05 (16/16-Sequenzvergleich gegen vanilla.json), aber
+# erst 2026-09-06 tatsächlich in die App verdrahtet statt nur als
+# Scratchpad-Test zu existieren.
+_AI_TABLE_AOB_PATTERN = (
+    "? ? ? ? e8 ? ? ? ? 89 1d ? ? ? ? 83 3d ? ? ? ? 00 75 44 6a 08 b9 "
+    "? ? ? ? e8 ? ? ? ? 85 c0 74 34 8b c5 2b 05"
+)
+
+
+def _parse_aob_pattern(hexstr):
+    """Zerlegt ein Space-getrenntes Hex/Wildcard-Pattern ("? A1 ? FF ...")
+    in (bytes_mit_platzhalter_0, mask) - mask[i]=False heißt "beliebiges
+    Byte", wie in Cheat Engine/UCP3 üblich."""
+    tokens = hexstr.split()
+    pattern = bytearray()
+    mask = []
+    for t in tokens:
+        if t == "?":
+            pattern.append(0)
+            mask.append(False)
+        else:
+            pattern.append(int(t, 16))
+            mask.append(True)
+    return bytes(pattern), mask
+
+
+def _aob_scan(data, pattern, mask):
+    """Simpler linearer Byte-Scan mit Wildcard-Maske - für ein einmaliges
+    Pattern pro connect() (nicht pro Tick) reicht das aus, keine Boyer-
+    Moore-artige Optimierung nötig."""
+    plen = len(pattern)
+    n = len(data)
+    for i in range(n - plen + 1):
+        ok = True
+        for j in range(plen):
+            if mask[j] and data[i + j] != pattern[j]:
+                ok = False
+                break
+        if ok:
+            return i
+    return -1
+
+
+def _scan_extreme_ai_table_base(pm):
+    """Führt den AOB-Scan für Extreme aus und gibt aicArrayBaseAddr
+    zurück, oder None bei Fehlschlag (Pattern nicht gefunden, Modul nicht
+    lesbar o.ä. - wird abgefangen, damit ein fehlgeschlagener Scan nie
+    connect() zum Absturz bringt, nur die Live-KI-Tabelle bleibt
+    unverfügbar)."""
+    try:
+        module = pymem.process.module_from_name(pm.process_handle, PROCESS_NAME_EXTREME)
+        if module is None:
+            return None
+        data = pm.read_bytes(module.lpBaseOfDll, module.SizeOfImage)
+        pattern, mask = _parse_aob_pattern(_AI_TABLE_AOB_PATTERN)
+        idx = _aob_scan(data, pattern, mask)
+        if idx == -1:
+            return None
+        match_addr = module.lpBaseOfDll + idx
+        return pm.read_int(match_addr)
+    except Exception:
+        return None
+
+# Feste Engine-Reihenfolge der 16 Personas (persona_index 1-16), bestätigt
+# über den 16/16-Sequenzvergleich gegen vanilla.json. Aliases (Deutsch)
+# nach demselben Muster wie LORD_STRENGTH_MULTIPLIER oben - bewusst NICHT
+# mit diesem Dict zusammengelegt, auch wenn die Schlüssel identisch sind,
+# weil die beiden Tabellen unterschiedliche Dinge kodieren (Index vs.
+# Multiplikator) und unabhängig voneinander geändert werden könnten.
+PERSONA_INDEX = {
+    "rat": 1, "ratte": 1,
+    "snake": 2, "schlange": 2,
+    "pig": 3, "schwein": 3,
+    "wolf": 4,
+    "saladin": 5,
+    "caliph": 6, "kalif": 6,
+    "sultan": 7,
+    "richard": 8,
+    "frederick": 9, "friedrich": 9,
+    "phillip": 10,
+    "wazir": 11,
+    "emir": 12,
+    "nizar": 13,
+    "sheriff": 14,
+    "marshal": 15,
+    "abbot": 16, "abt": 16,
+}
+
+
+def get_persona_index(display_name):
+    """Wie get_lord_strength_multiplier() - Wortgrenzen-Match gegen den
+    Roster-Anzeigenamen, damit z.B. "Wolfgang" nicht fälschlich als Wolf
+    (Index 4) erkannt wird. Kein Treffer -> None (menschlicher Spieler
+    oder unbekannter Custom-Lord-Name)."""
+    if not display_name:
+        return None
+    lower = display_name.lower()
+    for name, index in PERSONA_INDEX.items():
+        if re.search(rf"\b{re.escape(name)}\b", lower):
+            return index
+    return None
+
+
+# Live-Persona-Zuweisung pro Spieler (2026-09-06 gefunden, per
+# Rückverfolgung des EAX-Parameters am Anfang der Eskalationsfunktion -
+# siehe [[project_aic_memory_field_investigation]]): dieses Feld sagt
+# DIREKT, welchen Tabellen-Index (1-16) ein Spieler-Slot benutzt -
+# unabhängig vom angezeigten Namen, würde also das Custom-Mod-Problem
+# von get_persona_index() lösen (Namens-Matching kann danebenliegen, wenn
+# ein Mod Anzeigename und tatsächlich genutzte Tabellenzeile entkoppelt).
+# Live bestätigt für EINEN Spieler per Execution-Breakpoint direkt am
+# Funktionsanfang (EAX=4 bei ESI=3×PLAYER_STRIDE, Slot 3 = "Wolf,
+# Herzog Volpe" -> persona_index 4, exakter Treffer). ABER: ein kalter
+# Reihen-Test direkt danach zeigte, dass dieses Feld für die ANDEREN
+# beiden KIs (Ratte, Schwein) in einem frisch gestarteten Match noch
+# ungültige/falsche Werte hatte (0 bzw. 2 statt der erwarteten 1/3) -
+# es wird offenbar wie attackNumber/addtroops erst befüllt, sobald diese
+# Funktion für den jeweiligen Spieler mindestens einmal gelaufen ist
+# (also nach dessen erstem echten Angriff), nicht schon beim Match-Start.
+# Deshalb NUR als Fallback verwendet (siehe read_ai_personality_table
+# unten), nicht als primäre Quelle - sonst würde es die bewährte
+# Namens-Erkennung bei Vanilla-Matches gelegentlich durch einen noch
+# nicht aktualisierten Wert überschreiben. Für HD nicht separat
+# verifiziert, aber wie ATTACK_NUMBER_OFFSET/ATTACK_ADDTROOPS_OFFSET als
+# version-unabhängiger Offset behandelt (Offsets innerhalb des geteilten
+# Pro-Spieler-Structs haben sich in diesem Projekt bisher immer 1:1
+# zwischen HD und Extreme übertragen).
+LIVE_PERSONA_INDEX_OFFSET = -0x1BC4
+
+
+def read_live_persona_index(pm, player_index):
+    """Liest den tatsächlich zugewiesenen Tabellen-Index (1-16) direkt aus
+    dem Spielspeicher, KEIN Namens-Raten. Gibt None zurück bei Lesefehler
+    oder einem offensichtlich ungültigen Wert (außerhalb 1-16 - z.B. der
+    menschliche Spieler, dessen Slot dieses Feld nie befüllt)."""
+    addr = BASE_ADDR + player_index * PLAYER_STRIDE + LIVE_PERSONA_INDEX_OFFSET
+    try:
+        value = pm.read_int(addr)
+    except Exception:
+        return None
+    if value is None or not (1 <= value <= 16):
+        return None
+    return value
+
+
+def read_ai_personality_table(pm, player_index, display_name):
+    """Liest AttForceBase/AttForceRandom LIVE aus der KI-Tabelle statt aus
+    einer geladenen .aic-Datei. Ermittelt den Personality-Index zuerst
+    über die bewährte Namens-Erkennung (get_persona_index() - zuverlässig
+    bei Vanilla-Namen) und versucht read_live_persona_index() nur als
+    Fallback, wenn der Name keiner bekannten Persona zugeordnet werden
+    konnte (menschlicher Spieler, oder ein Custom-Mod-Lord mit
+    entkoppeltem Anzeigenamen - siehe LIVE_PERSONA_INDEX_OFFSET oben für
+    die Einschränkungen dieses Fallbacks). Gibt (None, None) zurück, wenn
+    die aktuelle Version noch keine Tabellen-Adresse hat (Extreme ohne
+    erfolgreichen AOB-Scan) oder gar kein Index ermittelt werden konnte."""
+    table_base = AI_TABLE_BASE.get(GAME_VERSION)
+    persona_index = get_persona_index(display_name)
+    if persona_index is None:
+        persona_index = read_live_persona_index(pm, player_index)
+    if table_base is None or persona_index is None:
+        return None, None
+    try:
+        row = table_base + persona_index * AI_TABLE_STRIDE
+        base = pm.read_int(row + AI_TABLE_FIELD_ATTFORCEBASE * 4)
+        rand = pm.read_int(row + AI_TABLE_FIELD_ATTFORCERANDOM * 4)
+        return base, rand
+    except Exception:
+        return None, None
+
+
+# Live-Angriffs-Eskalation (Lead 2) - dieselbe Spielfunktion (004CDEDC in
+# der HD-1.41-Referenz), die bei jedem tatsächlich losgeschickten Angriff
+# die nächste Mindest-Truppenzahl um 5 (oder 7 bei >10.000 Gold) erhöht.
+# Live numerisch bestätigt 2026-09-06 (drei exakte Live-Treffer inkl.
+# eines echten Truppen-Auszählens, siehe
+# [[project_aic_memory_field_investigation]]). WICHTIG: diese beiden
+# Felder werden NICHT wie RESOURCE_OFFSETS mit player_index*PLAYER_STRIDE
+# adressiert, sondern mit (player_index+1)*PLAYER_STRIDE - die KI-
+# Entscheidungsfunktion zählt ihre Spieler intern ab 1 statt ab 0 (per
+# Cross-Check gegen die schon bekannte Gold-Adresse in derselben Funktion
+# entdeckt und live bestätigt: ESI stand beim Schreibzugriff exakt auf
+# 2*PLAYER_STRIDE für player_index=1). NICHT versehentlich an die
+# RESOURCE_OFFSETS-Konvention angleichen.
+ATTACK_NUMBER_OFFSET = -0x5A0
+ATTACK_ADDTROOPS_OFFSET = -0x624
+ATTACK_ESCALATION_GOLD_THRESHOLD = 10000
+ATTACK_ESCALATION_FACTOR_LOW = 5   # Gold <= 10.000
+ATTACK_ESCALATION_FACTOR_HIGH = 7  # Gold > 10.000
+ATTACK_ESCALATION_CAP = 500  # Spiel deckelt addtroops hart auf 500
+
+
+def read_attack_escalation(pm, player_index):
+    """Liest attackNumber/addtroops für player_index (0-7, dieselbe
+    Zählung wie überall sonst in diesem Modul - die interne +1-
+    Verschiebung wird hier gekapselt, siehe ATTACK_NUMBER_OFFSET oben).
+    attackNumber zeigt live bestätigt (2026-09-06) schon VOR dem ersten
+    Angriff 1 statt 0 - das Spiel zählt die "nächste" Angriffsnummer, kein
+    Bug. Gibt (None, None) bei Lesefehler zurück."""
+    base = BASE_ADDR + (player_index + 1) * PLAYER_STRIDE
+    try:
+        attack_number = pm.read_int(base + ATTACK_NUMBER_OFFSET)
+        addtroops = pm.read_int(base + ATTACK_ADDTROOPS_OFFSET)
+        return attack_number, addtroops
+    except Exception:
+        return None, None
+
+
+def predict_next_attack_range(ai_base, ai_rand, attack_number, gold):
+    """Kombiniert Lead 1 (statische Personality-Werte) und Lead 2 (live
+    Eskalationszähler) zu einer Mindest-/Höchstschätzung für die nächste
+    Angriffsgröße. Live formel-validiert 2026-09-06: addtroops =
+    Zufall(0..ai_rand) + attack_number * (5 oder 7), gedeckelt auf 500.
+    `attack_number` ist der AKTUELL gespeicherte Wert - für die Vorhersage
+    wird er hier um 1 erhöht, weil das Spiel ihn erst GENAU beim
+    Losschicken des nächsten Angriffs selbst hochzählt (der gespeicherte
+    Wert ist also immer "einen hinter" dem, was für den nächsten Angriff
+    tatsächlich verwendet wird). Gibt (None, None) zurück, wenn eine
+    Eingabe fehlt (z.B. Extreme ohne AI_TABLE_BASE, oder Lesefehler)."""
+    if ai_base is None or attack_number is None or gold is None:
+        return None, None
+    ai_rand = ai_rand or 0
+    factor = (
+        ATTACK_ESCALATION_FACTOR_HIGH
+        if gold > ATTACK_ESCALATION_GOLD_THRESHOLD
+        else ATTACK_ESCALATION_FACTOR_LOW
+    )
+    escalation = (attack_number + 1) * factor
+    addtroops_min = min(ATTACK_ESCALATION_CAP, escalation)
+    addtroops_max = min(ATTACK_ESCALATION_CAP, escalation + ai_rand)
+    return ai_base + addtroops_min, ai_base + addtroops_max
+
+
 # Team-/Bündnis-Erkennung (gefunden 2026-09-02, siehe research/
 # shc_overlay_status.md für die volle Herleitungs-/Kalibrierungs-Historie).
 # Kein dediziertes Team-ID-Feld, aber zwei Live-Felder (vermutlich Pro-
@@ -216,8 +551,14 @@ TAX_POPULARITY_EFFECT = {
 SIEGE_MOVABLE_OFFSET = -0x114
 
 # Live-Namens-Roster: fester globaler Zeiger auf die aktuelle 8-Slot-
-# Namenstabelle des Matches, Reihenfolge = Spieler-Slot-Reihenfolge.
-ROSTER_POINTER_ADDR = 0x004423A8
+# Namenstabelle des Matches, Reihenfolge = Spieler-Slot-Reihenfolge. Bei
+# Extreme gibt es stattdessen roster_base_direct (siehe VERSION_PROFILES
+# weiter oben) - dort liegt die Tabelle ohne Zeiger-Indirektion direkt an
+# einer festen Adresse. Sind BEIDE None (sollte nicht vorkommen, reine
+# Absicherung), gibt read_roster_names() {} zurueck und das Overlay faellt
+# auf slot_label()-Platzhalter zurueck, kein Absturz.
+ROSTER_POINTER_ADDR = VERSION_PROFILES["hd"]["roster_pointer_addr"]
+ROSTER_BASE_DIRECT = VERSION_PROFILES["hd"]["roster_base_direct"]
 ROSTER_SLOT_SIZE = 90
 ROSTER_NUM_SLOTS = 8
 
@@ -262,24 +603,59 @@ def _food_total(values):
     return sum(present) if present else None
 
 
+def _apply_version_profile(version: str, pm=None):
+    """Schaltet die versionsabhängigen Modul-Globals (siehe VERSION_PROFILES
+    ganz oben) auf die erkannte Spielversion um. Wird nur von connect() bei
+    erfolgreichem Verbindungsaufbau aufgerufen. `pm` wird nur für Extreme
+    gebraucht (AOB-Scan der KI-Tabellen-Basis, siehe
+    _scan_extreme_ai_table_base) - bei HD ungenutzt, da dort eine
+    statische Adresse reicht."""
+    global GAME_VERSION, BASE_ADDR, EVENT_TYPE_ID_ADDR, EVENT_PLAYER_NUM_ADDR
+    global DIPLOMATIC_GROUP_ARRAY_ADDR, ROSTER_POINTER_ADDR, ROSTER_BASE_DIRECT
+    profile = VERSION_PROFILES[version]
+    GAME_VERSION = version
+    BASE_ADDR = profile["base_addr"]
+    EVENT_TYPE_ID_ADDR = profile["event_type_id_addr"]
+    EVENT_PLAYER_NUM_ADDR = profile["event_player_num_addr"]
+    DIPLOMATIC_GROUP_ARRAY_ADDR = profile["diplomatic_group_array_addr"]
+    ROSTER_POINTER_ADDR = profile["roster_pointer_addr"]
+    ROSTER_BASE_DIRECT = profile["roster_base_direct"]
+
+    if version == "extreme" and pm is not None and AI_TABLE_BASE.get("extreme") is None:
+        # Nur EINMAL scannen, nicht bei jedem Reconnect erneut - die
+        # Adresse liegt im statischen Programm-Abbild und ändert sich
+        # innerhalb einer Spielversion nie (wie BASE_ADDR/Objekttabelle).
+        AI_TABLE_BASE["extreme"] = _scan_extreme_ai_table_base(pm)
+
+
 def connect(verbose: bool = True):
-    """Verbindet mit dem laufenden Spielprozess. Gibt (pm, error_message)
-    zurück - error_message ist None bei Erfolg."""
-    try:
-        pm = pymem.Pymem(PROCESS_NAME)
-        if verbose:
-            print(f"[OK] Verbunden mit {PROCESS_NAME}")
-        return pm, None
-    except pymem.exception.ProcessNotFound:
-        msg = f"Prozess '{PROCESS_NAME}' nicht gefunden. Läuft das Spiel?"
-        if verbose:
-            print(f"[FEHLER] {msg}")
-        return None, msg
-    except pymem.exception.CouldNotOpenProcess:
-        msg = "Zugriff verweigert - App muss als Administrator laufen."
-        if verbose:
-            print(f"[FEHLER] {msg}")
-        return None, msg
+    """Verbindet mit dem laufenden Spielprozess - probiert HD und Extreme
+    nacheinander (siehe PROCESS_NAME_HD/PROCESS_NAME_EXTREME), da beide
+    Versionen unterstützt werden. Gibt (pm, error_message) zurück -
+    error_message ist None bei Erfolg. Schaltet bei Erfolg automatisch die
+    versionsabhängigen Adressen um (siehe _apply_version_profile)."""
+    for version, process_name in (("hd", PROCESS_NAME_HD), ("extreme", PROCESS_NAME_EXTREME)):
+        try:
+            pm = pymem.Pymem(process_name)
+            _apply_version_profile(version, pm)
+            if verbose:
+                print(f"[OK] Verbunden mit {process_name} ({version})")
+            return pm, None
+        except pymem.exception.ProcessNotFound:
+            continue
+        except pymem.exception.CouldNotOpenProcess:
+            msg = "Zugriff verweigert - App muss als Administrator laufen."
+            if verbose:
+                print(f"[FEHLER] {msg}")
+            return None, msg
+
+    msg = (
+        f"Weder '{PROCESS_NAME_HD}' noch '{PROCESS_NAME_EXTREME}' gefunden. "
+        "Läuft das Spiel?"
+    )
+    if verbose:
+        print(f"[FEHLER] {msg}")
+    return None, msg
 
 
 def read_player(pm, player_index):
@@ -347,9 +723,16 @@ def read_player(pm, player_index):
 # - alle drei nutzen dieselbe 0x490-Byte-Datensatz-Tabelle, gefiltert auf
 # das ECHTE Typfeld bei Datensatz-Offset 0x8E, siehe DURCHBRUCH-Abschnitt
 # in research/shc_overlay_status.md).
+# EVENT_STRIDE ist IDENTISCH bei HD und Extreme (live bestaetigt
+# 2026-09-05). EVENT_PLAYER_NUM_ADDR/EVENT_TYPE_ID_ADDR sind reine HD-
+# Defaults, siehe VERSION_PROFILES ganz oben - connect() schaltet sie auf
+# die erkannte Version um. Diese beiden Adressen werden NIE direkt als
+# Datenquelle gelesen, nur als virtual_query-Anker (siehe poll_monk_units/
+# _scan_lord_table) - jede Adresse INNERHALB derselben Objekttabellen-
+# Speicherregion funktioniert hier gleich gut.
 EVENT_STRIDE = 0x490
-EVENT_PLAYER_NUM_ADDR = 0x013885E2
-EVENT_TYPE_ID_ADDR = 0x0138880C
+EVENT_PLAYER_NUM_ADDR = VERSION_PROFILES["hd"]["event_player_num_addr"]
+EVENT_TYPE_ID_ADDR = VERSION_PROFILES["hd"]["event_type_id_addr"]
 
 # Mönch-Zählung per Zensus statt des früheren Ereignis-Log-Ansatzes
 # (EVENT_COUNTER_ADDR-Ringpuffer, gefiltert auf das ALTE, kaputte Typfeld
@@ -452,7 +835,19 @@ def get_monks_trained(player_index):
 LORD_TYPE_ID = 13
 LORD_HP_CURRENT_OFFSET = 818
 LORD_HP_MAX_OFFSET = 822
-LORD_ROW_REVALIDATE_TICKS = 10  # bei ~500ms Poll-Intervall alle ~5s neu suchen
+# Bei ~500ms Poll-Intervall alle ~2s neu suchen (2026-09-06 von 10/~5s
+# gesenkt - Nutzer meldete gelegentlich falsche Lord-HP-Werte bei hoher
+# Spielgeschwindigkeit: die Objekttabelle recycelt Zeilen dann in
+# SIMULIERTER Zeit viel schneller, das Zeitfenster zwischen zwei
+# Vollscans (in REALER Wall-Clock-Zeit gemessen) deckte bei hoher
+# Geschwindigkeit dadurch mehr echte Recycling-Ereignisse ab, als der
+# player_num-Gegencheck allein zuverlässig abfangen konnte, bevor der
+# naechste Vollscan die verwaiste Zeile endlich verwirft. Kein Tausch
+# gegen einen strengeren Pro-Tick-Check (z.B. type_id zusaetzlich
+# pruefen) - type_id flackert nachweislich auch bei echten Lords (siehe
+# Kommentar unten), ein strengerer Check wuerde also selbst zu neuen
+# Fehlalarmen fuehren, statt das Problem zu loesen.
+LORD_ROW_REVALIDATE_TICKS = 4
 
 _lord_rows_by_player_num = {}  # player_num (1-8) -> Datensatz-Index
 _lord_hp_by_player_num = {}    # player_num (1-8) -> (aktuelle_hp, max_hp)
@@ -848,7 +1243,12 @@ def get_detected_teams():
 # einen Lobby-Umsortier-Test (die FINALE, nicht eine zwischenzeitliche
 # Aufteilung wird übernommen) und einen Elimination-Test (Wert eines
 # besiegten Spielers bleibt stabil, kein Recycling).
-DIPLOMATIC_GROUP_ARRAY_ADDR = 0x0117D54C
+# HD-Default, siehe VERSION_PROFILES ganz oben - connect() schaltet auf die
+# erkannte Version um. Extreme-Wert (2026-09-05) per relativem Byte-
+# Abstand zu BASE_ADDR extrapoliert und live plausibel bestaetigt (zwei
+# aktive Solo-Spieler mit unterschiedlichen Gruppennummern, Rest 0) - aber
+# NOCH KEIN echter Team-Match-Gegentest (siehe VERSION_PROFILES-Kommentar).
+DIPLOMATIC_GROUP_ARRAY_ADDR = VERSION_PROFILES["hd"]["diplomatic_group_array_addr"]
 
 
 def get_diplomatic_teams(pm, all_values):
@@ -913,11 +1313,19 @@ def _read_roster_slot_string(pm, addr):
 
 def read_roster_names(pm):
     """Liest die aktuellen Anzeige-Namen live über den globalen Roster-
-    Zeiger. Gibt dict slot->name zurück; leer bei Fehlern (z.B. noch keine
-    Karte geladen), dann fällt die Anzeige auf slot_label() zurück."""
+    Zeiger (HD) bzw. die feste Roster-Adresse ohne Zeiger-Indirektion
+    (Extreme, siehe ROSTER_BASE_DIRECT). Gibt dict slot->name zurück; leer
+    bei Fehlern (z.B. noch keine Karte geladen) oder wenn für die laufende
+    Version keine der beiden Adressen bekannt ist - dann fällt die Anzeige
+    auf slot_label() zurück."""
     try:
-        roster_base = pm.read_int(ROSTER_POINTER_ADDR)
-        if roster_base == 0:
+        if ROSTER_BASE_DIRECT is not None:
+            roster_base = ROSTER_BASE_DIRECT
+        elif ROSTER_POINTER_ADDR is not None:
+            roster_base = pm.read_int(ROSTER_POINTER_ADDR)
+            if roster_base == 0:
+                return {}
+        else:
             return {}
     except Exception:
         return {}
@@ -994,12 +1402,26 @@ def build_overlay_payload(all_values, lord_labels, attack_status=None, display=N
             "leather_armor": values.get("leather_armor"),
             "metal_armor": values.get("metal_armor"),
             "is_you": i == 0,
+            # Vom "besiegt, aber Karte bleibt sichtbar"-Filter in worker.py
+            # gesetzt (siehe dortiger _debounce_active_slots-Kommentar) -
+            # steuert im Frontend das Ausgrauen statt Entfernen der Karte.
+            # Fehlt values der Schluessel (z.B. beim CLI-Debug-Gebrauch ohne
+            # den Worker-Filter), ist False der sichere Standard.
+            "is_defeated": bool(values.get("is_defeated")),
             "units": {k: values.get(k) for k in UNIT_TYPE_KEYS},
         }
         status_entry = attack_status.get(i)
         if status_entry is not None:
             entry["attack_status"] = status_entry.get("status")
             entry["attack_base"] = status_entry.get("base")
+            # Neu (Lead 2, 2026-09-06): Bereich für die vorhergesagte
+            # nächste Angriffsgröße, falls die Live-Eskalation lesbar war
+            # (HD; bei Extreme/unbekannter Persona bleiben beide None,
+            # overlay.html ignoriert fehlende Felder einfach). Noch nicht
+            # in der UI dargestellt - hier nur mit ausgeliefert, damit
+            # eine spätere Anzeige ohne Backend-Änderung möglich ist.
+            entry["attack_predicted_min"] = status_entry.get("predicted_min")
+            entry["attack_predicted_max"] = status_entry.get("predicted_max")
         players.append(entry)
     return {"players": players, "updated_at": time.time()}
 

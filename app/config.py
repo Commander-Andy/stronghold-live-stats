@@ -248,6 +248,11 @@ DEFAULT_CONFIG = {
     # Nummern sind 1-8 (wie im Team-Zuordnung-Feld), null = keine
     # Override-Farbe für diese Nummer gesetzt.
     "team_colors": {str(i): None for i in range(1, 9)},
+    # Eigener Anzeigename statt "Team N" fuer das Balken-Overlay (z.B. im
+    # "individual"-Modus des Gewinnwahrscheinlichkeits-Balkens) - null/
+    # leer heisst weiterhin "Team N" als Standard, siehe strength_score.
+    # compute_side_summary(). Gleiche Nummern-Konvention wie team_colors.
+    "team_names": {str(i): None for i in range(1, 9)},
     # 5 Speicherplätze für komplette, selbst benannte Anzeige-Setups (nicht
     # nur welche Werte, sondern das volle Aussehen: Design, Farben, Zeilen/
     # Breite, Logo, Pro-Spieler-Farben). null = Platz noch leer. Jeder Platz

@@ -46,7 +46,16 @@
     overflow: hidden;
   }
   .segment {
+    position: relative;
     display: flex;
+    /* flex-basis:0 - ohne das wuerde der Browser die Basisgroesse (vor der
+       Verteilung des freien Platzes per flex-grow) am TEXTINHALT bemessen
+       (Default ist flex-basis:auto). Bei unterschiedlich langen Labels
+       ("Lord Andy" vs. "Ratte, Herzog de Puce") verschob das die Aufteilung
+       sichtbar weg vom echten share_percent-Verhaeltnis (z.B. 75/25 sah
+       nicht wie 75/25 aus). Mit flex-basis:0 zaehlt fuer die Aufteilung
+       NUR noch das flex-grow-Verhaeltnis. */
+    flex-basis: 0;
     align-items: center;
     justify-content: center;
     overflow: hidden;
@@ -60,6 +69,47 @@
        Poll fertig (nicht genau bei 100%), damit nie eine sichtbare Pause
        zwischen "angekommen" und "naechster Sprung" entsteht. */
     transition: flex-grow var(--transition-ms, 450ms) linear;
+  }
+
+  /* Leuchten an jeder Nahtstelle zwischen zwei Segmenten - derselbe
+     Glüh-Effekt wie .player-row.attacking/attack-pulse in overlay.html
+     (dort per box-shadow auf var(--attack-color), hier auf die JEWEILIGE
+     Segmentfarbe selbst statt eines fixen Angriffs-Rot). ::after (rechter
+     Rand, eigene Farbe) und ::before (linker Rand, eigene Farbe) des
+     JEWEILS ANDEREN Segments liegen direkt nebeneinander an derselben
+     Nahtstelle und pulsen zeitversetzt (animation-delay) - wirkt wie ein
+     leichtes Ineinandergreifen/Kraeftemessen statt zwei synchron
+     blinkender Lichter. KEIN mix-blend-mode - das wuerde die beiden
+     unterschiedlichen Segmentfarben in ihrem ueberlappenden Schlagschatten-
+     Glow zu einem hellen/weisslichen Ton verwaschen, statt dass jede Seite
+     ihre eigene Farbe zeigt (vom Nutzer live gemeldet, 2026-09-05: "nicht
+     weiss"). --seam-color wird per JS gesetzt (dieselbe Farbe
+     wie das Segment selbst, siehe renderSegmented). Position relativ zum
+     eigenen (animierten) Rand statt absolut/prozentual berechnet, wandert
+     also automatisch mit der Nahtstelle mit, wenn sich flex-grow aendert. */
+  /* content wird NUR in den beiden :not(...)-Regeln unten gesetzt (nicht
+     hier gemeinsam) - sonst erzeugt der Browser das Pseudo-Element auch
+     fuer das erste/letzte Segment (ohne left/right-Override faellt es dann
+     auf seine "statische" Position zurueck, die bei zentriertem Text in
+     der Mitte des Segments liegt - sichtbar als ungewolltes Leuchten dort). */
+  .segment::after,
+  .segment::before {
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    width: 3px;
+    border-radius: 2px;
+    z-index: 2;
+    pointer-events: none;
+    background: var(--seam-color, transparent);
+    animation: seam-glow 1.1s ease-in-out infinite;
+  }
+  .segment:not(:last-child)::after { content: ""; right: -4px; }
+  .segment:not(:first-child)::before { content: ""; left: -4px; animation-delay: 0.55s; }
+
+  @keyframes seam-glow {
+    0%, 100% { opacity: 0.55; box-shadow: 0 0 4px 2px var(--seam-color); }
+    50%      { opacity: 0.9;  box-shadow: 0 0 12px 4.5px var(--seam-color); }
   }
 
   /* "individual": pro Seite eine eigene, unabhängig 0-100% gefüllte Leiste
@@ -200,7 +250,9 @@
         if (!el) return;
         const grow = String(Math.max(s.share_percent, 0.001));
         if (el.style.flexGrow !== grow) el.style.flexGrow = grow;
-        el.style.background = colorForSide(s);
+        const color = colorForSide(s);
+        el.style.background = color;
+        el.style.setProperty("--seam-color", color);
         const text = `${s.label} · ${s.share_percent.toFixed(0)}%`;
         if (el.textContent !== text) el.textContent = text;
       });
