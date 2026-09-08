@@ -16,6 +16,7 @@ import threading
 import webbrowser
 
 import config as config_module
+import hotkeys
 from server import AppContext, start_server
 from tray import TrayIcon
 from worker import StateStore, Worker
@@ -56,6 +57,7 @@ def run():
         if httpd is not None:
             threading.Thread(target=httpd.shutdown, daemon=True).start()
         worker.stop()
+        hotkeys.unregister_all()
         stop_event.set()
 
     ctx.on_shutdown = do_shutdown

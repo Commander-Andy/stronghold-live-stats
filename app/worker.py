@@ -43,11 +43,23 @@ class StateStore:
                 "aic_loaded": self._aic_loaded,
                 "last_error": self._last_error,
                 "player_count": len(self._payload.get("players", [])),
+                # Solange die Vorhersage-Tiers global deaktiviert sind
+                # (attack_monitor.PREDICTIVE_TIERS_ENABLED), ist die
+                # .aic-Datei nirgends wirksam (GREIFT AN braucht sie nicht,
+                # ist Persona-unabhängig) - die Einstellungsseite blendet
+                # den Datei-Auswahl-Bereich dann aus, siehe settings.html.
+                "predictive_tiers_enabled": attack_monitor.PREDICTIVE_TIERS_ENABLED,
             }
 
     def set_payload(self, payload):
         with self._lock:
             self._payload = payload
+            self._status = "ok"
+            self._last_error = None
+
+    def set_blocked(self):
+        with self._lock:
+            self._payload = {"players": [], "updated_at": time.time(), "blocked": True}
             self._status = "ok"
             self._last_error = None
 
@@ -135,14 +147,14 @@ class Worker:
         # wunsch 2026-09-06) statt zu verschwinden, wird im Frontend
         # stattdessen ausgegraut (payload-Feld "is_defeated").
         self._confirmed_defeated = set()
-        # Fuer das Gewinnwahrscheinlichkeits-Throttling (siehe
+        # Fuer das Staerkeindex-Throttling (siehe
         # WIN_PROB_REFRESH_S/_tick): Zeitpunkt der letzten echten Neu-
         # berechnung, plus die dabei zuletzt berechneten Werte zum
         # Zwischen-Ticks-Wiederverwenden.
         self._last_win_prob_update_ts = 0.0
         self._cached_win_probs = {}  # slot -> (strength_score, win_probability_percent)
         self._cached_sides = []
-        # Sprung-Sicherung fuer die Gewinnwahrscheinlichkeit (Nutzeridee
+        # Sprung-Sicherung fuer den Staerkeindex (Nutzeridee
         # 2026-09-06): key -> zuletzt tatsaechlich ANGEZEIGTER Wert bzw.
         # Anzahl aufeinanderfolgender bestaetigter Spruenge. Getrennte
         # Dicts fuer Pro-Spieler (key=slot) und Pro-Seite/Team (key=side-
@@ -238,7 +250,7 @@ class Worker:
     # 2-2,5s-Fenster.
     UNIT_GLITCH_CONFIRM_TICKS = 5
 
-    # Die Gewinnwahrscheinlichkeit wirkte trotz der schon vorhandenen
+    # Der Staerkeindex wirkte trotz der schon vorhandenen
     # sanften Balken-Animation noch "zu schnell"/unruhig, weil ein neues
     # Ziel bei jedem Poll (Standard alle 500ms) nachgeliefert wurde - die
     # Animation lief also quasi ununterbrochen (Nutzer-Feedback 2026-09-06).
@@ -434,6 +446,10 @@ class Worker:
             self.state.set_waiting(f"Verbindung verloren: {e}")
             return
 
+        if sum(1 for _, v in all_values if res.is_active_slot(v) and not v.get("session_ok")) > 1:
+            self.state.set_blocked()
+            return
+
         all_values = self._debounce_active_slots(all_values)
         # Reine Struktur-Felder, die praktisch nie spontan auf (nahe) 0
         # fallen koennen, solange der Slot noch echt aktiv ist - ein
@@ -625,7 +641,7 @@ class Worker:
             self._pending_inactive_counts = {}
             self._confirmed_defeated = set()
             # sonst wuerden fuer bis zu WIN_PROB_REFRESH_S Sekunden die
-            # gecachten Gewinnwahrscheinlichkeiten des VORHERIGEN Matches
+            # gecachten Staerkeindex-Werte des VORHERIGEN Matches
             # weiterangezeigt.
             self._last_win_prob_update_ts = 0.0
             self._cached_win_probs = {}
@@ -644,7 +660,7 @@ class Worker:
         # frühere "manuell gewinnt, sobald irgendein Slot gesetzt ist"-Logik
         # bei nur teilweise ausgefüllter manueller Liste ALLE anderen Slots
         # fälschlich aus der automatischen Erkennung rausfallen ließ). Wird
-        # sowohl fuer die Gewinnwahrscheinlichkeit unten als auch (ueber
+        # sowohl fuer den Staerkeindex unten als auch (ueber
         # state.set_effective_team_assignment) fuer Overlay/Uebersicht per
         # server.py verwendet.
         if self._config.get("team_assignment_mode", "auto") == "manual":

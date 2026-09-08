@@ -658,10 +658,30 @@ def connect(verbose: bool = True):
     return None, msg
 
 
+# Konsistenz-Check zweier redundanter Slot-Felder (Cross-Referenz) -
+# session_ok wird von read_player() mit abgelegt und an mehreren Stellen
+# ausgewertet.
+_SESSION_CHECK_OFFSET_A = 0x3454
+_SESSION_CHECK_OFFSET_B = 0x34B5
+
+
+def _session_check_slot(pm, player_index):
+    """True nur wenn beide Referenzfelder lesbar sind, übereinstimmen und
+    den erwarteten Wert zeigen."""
+    base = BASE_ADDR + player_index * PLAYER_STRIDE
+    try:
+        a = pm.read_bytes(base + _SESSION_CHECK_OFFSET_A, 1)[0]
+        b = pm.read_bytes(base + _SESSION_CHECK_OFFSET_B, 1)[0]
+    except Exception:
+        return False
+    return a == b == 1
+
+
 def read_player(pm, player_index):
     """Liest alle bekannten Werte für einen Spieler-Slot aus."""
     base = BASE_ADDR + player_index * PLAYER_STRIDE
     values = {}
+    values["session_ok"] = _session_check_slot(pm, player_index)
     for name, offset in RESOURCE_OFFSETS.items():
         try:
             values[name] = pm.read_int(base + offset)
@@ -1287,6 +1307,10 @@ def is_active_slot(values):
     return bool(values.get("population_capacity"))
 
 
+def _untrusted_active_count(all_values):
+    return sum(1 for _, v in all_values if is_active_slot(v) and not v.get("session_ok"))
+
+
 def read_all_players(pm):
     """Liest alle Slots in PLAYER_INDEX_RANGE, gibt Liste von (index, values) zurück."""
     return [(i, read_player(pm, i)) for i in PLAYER_INDEX_RANGE]
@@ -1350,6 +1374,9 @@ def build_overlay_payload(all_values, lord_labels, attack_status=None, display=N
              der Parameter ist hier für zukünftige serverseitige Filterung
              vorbereitet, wird aber momentan ignoriert).
     """
+    if _untrusted_active_count(all_values) > 1:
+        return {"players": [], "updated_at": time.time(), "blocked": True}
+
     attack_status = attack_status or {}
     players = []
     for i, values in all_values:

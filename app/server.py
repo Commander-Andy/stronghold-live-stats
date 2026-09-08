@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import config as config_module
 import filedialog_bridge
+import hotkeys
 from paths import app_data_dir, resource_path
 
 IDLE_CHECK_INTERVAL_S = 15
@@ -71,6 +72,30 @@ def _idle_watchdog(ctx: AppContext):
         if ctx.idle_seconds() >= grace_period:
             ctx.request_shutdown()
             return
+
+
+def _apply_saved_layout(ctx: AppContext, slot_index: int):
+    """Wendet Speicherplatz slot_index an (Overlay- UND Übersicht-Teil
+    gemeinsam, siehe config.py) - wird vom globalen Hotkey-Hook aufgerufen,
+    läuft also NICHT im Kontext einer HTTP-Anfrage, sondern direkt aus dem
+    Tastatur-Hook-Thread heraus."""
+    slots = ctx.config.get("saved_layouts") or []
+    if not (0 <= slot_index < len(slots)) or not slots[slot_index]:
+        return
+    slot = slots[slot_index]
+    patch = {}
+    if slot.get("overlay"):
+        patch.update(slot["overlay"])
+    if slot.get("overview"):
+        patch["overview"] = slot["overview"]
+    if not patch:
+        return
+    ctx.config = config_module.merge_and_save(ctx.config, patch)
+    ctx.worker.update_config(ctx.config)
+
+
+def _sync_hotkeys(ctx: AppContext):
+    hotkeys.register_from_config(ctx.config, lambda i: _apply_saved_layout(ctx, i))
 
 
 ICON_MIME = "image/png"
@@ -196,6 +221,10 @@ def make_handler(ctx: AppContext):
                     "player_colors": ctx.config.get("player_colors", {}),
                     "team_colors": ctx.config.get("team_colors", {}),
                     "win_bar": ctx.config.get("win_bar", {}),
+                    # TOP-LEVEL geteilt mit dem Overlay seit Schema v18 (ein
+                    # Speicherplatz deckt Overlay- UND Uebersicht-Aussehen
+                    # gemeinsam ab), siehe config.py-Kommentar.
+                    "saved_layouts": ctx.config.get("saved_layouts", []),
                 })
             elif path == "/api/status":
                 self._send_json(ctx.state.status())
@@ -232,6 +261,7 @@ def make_handler(ctx: AppContext):
                 patch = self._read_json_body()
                 ctx.config = config_module.merge_and_save(ctx.config, patch)
                 ctx.worker.update_config(ctx.config)
+                _sync_hotkeys(ctx)
                 self._send_json(ctx.config)
             elif path == "/api/overview-config":
                 patch = self._read_json_body()
@@ -243,6 +273,11 @@ def make_handler(ctx: AppContext):
                 team_patch = patch.pop("team_assignment", None)
                 team_mode_patch = patch.pop("team_assignment_mode", None)
                 win_bar_patch = patch.pop("win_bar", None)
+                # saved_layouts ist seit Schema v18 TOP-LEVEL geteilt (ein
+                # Speicherplatz deckt Overlay- UND Uebersicht-Aussehen
+                # gemeinsam ab) - genauso rausgezogen wie die Felder oben,
+                # statt unter "overview" verschachtelt zu werden.
+                saved_layouts_patch = patch.pop("saved_layouts", None)
                 full_patch = {"overview": patch}
                 if team_patch is not None:
                     full_patch["team_assignment"] = team_patch
@@ -250,7 +285,11 @@ def make_handler(ctx: AppContext):
                     full_patch["team_assignment_mode"] = team_mode_patch
                 if win_bar_patch is not None:
                     full_patch["win_bar"] = win_bar_patch
+                if saved_layouts_patch is not None:
+                    full_patch["saved_layouts"] = saved_layouts_patch
                 ctx.config = config_module.merge_and_save(ctx.config, full_patch)
+                ctx.worker.update_config(ctx.config)
+                _sync_hotkeys(ctx)
                 self._send_json({
                     **ctx.config.get("overview", {}),
                     "team_assignment": ctx.config.get("team_assignment", {}),
@@ -258,6 +297,7 @@ def make_handler(ctx: AppContext):
                     "player_colors": ctx.config.get("player_colors", {}),
                     "team_colors": ctx.config.get("team_colors", {}),
                     "win_bar": ctx.config.get("win_bar", {}),
+                    "saved_layouts": ctx.config.get("saved_layouts", []),
                 })
             elif path == "/api/heartbeat":
                 ctx.touch_settings()
@@ -336,5 +376,9 @@ def start_server(ctx: AppContext, port: int) -> ThreadingHTTPServer:
 
     watchdog_thread = threading.Thread(target=_idle_watchdog, args=(ctx,), daemon=True)
     watchdog_thread.start()
+
+    # Hotkeys aus der beim Start geladenen Config sofort aktiv, nicht erst
+    # nach der ersten Einstellungs-Änderung.
+    _sync_hotkeys(ctx)
 
     return httpd

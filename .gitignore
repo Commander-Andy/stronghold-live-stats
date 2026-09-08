@@ -25,6 +25,11 @@ assets_source/tgx_units/
 assets_source/Truppen und waren.png
 assets_source/icons_cropped/
 
+# Portable Config/Logo/Presets (siehe app/paths.py app_data_dir()) - liegt
+# im Dev-Betrieb direkt im Projekt-Root, ist nutzerspezifisch und soll
+# nicht versioniert werden (analog zu %APPDATA% vorher).
+/config/
+
 # OS
 Thumbs.db
 .DS_Store

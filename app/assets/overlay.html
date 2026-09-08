@@ -103,7 +103,7 @@
     object-fit: contain;
   }
 
-  /* Gewinnwahrscheinlichkeits-Balken, direkt im Overlay eingebaut (siehe
+  /* Stärkeindex-Balken, direkt im Overlay eingebaut (siehe
      applyWinBar()) - mittig oben, Größe/Abstand/Transparenz über
      config.win_bar steuerbar. Kein Teil des Spieler-Karten-Größenmodells
      (siehe .player-row) - eigenständiges Element wie #logo, keine feste
@@ -583,7 +583,7 @@
     const CONFIG_URL = "/overlay-config.json";
     const POLL_MS = 500;
     const CONFIG_POLL_MS = 200;
-    // 90% von POLL_MS - der Gewinnwahrscheinlichkeits-Balken (siehe
+    // 90% von POLL_MS - der Stärkeindex-Balken (siehe
     // renderWinBar) erreicht den Zielwert kurz VOR dem naechsten Poll.
     const TRANSITION_MS = Math.round(POLL_MS * 0.9);
     document.documentElement.style.setProperty("--transition-ms", TRANSITION_MS + "ms");
@@ -1226,7 +1226,7 @@
             valEl.classList.add(cls);
           }
         }
-        // Ohne diesen Block bleibt die Farbe der Siegwahrscheinlichkeit auf
+        // Ohne diesen Block bleibt die Farbe des Stärkeindex auf
         // dem Stand vom Zeilen-AUFBAU eingefroren (dort per winProbClass()
         // gesetzt, siehe statHtml) - nur der Zahlenwert wuerde sich
         // weiterhin live aktualisieren, die Farbe nicht mehr. Fuehrte dazu,
@@ -1315,6 +1315,16 @@
       const left = document.getElementById("board-left");
       const right = document.getElementById("board-right");
       const emptyMsg = document.getElementById("empty-msg");
+      if (data && data.blocked) {
+        left.innerHTML = "";
+        right.innerHTML = "";
+        rowIndex.clear();
+        lastStructKey = null;
+        document.getElementById("win-bar").style.display = "none";
+        emptyMsg.textContent = "Live-Stats deaktiviert";
+        emptyMsg.style.display = "block";
+        return;
+      }
       let players = (data && data.players) || [];
 
       if (players.length === 0) {
@@ -1324,6 +1334,7 @@
           right.innerHTML = "";
           rowIndex.clear();
           lastStructKey = null;
+          emptyMsg.textContent = "Warte auf Spieldaten …";
           emptyMsg.style.display = "block";
           return;
         }
@@ -1383,7 +1394,7 @@
         const res = await fetch(DATA_URL + "?t=" + Date.now(), { cache: "no-store" });
         const data = await res.json();
         render(data);
-        renderWinBar(data && data.sides);
+        if (!(data && data.blocked)) renderWinBar(data && data.sides);
       } catch (e) {
         // Server noch nicht erreichbar - stiller Retry
       }

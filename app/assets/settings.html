@@ -202,6 +202,24 @@
     transform: translateY(1px);
   }
   button.active-preset:hover { background: #8a6d3f; }
+  /* Hotkey-Anzeige/-Aufnahme pro Speicherplatz. */
+  .hotkey-badge {
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: #c6a15b;
+    background: rgba(198, 161, 91, 0.12);
+    border: 1px solid rgba(198, 161, 91, 0.4);
+    border-radius: 4px;
+    padding: 3px 8px;
+  }
+  button.recording-hotkey {
+    background: #b23a3a;
+    animation: hotkey-pulse 1s ease-in-out infinite;
+  }
+  @keyframes hotkey-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
   input[type="checkbox"] { width: 18px; height: 18px; }
   input[type="number"], input[type="text"], select {
     background: #1b140c;
@@ -299,17 +317,19 @@
     <button id="open-overview-btn" type="button">Übersicht in neuem Tab öffnen</button>
   </div>
 
-  <h2>KI-Personalities (für Angriffs-Warnung)</h2>
-  <div class="card dropzone" id="aic-dropzone">
-    <div class="row">
-      <label>.aic-Datei (z.B. vanilla.json aus deiner Spiel-Installation)</label>
-      <button id="pick-aic-btn">Datei wählen</button>
+  <div id="aic-section" hidden>
+    <h2>KI-Personalities (für Angriffs-Warnung)</h2>
+    <div class="card dropzone" id="aic-dropzone">
+      <div class="row">
+        <label>.aic-Datei (z.B. vanilla.json aus deiner Spiel-Installation)</label>
+        <button id="pick-aic-btn">Datei wählen</button>
+      </div>
+      <div class="path-box" id="aic-path-box">- keine ausgewählt -</div>
+      <div class="drop-hint">... oder Datei einfach hier reinziehen</div>
     </div>
-    <div class="path-box" id="aic-path-box">- keine ausgewählt -</div>
-    <div class="drop-hint">... oder Datei einfach hier reinziehen</div>
   </div>
 
-  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen (Design, Farben, Zeilen/Breite, Logo, Pro-Spieler-Farben, Gewinnwahrscheinlichkeits-Balken) unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.'>&#9432;</span></h2>
+  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen (Design, Farben, Zeilen/Breite, Logo, Pro-Spieler-Farben, Stärkeindex-Balken) unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar. Ein Speicherplatz gilt gemeinsam für Overlay UND Übersicht (falls dort ebenfalls unter diesem Platz gespeichert wurde) - "Laden" wechselt beides gleichzeitig. Optional ein Hotkey pro Platz zum Laden ohne aus dem Spiel raus-tabben zu müssen (das würde es sonst pausieren).'>&#9432;</span></h2>
   <div class="card">
     <div id="saved-layouts-list"></div>
   </div>
@@ -329,7 +349,7 @@
     <div id="display-categories" style="margin-top:10px;"></div>
   </details>
 
-  <h2>Gewinnwahrscheinlichkeit <span class="info-tip" title='EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als "führend" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) eine echte Gewinnwahrscheinlichkeit. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet der Balken echte Anteile (Summe=100%), die Prozentzahl im Spieler-Rahmen dagegen "diese Seite gegen den Rest" (liegt dann für ALLE Seiten unter 50%, kein Fehler, sondern die Definition). Die Prozentzahl im Spieler-Rahmen selbst wird unter "Was soll angezeigt werden?" -> "Sonstiges" ein-/ausgeschaltet, hier nur der Balken.'>&#9432;</span></h2>
+  <h2>Stärkeindex <span class="info-tip" title='EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als "führend" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Heißt bewusst "Stärkeindex" statt "Gewinnwahrscheinlichkeit", weil er den aktuellen Kräftevergleich misst, nicht den Spielausgang vorhersagt. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) kommt er einer echten Gewinnwahrscheinlichkeit am nächsten. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet der Balken echte Anteile (Summe=100%), die Prozentzahl im Spieler-Rahmen dagegen "diese Seite gegen den Rest" (liegt dann für ALLE Seiten unter 50%, kein Fehler, sondern die Definition). Die Prozentzahl im Spieler-Rahmen selbst wird unter "Was soll angezeigt werden?" -> "Sonstiges" ein-/ausgeschaltet, hier nur der Balken.'>&#9432;</span></h2>
   <div class="card">
     <div class="row">
       <label>Als Balken direkt ins Overlay einbauen (mittig oben)</label>
@@ -457,7 +477,7 @@
       <button type="button" data-reset-color-input="you-color-input" data-reset-color-key="you_color" data-reset-color-default="#78c8ff">Standard</button>
     </div>
     <div class="row">
-      <label>Preset: Teamfarben <span class="info-tip" title='Setzt in einem Schritt sowohl die Rahmenfarbe jedes Spielers (nach seiner aktuellen Team-Zugehörigkeit) als auch die passende Team-Farbe für den Gewinnwahrscheinlichkeits-Balken - beides bekommt dieselbe Farbe pro Team. Braucht eine erkannte/eingetragene Team-Zuordnung (siehe "Teams" weiter unten), sonst passiert nichts.'>&#9432;</span></label>
+      <label>Preset: Teamfarben <span class="info-tip" title='Setzt in einem Schritt sowohl die Rahmenfarbe jedes Spielers (nach seiner aktuellen Team-Zugehörigkeit) als auch die passende Team-Farbe für den Stärkeindex-Balken - beides bekommt dieselbe Farbe pro Team. Braucht eine erkannte/eingetragene Team-Zuordnung (siehe "Teams" weiter unten), sonst passiert nichts.'>&#9432;</span></label>
       <button type="button" id="team-color-preset-btn">Anwenden (Gelb + Orange)</button>
     </div>
   </div>
@@ -488,7 +508,7 @@
       <summary style="cursor:pointer; color:#c6a15b;"><span class="disclosure-arrow">&#9654;</span>Team-Zuordnung pro Spieler ausklappen <span class="info-tip" title='Automatisch: live erkannt, korrekt ab dem ersten Tick nach Matchstart, kein Warten nötig. Manuell: du trägst die Team-Nummern selbst ein - z.B. falls die Erkennung mal falsch liegt. Es gilt IMMER nur einer der beiden Modi, nie eine Mischung pro Spieler - im Modus "Manuell" sind die Felder unten aktiv, im Modus "Automatisch" gesperrt. Bei Seiten-Aufteilung "Nach Team" oben landet dein Team (inkl. Spieler 1) links, alle anderen rechts. Gilt gemeinsam für Overlay und Übersicht.'>&#9432;</span></summary>
       <div id="team-assignment-list" style="margin-top:10px;"></div>
       <div style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(198,161,91,0.3);">
-        <span style="font-size:11px; color:#a89478;">Team-Farben <span class="info-tip" title='Überschreibt für den Gewinnwahrscheinlichkeits-Balken die Ausweich-Logik (sonst: individuelle Farbe des ranghöchsten Spielers dieser Team-Nummer, sonst feste Palette). "Zurücksetzen" entfernt die Override-Farbe wieder.'>&#9432;</span></span>
+        <span style="font-size:11px; color:#a89478;">Team-Farben <span class="info-tip" title='Überschreibt für den Stärkeindex-Balken die Ausweich-Logik (sonst: individuelle Farbe des ranghöchsten Spielers dieser Team-Nummer, sonst feste Palette). "Zurücksetzen" entfernt die Override-Farbe wieder.'>&#9432;</span></span>
         <div id="team-color-list" style="margin-top:6px;"></div>
       </div>
     </details>
@@ -629,7 +649,7 @@
           ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
           ["show_population", "Bevölkerung (aktuell/Kapazität)"],
           ["show_lord_hp", "Burgherr-HP"],
-          ["show_win_probability", "Gewinnwahrscheinlichkeit (experimentell)", "EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als \"führend\" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) eine echte Gewinnwahrscheinlichkeit. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet jede Seite gegen den kompletten Rest des Feldes gleichzeitig - bei einem fairen Kräfteverhältnis liegt der Wert dann für ALLE Seiten unter 50%, das ist kein Fehler, sondern die Definition. Der Balken selbst (Größe/Position/Modus) wird weiter oben unter \"Gewinnwahrscheinlichkeit\" eingestellt."],
+          ["show_win_probability", "Stärkeindex (experimentell)", "EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als \"führend\" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Heißt bewusst \"Stärkeindex\" statt \"Gewinnwahrscheinlichkeit\", weil er den aktuellen Kräftevergleich misst, nicht den Spielausgang vorhersagt. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) kommt er einer echten Gewinnwahrscheinlichkeit am nächsten. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet jede Seite gegen den kompletten Rest des Feldes gleichzeitig - bei einem fairen Kräfteverhältnis liegt der Wert dann für ALLE Seiten unter 50%, das ist kein Fehler, sondern die Definition. Der Balken selbst (Größe/Position/Modus) wird weiter oben unter \"Stärkeindex\" eingestellt."],
           ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel läuft"],
         ],
       },
@@ -724,7 +744,11 @@
 
     // 5 komplette Speicherplätze fürs ganze Aussehen (nicht nur die
     // Anzeige-Häkchen wie bei den Vorlagen oben) - Design, Farben, Zeilen/
-    // Breite, Logo, Pro-Spieler-Farben zusammen.
+    // Breite, Logo, Pro-Spieler-Farben zusammen. Seit Schema v18 TOP-LEVEL
+    // geteilt mit der Übersicht (siehe overview_settings.html) - ein Platz
+    // hat einen "overlay"-Teil (hier gespeichert) und optional einen
+    // "overview"-Teil (dort gespeichert), "Laden" wendet hier IMMER beide
+    // Teile zusammen an, "Speichern" hier überschreibt NUR den overlay-Teil.
     function currentLookSnapshot() {
       return {
         display: JSON.parse(JSON.stringify(currentConfig.display)),
@@ -735,34 +759,84 @@
       };
     }
 
+    // Wandelt ein keydown-Event in das Format der Python-"keyboard"-
+    // Bibliothek um (z.B. "ctrl+alt+1") - wartet auf eine echte Taste,
+    // reine Modifikator-Anschläge lösen noch nichts aus.
+    function hotkeyStringFromEvent(e) {
+      if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return null;
+      const parts = [];
+      if (e.ctrlKey) parts.push("ctrl");
+      if (e.altKey) parts.push("alt");
+      if (e.shiftKey) parts.push("shift");
+      let main = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase();
+      if (main === " ") main = "space";
+      parts.push(main);
+      return parts.join("+");
+    }
+
+    function startHotkeyCapture(btn, onCaptured) {
+      const original = btn.textContent;
+      btn.textContent = "Taste drücken... (Esc zum Abbrechen)";
+      btn.classList.add("recording-hotkey");
+      let done = false;
+      function finish(result) {
+        if (done) return;
+        done = true;
+        document.removeEventListener("keydown", handler, true);
+        btn.textContent = original;
+        btn.classList.remove("recording-hotkey");
+        if (result) onCaptured(result);
+      }
+      function handler(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.key === "Escape") { finish(null); return; }
+        const hk = hotkeyStringFromEvent(e);
+        if (hk) finish(hk);
+      }
+      document.addEventListener("keydown", handler, true);
+      setTimeout(() => finish(null), 8000); // Auto-Abbruch, falls vergessen
+    }
+
     function renderSavedLayouts() {
       const list = document.getElementById("saved-layouts-list");
       const slots = (currentConfig && currentConfig.saved_layouts) || [];
       list.innerHTML = slots.map((slot, i) => `
-        <div class="row" style="flex-wrap:wrap;">
+        <div class="row" style="flex-wrap:wrap; gap:8px;">
           <label>${slot ? escapeHtmlAttr(slot.name) : `Speicherplatz ${i + 1} (leer)`}</label>
           <button type="button" data-load-slot="${i}" ${slot ? "" : "disabled"}>Laden</button>
           <button type="button" data-save-slot="${i}">Speichern</button>
           ${slot ? `<button type="button" data-clear-slot="${i}">Löschen</button>` : ""}
+          ${slot ? `
+            <span class="hotkey-badge">${slot.hotkey ? escapeHtmlAttr(slot.hotkey) : "kein Hotkey"}</span>
+            <button type="button" data-record-hotkey="${i}">Aufnehmen</button>
+            ${slot.hotkey ? `<button type="button" data-clear-hotkey="${i}">Hotkey entfernen</button>` : ""}
+          ` : ""}
         </div>
       `).join("");
 
+      // Laden wendet OVERLAY- und OVERVIEW-Teil des Platzes gemeinsam an
+      // (siehe _apply_saved_layout in server.py - identische Logik, damit
+      // Knopf und Hotkey exakt gleich funktionieren).
       list.querySelectorAll("button[data-load-slot]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const slot = currentConfig.saved_layouts[parseInt(btn.dataset.loadSlot, 10)];
           if (!slot) return;
-          saveConfigPatch({
-            display: slot.display,
-            layout: slot.layout,
-            logo: slot.logo,
-            player_colors: slot.player_colors,
+          const patch = {};
+          if (slot.overlay) {
+            Object.assign(patch, slot.overlay);
             // win_bar fehlt bei Speicherplätzen, die vor dessen Einführung
             // gespeichert wurden - Fallback auf den aktuellen Wert, damit
             // ein Laden ihn dann nicht versehentlich auf "undefined" wirft.
-            win_bar: slot.win_bar || currentConfig.win_bar,
-          });
+            if (!patch.win_bar) patch.win_bar = currentConfig.win_bar;
+          }
+          if (slot.overview) patch.overview = slot.overview;
+          saveConfigPatch(patch);
         });
       });
+      // Speichern überschreibt NUR den overlay-Teil - ein evtl. vorhandener
+      // overview-Teil (von der Übersicht-Einstellungsseite gespeichert)
+      // bleibt unangetastet, genau wie ein evtl. gesetzter Hotkey.
       list.querySelectorAll("button[data-save-slot]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const i = parseInt(btn.dataset.saveSlot, 10);
@@ -770,7 +844,12 @@
           const name = prompt("Name für diesen Speicherplatz:", existing ? existing.name : `Setup ${i + 1}`);
           if (!name) return;
           const slots = currentConfig.saved_layouts.slice();
-          slots[i] = { name, ...currentLookSnapshot() };
+          slots[i] = {
+            name,
+            overlay: currentLookSnapshot(),
+            overview: existing ? existing.overview : null,
+            hotkey: existing ? existing.hotkey : null,
+          };
           saveConfigPatch({ saved_layouts: slots });
         });
       });
@@ -779,6 +858,24 @@
           const i = parseInt(btn.dataset.clearSlot, 10);
           const slots = currentConfig.saved_layouts.slice();
           slots[i] = null;
+          saveConfigPatch({ saved_layouts: slots });
+        });
+      });
+      list.querySelectorAll("button[data-record-hotkey]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = parseInt(btn.dataset.recordHotkey, 10);
+          startHotkeyCapture(btn, (hk) => {
+            const slots = currentConfig.saved_layouts.slice();
+            slots[i] = { ...slots[i], hotkey: hk };
+            saveConfigPatch({ saved_layouts: slots });
+          });
+        });
+      });
+      list.querySelectorAll("button[data-clear-hotkey]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = parseInt(btn.dataset.clearHotkey, 10);
+          const slots = currentConfig.saved_layouts.slice();
+          slots[i] = { ...slots[i], hotkey: null };
           saveConfigPatch({ saved_layouts: slots });
         });
       });
@@ -808,10 +905,11 @@
       const snapshot = currentLookSnapshot();
       document.querySelectorAll("button[data-load-slot]").forEach((btn) => {
         const slot = currentConfig.saved_layouts[parseInt(btn.dataset.loadSlot, 10)];
-        const matches = !!slot && deepEqual(
+        const overlay = slot && slot.overlay;
+        const matches = !!overlay && deepEqual(
           {
-            display: slot.display, layout: slot.layout, logo: slot.logo, player_colors: slot.player_colors,
-            win_bar: slot.win_bar || currentConfig.win_bar,
+            display: overlay.display, layout: overlay.layout, logo: overlay.logo, player_colors: overlay.player_colors,
+            win_bar: overlay.win_bar || currentConfig.win_bar,
           },
           snapshot
         );
@@ -828,8 +926,13 @@
       try {
         const res = await fetch("/api/status", { cache: "no-store" });
         const s = await res.json();
+        // Solange die Vorhersage-Tiers global deaktiviert sind, ist eine
+        // .aic-Datei nirgends wirksam (GREIFT AN braucht sie nicht) -
+        // Abschnitt ausblenden statt eine wirkungslose Einstellung zu
+        // zeigen. Kommt automatisch zurück, sobald wieder aktiviert.
+        document.getElementById("aic-section").hidden = !s.predictive_tiers_enabled;
         if (s.connected) {
-          setStatus("dot-ok", `Verbunden - ${s.player_count} Spieler aktiv` + (s.aic_loaded ? "" : " (keine .aic-Datei geladen)"));
+          setStatus("dot-ok", `Verbunden - ${s.player_count} Spieler aktiv` + (s.predictive_tiers_enabled && !s.aic_loaded ? " (keine .aic-Datei geladen)" : ""));
         } else if (s.last_error) {
           setStatus("dot-error", s.last_error);
         } else {
@@ -978,7 +1081,7 @@
 
     // Eine Farbe pro TATSÄCHLICH genutzter Team-Nummer (aus den Werten
     // oben abgeleitet, kein festes 1-8-Raster) - macht z.B. den
-    // Gewinnwahrscheinlichkeits-Balken team-farbig statt nur nach der
+    // Stärkeindex-Balken team-farbig statt nur nach der
     // (indirekten) Spieler-Farbe des ranghöchsten Spielers dieser Nummer zu
     // gehen. Erscheint nur, sobald mindestens einem Spieler oben eine
     // Team-Nummer zugewiesen ist.
@@ -1173,7 +1276,7 @@
     ];
 
     // Setzt Rahmenfarbe (pro Spieler) UND Team-Farbe (fuer den
-    // Gewinnwahrscheinlichkeits-Balken) in einem Rutsch auf dieselbe Farbe
+    // Stärkeindex-Balken) in einem Rutsch auf dieselbe Farbe
     // je Team-Nummer - liest dafuer die EFFEKTIVE (automatisch erkannte
     // oder manuell eingetragene) Team-Zuordnung direkt vom laufenden
     // Overlay, nicht die evtl. leere rohe Config (bei Modus "Automatisch"

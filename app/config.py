@@ -1,9 +1,10 @@
 """Konfigurations-Schema, Laden/Speichern.
 
-Liegt unter %APPDATA%\\SHCLiveStats\\config.json - pro Benutzer, immer
+Liegt portabel im Tool-Ordner selbst (siehe paths.app_data_dir()) - immer
 beschreibbar, überlebt exe-Umzüge und PyInstaller-Onefile-Neuextraktion
 (im Gegensatz zu sys._MEIPASS oder einem Installationsort unter
-Program Files, der ohne Admin-Rechte evtl. nicht beschreibbar ist).
+Program Files, der ohne Admin-Rechte evtl. nicht beschreibbar ist), und
+wandert mit, wenn der ganze Tool-Ordner verschoben/kopiert wird.
 """
 
 import json
@@ -13,7 +14,7 @@ from pathlib import Path
 
 from paths import app_data_dir
 
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 
 # Flags, die tatsächlich als einzelne Icons im Overlay gerendert werden
 # (siehe STAT_DEFS in overlay.html) - für die einmalige line_count-Migration
@@ -188,7 +189,7 @@ DEFAULT_CONFIG = {
         "width_px": 90,
         "opacity_percent": 100,
     },
-    # Gewinnwahrscheinlichkeits-Balken - EXPERIMENTELL, siehe strength_score.py.
+    # Stärkeindex-Balken - EXPERIMENTELL, siehe strength_score.py.
     # "mode": "segmented" = EIN Balken, pro Seite ein Segment proportional
     # zum Stärke-Anteil (Summe = 100%, bei genau 2 Seiten ein klassischer
     # geteilter Balken, wächst/schrumpft automatisch mit der Seitenzahl).
@@ -249,16 +250,26 @@ DEFAULT_CONFIG = {
     # Override-Farbe für diese Nummer gesetzt.
     "team_colors": {str(i): None for i in range(1, 9)},
     # Eigener Anzeigename statt "Team N" fuer das Balken-Overlay (z.B. im
-    # "individual"-Modus des Gewinnwahrscheinlichkeits-Balkens) - null/
+    # "individual"-Modus des Stärkeindex-Balkens) - null/
     # leer heisst weiterhin "Team N" als Standard, siehe strength_score.
     # compute_side_summary(). Gleiche Nummern-Konvention wie team_colors.
     "team_names": {str(i): None for i in range(1, 9)},
-    # 5 Speicherplätze für komplette, selbst benannte Anzeige-Setups (nicht
-    # nur welche Werte, sondern das volle Aussehen: Design, Farben, Zeilen/
-    # Breite, Logo, Pro-Spieler-Farben). null = Platz noch leer. Jeder Platz
-    # ist ein dict {"name": str, "display": {...}, "layout": {...},
-    # "logo": {...}, "player_colors": {...}} - eine vollständige Kopie
-    # dieser vier Config-Bereiche zum Zeitpunkt des Speicherns.
+    # 5 Speicherplätze für komplette, selbst benannte Anzeige-Setups - EIN
+    # Name pro Platz, aber Overlay-Aussehen UND Übersicht-Aussehen werden
+    # GEMEINSAM darunter gespeichert (seit Schema v18, siehe
+    # _migrate_layout_slots) - ein Laden (per Knopf oder Hotkey) wechselt
+    # dadurch beides gleichzeitig auf denselben Stand. null = Platz noch
+    # leer. Jeder Platz ist ein dict:
+    #   {"name": str,
+    #    "overlay": {"display", "layout", "logo", "player_colors", "win_bar"} | None,
+    #    "overview": {...flache Übersicht-Felder...} | None,
+    #    "hotkey": str | None}  # z.B. "ctrl+alt+1", Format der "keyboard"-Lib
+    # "overlay"/"overview" können auch unabhängig voneinander null sein,
+    # falls der Platz bisher nur von einer der beiden Seiten befüllt wurde.
+    # hotkey ist bewusst NUR zum Laden da (kein Speichern per Hotkey), siehe
+    # Nutzer-Entscheidung 2026-09-08 - Speichern bleibt manuell über die
+    # Einstellungsseite, um versehentliches Überschreiben mitten im Spiel
+    # zu vermeiden.
     "saved_layouts": [None, None, None, None, None],
     # Eigene, vom OBS-Overlay komplett unabhängige Einstellungen für den
     # Übersichtsmodus (overview.html) - der Streamer soll dort z.B. mehr
@@ -314,10 +325,9 @@ DEFAULT_CONFIG = {
         "attack_color": "#e6463c",
         "attack_pulse": True,
         "text_color": "#f2e9d8",
-        # 5 Speicherplätze wie oben, aber komplett unabhängig - hier ist
-        # ein Platz einfach eine vollständige Kopie dieses ganzen (flachen)
-        # "overview"-Bereichs zum Zeitpunkt des Speicherns.
-        "saved_layouts": [None, None, None, None, None],
+        # Speicherplätze sind seit Schema v18 TOP-LEVEL geteilt mit dem
+        # Overlay (siehe "saved_layouts" oben, Feld "overview" pro Platz) -
+        # kein eigenes Feld mehr hier.
     },
 }
 
@@ -352,6 +362,35 @@ def _migrate_line_count(cfg: dict) -> int:
     return max(1, -(-active // per_line))  # ceil-Division ohne math-Import
 
 
+def _migrate_layout_slots(loaded: dict) -> list:
+    """Einmalige Migration für Configs von vor Schema v18: Overlay und
+    Übersicht hatten bis dahin jeweils eigene, komplett unabhängige 5
+    Speicherplätze. Ab v18 sind es GEMEINSAME 5 Plätze (1 Name, Overlay-
+    Teil + Übersicht-Teil zusammen unter einem Namen, siehe DEFAULT_CONFIG-
+    Kommentar bei "saved_layouts") - kombiniert hier per Index (alter Platz
+    i <-> neuer Platz i). Name kommt vom Overlay-Teil, falls vorhanden,
+    sonst vom Übersicht-Teil."""
+    old_overlay_slots = loaded.get("saved_layouts") or [None] * 5
+    old_overview_slots = loaded.get("overview", {}).get("saved_layouts") or [None] * 5
+    new_slots = []
+    for i in range(5):
+        ov = old_overlay_slots[i] if i < len(old_overlay_slots) else None
+        ow = old_overview_slots[i] if i < len(old_overview_slots) else None
+        if not ov and not ow:
+            new_slots.append(None)
+            continue
+        name = (ov or {}).get("name") or (ow or {}).get("name") or f"Setup {i + 1}"
+        overlay_part = {k: v for k, v in ov.items() if k != "name"} if ov else None
+        overview_part = {k: v for k, v in ow.items() if k != "name"} if ow else None
+        new_slots.append({
+            "name": name,
+            "overlay": overlay_part,
+            "overview": overview_part,
+            "hotkey": None,
+        })
+    return new_slots
+
+
 def load_config() -> dict:
     path = config_path()
     if not path.exists():
@@ -378,6 +417,11 @@ def load_config() -> dict:
         per_line = max(1, loaded.get("layout", {}).get("stats_per_line", 6))
         if old_width is not None:
             merged["layout"]["stat_width_px"] = old_width * per_line
+        needs_migration = True
+    if loaded.get("schema_version", 0) < 18:
+        merged["saved_layouts"] = _migrate_layout_slots(loaded)
+        if "overview" in merged and "saved_layouts" in merged["overview"]:
+            del merged["overview"]["saved_layouts"]
         needs_migration = True
     if needs_migration:
         if "line_count" not in loaded.get("layout", {}):

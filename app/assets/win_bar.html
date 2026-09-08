@@ -308,6 +308,11 @@
     }
 
     function render(data) {
+      if (data && data.blocked) {
+        document.getElementById("bar-segmented").style.display = "none";
+        document.getElementById("bar-individual").style.display = "none";
+        return;
+      }
       // Kein eigener "Demo-Daten"-Schalter wie bei overlay.html/overview.html
       // - diese Seite ist eine optionale, zusätzliche OBS-Quelle, die man
       // sich bewusst einrichtet; ohne Live-Daten direkt Demo-Werte zu zeigen

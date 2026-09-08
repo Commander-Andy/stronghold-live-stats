@@ -287,7 +287,7 @@
     color: #a89478;
   }
 
-  /* Gewinnwahrscheinlichkeits-Balken - dieselbe Logik wie im Overlay
+  /* Stärkeindex-Balken - dieselbe Logik wie im Overlay
      (siehe overlay.html), hier aber im normalen Seitenfluss statt
      position:fixed (kein OBS-Crop/Positionierung nötig, sitzt einfach
      oben über den Spieler-Karten). Kartenoptik (Rahmenfarbe/-radius/
@@ -1033,6 +1033,16 @@
     function render(data) {
       const rows = document.getElementById("rows");
       const emptyMsg = document.getElementById("empty-msg");
+      if (data && data.blocked) {
+        rows.innerHTML = "";
+        rows.classList.remove("split");
+        rowIndex.clear();
+        lastStructKey = null;
+        document.getElementById("win-bar").style.display = "none";
+        emptyMsg.textContent = "Live-Stats deaktiviert";
+        emptyMsg.style.display = "block";
+        return;
+      }
       let players = (data && data.players) || [];
 
       if (players.length === 0) {
@@ -1041,6 +1051,7 @@
           rows.classList.remove("split");
           rowIndex.clear();
           lastStructKey = null;
+          emptyMsg.textContent = "Warte auf Spieldaten …";
           emptyMsg.style.display = "block";
           return;
         }
@@ -1127,7 +1138,7 @@
         const res = await fetch("/overlay.json?t=" + Date.now(), { cache: "no-store" });
         const data = await res.json();
         render(data);
-        renderWinBar(data && data.sides);
+        if (!(data && data.blocked)) renderWinBar(data && data.sides);
       } catch (e) {
         // stiller Retry
       }

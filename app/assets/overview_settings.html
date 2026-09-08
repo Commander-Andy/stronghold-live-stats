@@ -89,6 +89,24 @@
     transform: translateY(1px);
   }
   button.active-preset:hover { background: #8a6d3f; }
+  /* Hotkey-Anzeige/-Aufnahme pro Speicherplatz. */
+  .hotkey-badge {
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: #c6a15b;
+    background: rgba(198, 161, 91, 0.12);
+    border: 1px solid rgba(198, 161, 91, 0.4);
+    border-radius: 4px;
+    padding: 3px 8px;
+  }
+  button.recording-hotkey {
+    background: #b23a3a;
+    animation: hotkey-pulse 1s ease-in-out infinite;
+  }
+  @keyframes hotkey-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
   input[type="checkbox"] { width: 18px; height: 18px; }
   input[type="number"], select {
     background: #1b140c;
@@ -150,7 +168,7 @@
 
   <div id="status-line"><span class="dot dot-waiting"></span>Status wird geladen &hellip;</div>
 
-  <h2>Gewinnwahrscheinlichkeits-Balken <span class="info-tip" title='EXPERIMENTELL - derselbe Balken wie im OBS-Overlay, hier oben in der Übersicht (kein Positions-/Größen-Regler nötig, sitzt einfach im normalen Seitenfluss). Modus UND Team-Farben gelten gemeinsam mit dem Overlay-Balken (dieselbe Einstellung) - Team-Farben werden aktuell nur in den normalen Overlay-Einstellungen (Bereich "Teams") gesetzt.'>&#9432;</span></h2>
+  <h2>Stärkeindex-Balken <span class="info-tip" title='EXPERIMENTELL - derselbe Balken wie im OBS-Overlay, hier oben in der Übersicht (kein Positions-/Größen-Regler nötig, sitzt einfach im normalen Seitenfluss). Modus UND Team-Farben gelten gemeinsam mit dem Overlay-Balken (dieselbe Einstellung) - Team-Farben werden aktuell nur in den normalen Overlay-Einstellungen (Bereich "Teams") gesetzt.'>&#9432;</span></h2>
   <div class="card">
     <div class="row">
       <label>Balken oben in der Übersicht anzeigen</label>
@@ -165,7 +183,7 @@
     </div>
   </div>
 
-  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen dieser Übersicht unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar.'>&#9432;</span></h2>
+  <h2>Speicherplätze <span class="info-tip" title='Speichert das komplette Aussehen dieser Übersicht unter einem Namen deiner Wahl - mit "Laden" jederzeit wieder abrufbar. Ein Speicherplatz gilt gemeinsam für Übersicht UND Overlay (falls dort ebenfalls unter diesem Platz gespeichert wurde, siehe Overlay-Einstellungen) - "Laden" wechselt beides gleichzeitig. Optional ein Hotkey pro Platz zum Laden ohne aus dem Spiel raus-tabben zu müssen (das würde es sonst pausieren).'>&#9432;</span></h2>
   <div class="card">
     <div id="saved-layouts-list"></div>
   </div>
@@ -315,7 +333,7 @@
           ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
           ["show_population", "Bevölkerung (aktuell/Kapazität)"],
           ["show_lord_hp", "Burgherr-HP"],
-          ["show_win_probability", "Gewinnwahrscheinlichkeit (experimentell)", "EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als \"führend\" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) eine echte Gewinnwahrscheinlichkeit. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet jede Seite gegen den kompletten Rest des Feldes gleichzeitig - bei einem fairen Kräfteverhältnis liegt der Wert dann für ALLE Seiten unter 50%, das ist kein Fehler, sondern die Definition."],
+          ["show_win_probability", "Stärkeindex (experimentell)", "EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als \"führend\" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Heißt bewusst \"Stärkeindex\" statt \"Gewinnwahrscheinlichkeit\", weil er den aktuellen Kräftevergleich misst, nicht den Spielausgang vorhersagt. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) kommt er einer echten Gewinnwahrscheinlichkeit am nächsten. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet jede Seite gegen den kompletten Rest des Feldes gleichzeitig - bei einem fairen Kräfteverhältnis liegt der Wert dann für ALLE Seiten unter 50%, das ist kein Fehler, sondern die Definition."],
           ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel läuft"],
         ],
       },
@@ -407,6 +425,11 @@
     // hier ist die Config flach (keine display/layout-Unterbereiche wie im
     // Overlay), also einfach eine Kopie von allem AUSSER saved_layouts
     // selbst (sonst würde ein Speicherplatz sich selbst mit-speichern).
+    // Seit Schema v18 TOP-LEVEL geteilt mit dem Overlay (siehe
+    // settings.html) - ein Platz hat einen "overview"-Teil (hier
+    // gespeichert) und optional einen "overlay"-Teil (dort gespeichert),
+    // "Laden" wendet hier IMMER beide Teile zusammen an, "Speichern" hier
+    // überschreibt NUR den overview-Teil.
     function currentLookSnapshot() {
       const { saved_layouts, ...rest } = currentConfig;
       return JSON.parse(JSON.stringify(rest));
@@ -418,15 +441,80 @@
       return div.innerHTML;
     }
 
+    // Wandelt ein keydown-Event in das Format der Python-"keyboard"-
+    // Bibliothek um (z.B. "ctrl+alt+1") - wartet auf eine echte Taste,
+    // reine Modifikator-Anschläge lösen noch nichts aus.
+    function hotkeyStringFromEvent(e) {
+      if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return null;
+      const parts = [];
+      if (e.ctrlKey) parts.push("ctrl");
+      if (e.altKey) parts.push("alt");
+      if (e.shiftKey) parts.push("shift");
+      let main = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase();
+      if (main === " ") main = "space";
+      parts.push(main);
+      return parts.join("+");
+    }
+
+    function startHotkeyCapture(btn, onCaptured) {
+      const original = btn.textContent;
+      btn.textContent = "Taste drücken... (Esc zum Abbrechen)";
+      btn.classList.add("recording-hotkey");
+      let done = false;
+      function finish(result) {
+        if (done) return;
+        done = true;
+        document.removeEventListener("keydown", handler, true);
+        btn.textContent = original;
+        btn.classList.remove("recording-hotkey");
+        if (result) onCaptured(result);
+      }
+      function handler(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.key === "Escape") { finish(null); return; }
+        const hk = hotkeyStringFromEvent(e);
+        if (hk) finish(hk);
+      }
+      document.addEventListener("keydown", handler, true);
+      setTimeout(() => finish(null), 8000); // Auto-Abbruch, falls vergessen
+    }
+
+    // Laden geht bewusst NICHT über savePatch()/api/overview-config (das
+    // würde einen evtl. vorhandenen overlay-Teil faelschlich unter
+    // "overview" verschachteln) - stattdessen EIN einzelner /api/config-
+    // Aufruf mit Overlay-Teil (top-level Felder) UND Übersicht-Teil
+    // (verschachtelt unter "overview") zusammen, identisch zur Logik von
+    // _apply_saved_layout() in server.py (Hotkey-Pfad) und der Laden-Logik
+    // in settings.html - damit alle drei Wege exakt gleich funktionieren.
+    async function applySavedLayout(slot) {
+      const patch = {};
+      if (slot.overlay) Object.assign(patch, slot.overlay);
+      if (slot.overview) patch.overview = slot.overview;
+      if (Object.keys(patch).length === 0) return;
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      await loadConfig();
+      setSyncButtonState(false);
+    }
+
     function renderSavedLayouts() {
       const list = document.getElementById("saved-layouts-list");
       const slots = (currentConfig && currentConfig.saved_layouts) || [];
       list.innerHTML = slots.map((slot, i) => `
-        <div class="row" style="flex-wrap:wrap;">
+        <div class="row" style="flex-wrap:wrap; gap:8px;">
           <label>${slot ? escapeHtmlAttr(slot.name) : `Speicherplatz ${i + 1} (leer)`}</label>
           <button type="button" data-load-slot="${i}" ${slot ? "" : "disabled"}>Laden</button>
           <button type="button" data-save-slot="${i}">Speichern</button>
           ${slot ? `<button type="button" data-clear-slot="${i}">Löschen</button>` : ""}
+          ${slot ? `
+            <span class="hotkey-badge">${slot.hotkey ? escapeHtmlAttr(slot.hotkey) : "kein Hotkey"}</span>
+            <button type="button" data-record-hotkey="${i}">Aufnehmen</button>
+            ${slot.hotkey ? `<button type="button" data-clear-hotkey="${i}">Hotkey entfernen</button>` : ""}
+          ` : ""}
         </div>
       `).join("");
 
@@ -434,10 +522,12 @@
         btn.addEventListener("click", () => {
           const slot = currentConfig.saved_layouts[parseInt(btn.dataset.loadSlot, 10)];
           if (!slot) return;
-          const { name, ...rest } = slot;
-          savePatch(rest);
+          applySavedLayout(slot);
         });
       });
+      // Speichern überschreibt NUR den overview-Teil - ein evtl.
+      // vorhandener overlay-Teil (von den Overlay-Einstellungen gespeichert)
+      // bleibt unangetastet, genau wie ein evtl. gesetzter Hotkey.
       list.querySelectorAll("button[data-save-slot]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const i = parseInt(btn.dataset.saveSlot, 10);
@@ -445,7 +535,12 @@
           const name = prompt("Name für diesen Speicherplatz:", existing ? existing.name : `Setup ${i + 1}`);
           if (!name) return;
           const slots = currentConfig.saved_layouts.slice();
-          slots[i] = { name, ...currentLookSnapshot() };
+          slots[i] = {
+            name,
+            overview: currentLookSnapshot(),
+            overlay: existing ? existing.overlay : null,
+            hotkey: existing ? existing.hotkey : null,
+          };
           savePatch({ saved_layouts: slots });
         });
       });
@@ -454,6 +549,24 @@
           const i = parseInt(btn.dataset.clearSlot, 10);
           const slots = currentConfig.saved_layouts.slice();
           slots[i] = null;
+          savePatch({ saved_layouts: slots });
+        });
+      });
+      list.querySelectorAll("button[data-record-hotkey]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = parseInt(btn.dataset.recordHotkey, 10);
+          startHotkeyCapture(btn, (hk) => {
+            const slots = currentConfig.saved_layouts.slice();
+            slots[i] = { ...slots[i], hotkey: hk };
+            savePatch({ saved_layouts: slots });
+          });
+        });
+      });
+      list.querySelectorAll("button[data-clear-hotkey]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = parseInt(btn.dataset.clearHotkey, 10);
+          const slots = currentConfig.saved_layouts.slice();
+          slots[i] = { ...slots[i], hotkey: null };
           savePatch({ saved_layouts: slots });
         });
       });
@@ -477,7 +590,7 @@
       const snapshot = currentLookSnapshot();
       document.querySelectorAll("button[data-load-slot]").forEach((btn) => {
         const slot = currentConfig.saved_layouts[parseInt(btn.dataset.loadSlot, 10)];
-        const matches = !!slot && deepEqual((({ name, ...rest }) => rest)(slot), snapshot);
+        const matches = !!slot && !!slot.overview && deepEqual(slot.overview, snapshot);
         btn.classList.toggle("active-preset", matches);
       });
     }

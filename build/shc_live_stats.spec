@@ -28,7 +28,7 @@ a = Analysis(
         (os.path.join(APP_DIR, "assets", "icons"), "assets/icons"),
         (os.path.join(APP_DIR, "assets", "backgrounds"), "assets/backgrounds"),
     ],
-    hiddenimports=["pymem", "pymem.process", "pystray", "PIL", "PIL._tkinter_finder"],
+    hiddenimports=["pymem", "pymem.process", "pystray", "PIL", "PIL._tkinter_finder", "keyboard"],
     hookspath=[],
     runtime_hooks=[],
     excludes=[],

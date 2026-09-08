@@ -1,13 +1,15 @@
 """
-Live-Stärke-Score & Gewinnwahrscheinlichkeit (EXPERIMENTELL, erste Version)
+Live-Stärke-Score & Stärkeindex (EXPERIMENTELL, erste Version)
 ============================================================================
 Setzt den Entwurf aus research/shc_win_probability_design.md um. Berechnet
 pro Spieler(-Slot) einen heuristischen "Stärke"-Wert aus Militär + Wirtschaft
-+ deren Wachstumstrend über die letzten Minuten, und daraus eine grobe
-Gewinnwahrscheinlichkeit gegen den Rest des Feldes (bei genau 2 Seiten -
-Spielern oder Teams - mathematisch identisch zu einer echten 1v1-
-Gewinnwahrscheinlichkeit, bei mehr Seiten ein "diese Seite gegen den Rest
-kombiniert"-Wert statt einer strengen N-Wege-Verteilung).
++ deren Wachstumstrend über die letzten Minuten, und daraus einen groben
+Stärkeindex gegen den Rest des Feldes (bei genau 2 Seiten - Spielern oder
+Teams - mathematisch identisch zu einer echten 1v1-Gewinnwahrscheinlichkeit,
+bei mehr Seiten ein "diese Seite gegen den Rest kombiniert"-Wert statt einer
+strengen N-Wege-Verteilung; heißt bewusst "Stärkeindex" statt "Gewinn-
+wahrscheinlichkeit", weil er den aktuellen Kräftevergleich misst, nicht den
+Spielausgang vorhersagt).
 
 WICHTIG: fast jede Konstante hier ist ein PLATZHALTER ohne echte
 Kalibrierung (siehe Kommentare unten und das Design-Dokument) - Ausnahme
@@ -119,7 +121,7 @@ MIN_HISTORY_SPAN_S = 5.0  # unter dieser Spanne wird Trend als 0 behandelt
 T_DECAY_S = 600.0
 PRIOR_WEIGHT = 0.15
 
-# Sigmoid-Steilheit für Score-Verhältnis -> Gewinnwahrscheinlichkeit.
+# Sigmoid-Steilheit für Score-Verhältnis -> Stärkeindex.
 SIGMOID_K = 8.0
 
 
