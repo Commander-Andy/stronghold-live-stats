@@ -59,11 +59,18 @@
     animation: pulse 1s ease-in-out infinite;
   }
   /* Besiegter Lord: Karte bleibt bestehen statt zu verschwinden (siehe
-     worker.py::_debounce_active_slots), wird stattdessen ausgegraut
-     (Nutzerwunsch 2026-09-06). */
+     worker.py::_debounce_active_slots), wird stattdessen in Grautöne
+     umgewandelt (Nutzerwunsch 2026-09-06/-10) - grayscale(1) mappt jede
+     Farbe auf ihren Helligkeits-Grauwert, KEINE zusätzliche Transparenz. */
   .row.defeated {
-    filter: grayscale(0.85);
-    opacity: 0.55;
+    filter: grayscale(1);
+  }
+
+  /* Spiel vorbei oder pausiert (siehe worker.py Stall-Erkennung,
+     payload.stalled): alles ausgrauen, aber nichts ausblenden. */
+  body.stalled #rows,
+  body.stalled #win-bar {
+    filter: grayscale(1);
   }
   /* Theme "SHC Single": ein gemeinsames Pergament liegt hinter allen
      Rahmen (siehe #rows.theme-single-bg / .side-backdrop) - die einzelnen
@@ -320,9 +327,10 @@
     font-weight: 700;
     font-size: 22px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-    /* --transition-ms wird per JS auf 90% des Poll-Intervalls gesetzt -
-       siehe ausfuehrlichen Kommentar bei derselben Regel in win_bar.html. */
-    transition: flex-grow var(--transition-ms, 450ms) linear;
+    /* --transition-ms = Staerkeindex-Refresh-Intervall, damit die
+       Balkengrenze durchgehend gleitet - siehe WIN_BAR_TRANSITION_MS-
+       Kommentar in win_bar.html. */
+    transition: flex-grow var(--transition-ms, 2000ms) linear;
     padding: 10px;
   }
 
@@ -994,14 +1002,22 @@
         });
         lastWinBarIndKeys = keys;
       }
+      // Bei genau 2 Seiten ist win_probability_percent eine echte 1v1-
+      // Chance (summiert mit der Gegenseite auf ~100%). Bei 3+ Seiten waere
+      // es "diese Seite gegen alle anderen zusammen" - ein Wert, der fuer
+      // alle klein ist und sich zu nichts Sinnvollem summiert; dort
+      // stattdessen share_percent zeigen (Anteil an der Gesamtstaerke,
+      // summiert IMMER auf 100%), wie im segmentierten Modus.
+      const indUseShare = sides.length > 2;
       sides.forEach((s) => {
         const refs = winBarIndElements.get(s.key);
         if (!refs) return;
         if (refs.label.textContent !== s.label) refs.label.textContent = s.label;
-        const widthStr = `${s.win_probability_percent}%`;
+        const value = indUseShare ? s.share_percent : s.win_probability_percent;
+        const widthStr = `${value}%`;
         if (refs.fill.style.width !== widthStr) refs.fill.style.width = widthStr;
         refs.fill.style.background = winBarColorForSide(s);
-        const pctText = `${s.win_probability_percent}%`;
+        const pctText = `${Math.round(value)}%`;
         if (refs.pct.textContent !== pctText) refs.pct.textContent = pctText;
       });
     }
@@ -1043,6 +1059,9 @@
         emptyMsg.style.display = "block";
         return;
       }
+      // Spiel vorbei/pausiert (worker.py Stall-Erkennung): alles ausgrauen,
+      // Karten bleiben aber stehen.
+      document.body.classList.toggle("stalled", !!(data && data.stalled));
       let players = (data && data.players) || [];
 
       if (players.length === 0) {
@@ -1144,9 +1163,11 @@
       }
     }
 
-    // 90% des Poll-Intervalls (500ms) - siehe ausfuehrlicher Kommentar zu
-    // TRANSITION_MS in win_bar.html.
-    document.documentElement.style.setProperty("--transition-ms", Math.round(500 * 0.9) + "ms");
+    // Staerkeindex-Refresh-Intervall (siehe WIN_BAR_TRANSITION_MS-Kommentar
+    // in win_bar.html) - die Balkengrenzen gleiten durchgehend, statt kurz
+    // zu springen und dann stillzustehen. Muss zu worker.WIN_PROB_REFRESH_S
+    // passen.
+    document.documentElement.style.setProperty("--transition-ms", "2000ms");
 
     function applyLayout() {
       const root = document.documentElement.style;
@@ -1168,7 +1189,7 @@
     }
 
     pollConfig().then(pollData);
-    setInterval(pollData, 500);
+    setInterval(pollData, 400);
     setInterval(pollConfig, 1000);
 
     const settingsPanel = document.getElementById("settings-panel");

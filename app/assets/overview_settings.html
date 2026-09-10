@@ -230,7 +230,7 @@
       </select>
     </div>
     <div class="row">
-      <label>Abstand zwischen den Zeilen (px)</label>
+      <label>Abstand zwischen den Karten (px) <span class="info-tip" title='Der senkrechte Abstand zwischen zwei Spieler-Karten.'>&#9432;</span></label>
       <input type="range" id="row-gap-range" min="0" max="60" step="1">
       <input type="number" id="row-gap-input" min="0" max="60" step="1">
     </div>
@@ -333,7 +333,7 @@
           ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
           ["show_population", "Bevölkerung (aktuell/Kapazität)"],
           ["show_lord_hp", "Burgherr-HP"],
-          ["show_win_probability", "Stärkeindex (experimentell)", "EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als \"führend\" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Heißt bewusst \"Stärkeindex\" statt \"Gewinnwahrscheinlichkeit\", weil er den aktuellen Kräftevergleich misst, nicht den Spielausgang vorhersagt. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) kommt er einer echten Gewinnwahrscheinlichkeit am nächsten. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet jede Seite gegen den kompletten Rest des Feldes gleichzeitig - bei einem fairen Kräfteverhältnis liegt der Wert dann für ALLE Seiten unter 50%, das ist kein Fehler, sondern die Definition."],
+          ["show_win_probability", "Stärkeindex (experimentell)", "EXPERIMENTELL: heuristischer Kräftevergleich (Truppen + Wirtschaft + Trend), keine kalibrierte Vorhersage. Diese Zahl im Spieler-Rahmen zeigt \"diese Seite gegen den Rest des Feldes\" - bei 3+ Seiten liegt sie für alle unter 50% (so gewollt) und kann vom Balken abweichen, der dort Stärke-Anteile zeigt."],
           ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel läuft"],
         ],
       },

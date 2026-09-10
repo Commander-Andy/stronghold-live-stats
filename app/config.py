@@ -14,7 +14,7 @@ from pathlib import Path
 
 from paths import app_data_dir
 
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 
 # Flags, die tatsächlich als einzelne Icons im Overlay gerendert werden
 # (siehe STAT_DEFS in overlay.html) - für die einmalige line_count-Migration
@@ -36,7 +36,13 @@ DEFAULT_CONFIG = {
     "aic_file_path": None,
     "process_name": "Stronghold Crusader.exe",
     "http_port": 8765,
-    "poll_interval_ms": 500,
+    # Grundabtastrate des Worker-Threads. 400ms (2026-09-10 von 500
+    # gesenkt): die angezeigten Werte hängen weniger nach, ohne die
+    # Lese-Last spürbar zu erhöhen. Die Glitch-Halte-Fenster
+    # (worker.SCALAR_HOLD_SECONDS/UNIT_HOLD_SECONDS) sind in Wall-Clock-
+    # Sekunden, nicht in Ticks - eine schnellere Abtastung verkürzt die
+    # Haltezeit also NICHT, sie macht nur echte Anstiege früher sichtbar.
+    "poll_interval_ms": 400,
     "attack_poll_interval_ms": 1000,
     # Wie lange (Sekunden) weder Einstellungs-Seite noch OBS aktiv gewesen
     # sein müssen, bevor sich die App von selbst beendet. 0 = nie automatisch
@@ -124,7 +130,11 @@ DEFAULT_CONFIG = {
         # einstellbar, z.B. um die Seiten symmetrisch auszurichten.
         "left_offset_px": 6,
         "bottom_offset_px": 6,
+        # Abstand ZWISCHEN den Spieler-Karten (nicht zwischen Zeilen
+        # innerhalb einer Karte - das ist line_height_px).
         "row_gap_px": 4,
+        # Deckkraft der Spieler-Karten (100 = voll deckend, 0 = unsichtbar).
+        "card_opacity_percent": 100,
         # "split" = wie bisher hälftig links/rechts (nach Slot-Reihenfolge),
         # "left"/"right" = alle Spieler auf einer Seite (z.B. für 1vN-
         # Konstellationen), "teams" = anhand von team_assignment sortiert
@@ -422,6 +432,14 @@ def load_config() -> dict:
         merged["saved_layouts"] = _migrate_layout_slots(loaded)
         if "overview" in merged and "saved_layouts" in merged["overview"]:
             del merged["overview"]["saved_layouts"]
+        needs_migration = True
+    # Schema v19: Grund-Poll von 500 auf 400ms gesenkt (siehe DEFAULT_CONFIG).
+    # Kein UI-Regler dafür, also hat jede bestehende Config noch den alten
+    # Default - hier nachziehen, aber einen (theoretisch von Hand) niedriger
+    # gesetzten Wert nicht wieder hochdrücken.
+    if loaded.get("schema_version", 0) < 19:
+        if merged.get("poll_interval_ms", 400) > 400:
+            merged["poll_interval_ms"] = 400
         needs_migration = True
     if needs_migration:
         if "line_count" not in loaded.get("layout", {}):

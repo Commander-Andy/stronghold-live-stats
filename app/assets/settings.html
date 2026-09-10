@@ -349,7 +349,7 @@
     <div id="display-categories" style="margin-top:10px;"></div>
   </details>
 
-  <h2>Stärkeindex <span class="info-tip" title='EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als "führend" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Heißt bewusst "Stärkeindex" statt "Gewinnwahrscheinlichkeit", weil er den aktuellen Kräftevergleich misst, nicht den Spielausgang vorhersagt. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) kommt er einer echten Gewinnwahrscheinlichkeit am nächsten. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet der Balken echte Anteile (Summe=100%), die Prozentzahl im Spieler-Rahmen dagegen "diese Seite gegen den Rest" (liegt dann für ALLE Seiten unter 50%, kein Fehler, sondern die Definition). Die Prozentzahl im Spieler-Rahmen selbst wird unter "Was soll angezeigt werden?" -> "Sonstiges" ein-/ausgeschaltet, hier nur der Balken.'>&#9432;</span></h2>
+  <h2>Stärkeindex <span class="info-tip" title='EXPERIMENTELL: heuristischer Kräftevergleich aus Truppen, Wirtschaft und deren Trend der letzten Minuten - keine kalibrierte Vorhersage, viele Gewichte sind Platzhalter. Heißt bewusst "Stärkeindex" statt "Gewinnwahrscheinlichkeit", weil er den aktuellen Stand misst, nicht den Ausgang. Bei 3+ Seiten (Free-for-all) zeigen beide Balken-Modi Stärke-Anteile (Summe 100%); nur bei genau 2 Seiten zeigt der Einzel-Modus eine echte 1v1-Wahrscheinlichkeit.'>&#9432;</span></h2>
   <div class="card">
     <div class="row">
       <label>Als Balken direkt ins Overlay einbauen (mittig oben)</label>
@@ -414,9 +414,14 @@
       <input type="number" id="line-height-input" min="8" max="60" step="1">
     </div>
     <div class="row">
-      <label>Abstand zwischen den Zeilen (px)</label>
+      <label>Abstand zwischen den Karten (px) <span class="info-tip" title='Der senkrechte Abstand zwischen zwei Spieler-Karten. (Der Zeilenabstand INNERHALB einer Karte ist "Zeilenhöhe (px)" darüber.)'>&#9432;</span></label>
       <input type="range" id="row-gap-range" min="0" max="40" step="1">
       <input type="number" id="row-gap-input" min="0" max="40" step="1">
+    </div>
+    <div class="row">
+      <label>Karten-Transparenz (%) <span class="info-tip" title='100 = voll deckend, 0 = unsichtbar. Verblasst die ganze Karte inkl. Text/Icons, damit das Spiel dahinter durchscheint.'>&#9432;</span></label>
+      <input type="range" id="card-opacity-range" min="0" max="100" step="1">
+      <input type="number" id="card-opacity-input" min="0" max="100" step="1">
     </div>
     <div class="row">
       <label>Abstand links (px)</label>
@@ -475,10 +480,6 @@
       <label>Farbe für dein eigenes Feld</label>
       <input type="color" id="you-color-input">
       <button type="button" data-reset-color-input="you-color-input" data-reset-color-key="you_color" data-reset-color-default="#78c8ff">Standard</button>
-    </div>
-    <div class="row">
-      <label>Preset: Teamfarben <span class="info-tip" title='Setzt in einem Schritt sowohl die Rahmenfarbe jedes Spielers (nach seiner aktuellen Team-Zugehörigkeit) als auch die passende Team-Farbe für den Stärkeindex-Balken - beides bekommt dieselbe Farbe pro Team. Braucht eine erkannte/eingetragene Team-Zuordnung (siehe "Teams" weiter unten), sonst passiert nichts.'>&#9432;</span></label>
-      <button type="button" id="team-color-preset-btn">Anwenden (Gelb + Orange)</button>
     </div>
   </div>
 
@@ -649,7 +650,7 @@
           ["show_tax_rate", "Steuersatz (Stufe 1-12)"],
           ["show_population", "Bevölkerung (aktuell/Kapazität)"],
           ["show_lord_hp", "Burgherr-HP"],
-          ["show_win_probability", "Stärkeindex (experimentell)", "EXPERIMENTELL, erste Version: heuristischer Wert aus Truppen- und Waffenlager-Bestand (Kampfwert-Tabelle einer Custom-KI-Liga), Wirtschaft (Ressourcen/Bevölkerung/Popularity) und deren Wachstumstrend über die letzten Minuten (damit eine früh dominante, aber stagnierende KI nicht automatisch als \"führend\" gilt) - keine kalibrierte Vorhersage, viele Gewichte darin sind Platzhalter ohne echte Herleitung. Heißt bewusst \"Stärkeindex\" statt \"Gewinnwahrscheinlichkeit\", weil er den aktuellen Kräftevergleich misst, nicht den Spielausgang vorhersagt. Bei genau 2 Seiten (Spieler oder per Team-Zuordnung gebildete Teams) kommt er einer echten Gewinnwahrscheinlichkeit am nächsten. Bei 3 oder mehr Seiten (z.B. Free-for-all) rechnet jede Seite gegen den kompletten Rest des Feldes gleichzeitig - bei einem fairen Kräfteverhältnis liegt der Wert dann für ALLE Seiten unter 50%, das ist kein Fehler, sondern die Definition. Der Balken selbst (Größe/Position/Modus) wird weiter oben unter \"Stärkeindex\" eingestellt."],
+          ["show_win_probability", "Stärkeindex (experimentell)", "EXPERIMENTELL: heuristischer Kräftevergleich (Truppen + Wirtschaft + Trend), keine kalibrierte Vorhersage. Diese Zahl im Spieler-Rahmen zeigt \"diese Seite gegen den Rest des Feldes\" - bei 3+ Seiten liegt sie für alle unter 50% (so gewollt) und kann vom Balken abweichen, der dort Stärke-Anteile zeigt. Balken-Größe/-Position/-Modus weiter oben unter \"Stärkeindex\"."],
           ["show_demo_data", "Platzhalter-Spieler anzeigen, solange kein Spiel läuft"],
         ],
       },
@@ -965,6 +966,7 @@
       document.getElementById("right-offset-input").value = cfg.layout.right_offset_px;
       document.getElementById("bottom-offset-input").value = cfg.layout.bottom_offset_px;
       document.getElementById("row-gap-input").value = cfg.layout.row_gap_px;
+      document.getElementById("card-opacity-input").value = cfg.layout.card_opacity_percent ?? 100;
       document.getElementById("side-mode-input").value = cfg.layout.side_mode;
       document.getElementById("theme-input").value = cfg.layout.theme || "rgb";
       document.getElementById("border-color-input").value = cfg.layout.border_color;
@@ -998,6 +1000,7 @@
       ["right-offset-range", "right-offset-input"],
       ["bottom-offset-range", "bottom-offset-input"],
       ["row-gap-range", "row-gap-input"],
+      ["card-opacity-range", "card-opacity-input"],
       ["stats-per-line-range", "stats-per-line-input"],
       ["line-count-range", "line-count-input"],
       ["icon-size-range", "icon-size-input"],
@@ -1087,12 +1090,18 @@
     // Team-Nummer zugewiesen ist.
     function renderTeamColorRows(cfg) {
       const box = document.getElementById("team-color-list");
-      const assign = cfg.team_assignment || {};
       const teamColors = cfg.team_colors || {};
       const teamNames = cfg.team_names || {};
-      const usedTeams = [...new Set(Object.values(assign).filter((v) => v !== null && v !== undefined))].sort((a, b) => a - b);
+      // Team-Nummern aus der manuellen Zuordnung UND der live erkannten -
+      // so lassen sich im Auto-Modus die erkannten Teams direkt einfärben,
+      // ohne dass man sie erst manuell eintragen muss.
+      const allTeamValues = [
+        ...Object.values(cfg.team_assignment || {}),
+        ...Object.values(liveEffectiveTeamAssignment || {}),
+      ];
+      const usedTeams = [...new Set(allTeamValues.filter((v) => v !== null && v !== undefined))].sort((a, b) => a - b);
       if (usedTeams.length === 0) {
-        box.innerHTML = `<p style="font-size:11px; color:#a89478; margin:8px 0 0;">Noch keine Team-Nummer oben vergeben.</p>`;
+        box.innerHTML = `<p style="font-size:11px; color:#a89478; margin:8px 0 0;">Keine Teams - weder manuell eingetragen noch (im Auto-Modus) live erkannt.</p>`;
         return;
       }
       // Fokus/Cursor-Position des Namensfelds merken, bevor wir das
@@ -1173,16 +1182,35 @@
       }, 120);
     }
 
+    // Effektive (im Auto-Modus live erkannte, sonst = manuell eingetragene)
+    // Team-Zuordnung - dient dazu, im Auto-Modus die erkannten Teams
+    // anzuzeigen und im Farb-Bereich auswählbar zu machen, OHNE die
+    // manuellen Eingabefelder vorzubefüllen (die bleiben im Auto-Modus
+    // bewusst leer/deaktiviert, damit klar bleibt, dass nichts manuell
+    // gesetzt ist).
+    let liveEffectiveTeamAssignment = {};
+
     async function refreshLiveTeamNames() {
       try {
-        const res = await fetch("/overlay.json?t=" + Date.now(), { cache: "no-store" });
-        const data = await res.json();
+        const [ovRes, cfgRes] = await Promise.all([
+          fetch("/overlay.json?t=" + Date.now(), { cache: "no-store" }),
+          fetch("/overlay-config.json?t=" + Date.now(), { cache: "no-store" }),
+        ]);
+        const data = await ovRes.json();
+        const ovCfg = await cfgRes.json();
         const bySlot = {};
         (data.players || []).forEach((p) => { bySlot[p.slot] = p.label; });
+        const eff = ovCfg.team_assignment || {};
         document.querySelectorAll(".team-live-name").forEach((el) => {
           const slot = Number(el.dataset.slot);
-          el.textContent = bySlot[slot] || "(leer)";
+          const name = bySlot[slot] || "(leer)";
+          const team = eff[String(slot)];
+          el.textContent = (team !== null && team !== undefined) ? `${name} · Team ${team}` : name;
         });
+        if (JSON.stringify(eff) !== JSON.stringify(liveEffectiveTeamAssignment)) {
+          liveEffectiveTeamAssignment = eff;
+          if (currentConfig) renderTeamColorRows(currentConfig);
+        }
       } catch (e) {
         // stiller Retry
       }
@@ -1267,51 +1295,6 @@
       applyConfigToForm(await res.json());
     }
 
-    // Gelb+Orange zuerst (Nutzerwunsch), Rest dient nur als Reserve fuer
-    // mehr als 2 Teams gleichzeitig - dieselbe Farbfamilie wie die
-    // Ausweich-Palette in overlay.html/win_bar.html, nur anders sortiert.
-    const TEAM_COLOR_PRESET_PALETTE = [
-      "#e6b93e", "#e68f3e", "#4f8fef", "#3ecf6e",
-      "#b56ce6", "#3ecfc9", "#e6463c", "#8f8f8f",
-    ];
-
-    // Setzt Rahmenfarbe (pro Spieler) UND Team-Farbe (fuer den
-    // Stärkeindex-Balken) in einem Rutsch auf dieselbe Farbe
-    // je Team-Nummer - liest dafuer die EFFEKTIVE (automatisch erkannte
-    // oder manuell eingetragene) Team-Zuordnung direkt vom laufenden
-    // Overlay, nicht die evtl. leere rohe Config (bei Modus "Automatisch"
-    // steht dort nichts, die Zuordnung existiert nur live).
-    async function applyTeamColorPreset() {
-      let teamAssignment = {};
-      try {
-        const res = await fetch("/overlay-config.json?t=" + Date.now(), { cache: "no-store" });
-        const data = await res.json();
-        teamAssignment = data.team_assignment || {};
-      } catch (e) {
-        return;
-      }
-      const usedTeams = [...new Set(Object.values(teamAssignment).filter((v) => v !== null && v !== undefined))]
-        .sort((a, b) => a - b);
-      if (usedTeams.length === 0) return;
-
-      const colorForTeam = {};
-      usedTeams.forEach((team, i) => {
-        colorForTeam[team] = TEAM_COLOR_PRESET_PALETTE[i % TEAM_COLOR_PRESET_PALETTE.length];
-      });
-
-      const playerColorsPatch = {};
-      Object.entries(teamAssignment).forEach(([slot, team]) => {
-        if (team === null || team === undefined) return;
-        playerColorsPatch[slot] = { border_color: colorForTeam[team] };
-      });
-      const teamColorsPatch = {};
-      usedTeams.forEach((team) => { teamColorsPatch[team] = colorForTeam[team]; });
-
-      await saveConfigPatch({ player_colors: playerColorsPatch, team_colors: teamColorsPatch });
-    }
-
-    document.getElementById("team-color-preset-btn").addEventListener("click", applyTeamColorPreset);
-
     document.querySelectorAll("input[type=checkbox][data-key]").forEach((el) => {
       el.addEventListener("change", () => {
         saveConfigPatch({ display: { [el.dataset.key]: el.checked } });
@@ -1337,6 +1320,7 @@
             right_offset_px: parseInt(document.getElementById("right-offset-input").value, 10) || 0,
             bottom_offset_px: parseInt(document.getElementById("bottom-offset-input").value, 10) || 0,
             row_gap_px: parseInt(document.getElementById("row-gap-input").value, 10) || 0,
+            card_opacity_percent: (() => { const v = parseInt(document.getElementById("card-opacity-input").value, 10); return isNaN(v) ? 100 : Math.max(0, Math.min(100, v)); })(),
             border_color: document.getElementById("border-color-input").value,
             text_color: document.getElementById("text-color-input").value,
             you_color: document.getElementById("you-color-input").value,
@@ -1345,7 +1329,7 @@
         });
       }, 80);
     }
-    ["left-offset-input", "right-offset-input", "bottom-offset-input", "row-gap-input"].forEach((id) => {
+    ["left-offset-input", "right-offset-input", "bottom-offset-input", "row-gap-input", "card-opacity-input"].forEach((id) => {
       document.getElementById(id).addEventListener("input", saveLayoutDebounced);
     });
     ["text-color-input", "you-color-input", "attack-color-input"].forEach((id) => {

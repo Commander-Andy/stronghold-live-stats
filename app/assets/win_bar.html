@@ -63,12 +63,11 @@
     font-weight: bold;
     font-size: 14px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-    /* --transition-ms wird per JS auf 90% von POLL_MS gesetzt (siehe
-       TRANSITION_MS) - der Balken bewegt sich fliessend zum neuen Zielwert
-       statt bei jedem Poll zu springen, ist aber kurz VOR dem naechsten
-       Poll fertig (nicht genau bei 100%), damit nie eine sichtbare Pause
-       zwischen "angekommen" und "naechster Sprung" entsteht. */
-    transition: flex-grow var(--transition-ms, 450ms) linear;
+    /* --transition-ms wird per JS auf das Staerkeindex-Refresh-Intervall
+       gesetzt (siehe WIN_BAR_TRANSITION_MS) - die Balkengrenze gleitet so
+       durchgehend zum naechsten Zielwert und steht nie kurz still. Nur die
+       Verschiebung, nicht der Farbwechsel. */
+    transition: flex-grow var(--transition-ms, 2000ms) linear;
   }
 
   /* Leuchten an jeder Nahtstelle zwischen zwei Segmenten - derselbe
@@ -180,13 +179,20 @@
   <script>
     const DATA_URL = "/overlay.json";
     const CONFIG_URL = "/overlay-config.json";
-    const POLL_MS = 500;
+    const POLL_MS = 400;
     const CONFIG_POLL_MS = 200;
     // 90% von POLL_MS - der Balken erreicht den Zielwert kurz VOR dem
     // naechsten Poll, statt genau zum Poll-Zeitpunkt (sonst kaeme es je
     // nach Timing-Jitter gelegentlich zu einer kurzen sichtbaren Pause).
-    const TRANSITION_MS = Math.round(POLL_MS * 0.9);
-    document.documentElement.style.setProperty("--transition-ms", TRANSITION_MS + "ms");
+    // Der Staerkeindex bekommt nur alle worker.WIN_PROB_REFRESH_S Sekunden
+    // ein neues Ziel (nicht bei jedem Poll). Die Uebergangsdauer fuers
+    // Verschieben der Balkengrenzen wird genau auf dieses Intervall gelegt,
+    // damit der Balken durchgehend gleitet statt kurz zu springen und dann
+    // stillzustehen (Nutzerwunsch 2026-09-10 "als waere sie staendig in
+    // Bewegung"). Muss zu worker.WIN_PROB_REFRESH_S passen. Betrifft NUR die
+    // Balken-Verschiebung, nicht den harten Farbwechsel.
+    const WIN_BAR_TRANSITION_MS = 2000;
+    document.documentElement.style.setProperty("--transition-ms", WIN_BAR_TRANSITION_MS + "ms");
 
     // Feste Ausweich-Palette, falls für den repräsentativen Spieler-Slot
     // einer Seite keine individuelle Farbe (player_colors) gesetzt ist -
@@ -286,14 +292,22 @@
         });
         lastIndKeys = keys;
       }
+      // Bei genau 2 Seiten ist win_probability_percent eine echte 1v1-
+      // Chance (summiert mit der Gegenseite auf ~100%). Bei 3+ Seiten waere
+      // es "diese Seite gegen alle anderen zusammen" - ein Wert, der fuer
+      // alle klein ist und sich zu nichts Sinnvollem summiert; dort
+      // stattdessen share_percent zeigen (Anteil an der Gesamtstaerke,
+      // summiert IMMER auf 100%), wie im segmentierten Modus.
+      const indUseShare = sides.length > 2;
       sides.forEach((s) => {
         const refs = indElements.get(s.key);
         if (!refs) return;
         if (refs.label.textContent !== s.label) refs.label.textContent = s.label;
-        const widthStr = `${s.win_probability_percent}%`;
+        const value = indUseShare ? s.share_percent : s.win_probability_percent;
+        const widthStr = `${value}%`;
         if (refs.fill.style.width !== widthStr) refs.fill.style.width = widthStr;
         refs.fill.style.background = colorForSide(s);
-        const pctText = `${s.win_probability_percent}%`;
+        const pctText = `${Math.round(value)}%`;
         if (refs.pct.textContent !== pctText) refs.pct.textContent = pctText;
       });
     }

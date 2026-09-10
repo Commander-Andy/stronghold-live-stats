@@ -658,23 +658,29 @@ def connect(verbose: bool = True):
     return None, msg
 
 
-# Konsistenz-Check zweier redundanter Slot-Felder (Cross-Referenz) -
-# session_ok wird von read_player() mit abgelegt und an mehreren Stellen
-# ausgewertet.
+# Konsistenz-Check redundanter Slot-Felder (Cross-Referenz) - session_ok
+# wird von read_player() mit abgelegt und an mehreren Stellen ausgewertet.
+# Feld B ist nur im HD-Profil deckungsgleich mit A; auf Extreme wird allein
+# A geprueft.
 _SESSION_CHECK_OFFSET_A = 0x3454
 _SESSION_CHECK_OFFSET_B = 0x34B5
 
 
 def _session_check_slot(pm, player_index):
-    """True nur wenn beide Referenzfelder lesbar sind, übereinstimmen und
-    den erwarteten Wert zeigen."""
+    """True (= Slot ist bestätigt NICHT menschlich) nur wenn die
+    Referenzfelder lesbar und ungleich 0 sind - 0 markiert einen
+    menschlichen Slot, nicht-menschliche Slots tragen je nach
+    Konstellation unterschiedliche Werte ungleich 0. Auf Extreme wird nur
+    Feld A geprüft (Feld B verhält sich dort anders)."""
     base = BASE_ADDR + player_index * PLAYER_STRIDE
     try:
         a = pm.read_bytes(base + _SESSION_CHECK_OFFSET_A, 1)[0]
+        if GAME_VERSION == "extreme":
+            return a != 0
         b = pm.read_bytes(base + _SESSION_CHECK_OFFSET_B, 1)[0]
     except Exception:
         return False
-    return a == b == 1
+    return a != 0 and b != 0
 
 
 def read_player(pm, player_index):
@@ -1435,7 +1441,18 @@ def build_overlay_payload(all_values, lord_labels, attack_status=None, display=N
             # Fehlt values der Schluessel (z.B. beim CLI-Debug-Gebrauch ohne
             # den Worker-Filter), ist False der sichere Standard.
             "is_defeated": bool(values.get("is_defeated")),
-            "units": {k: values.get(k) for k in UNIT_TYPE_KEYS},
+            # Moenche kommen aus dem Objekttabellen-Zensus (get_monks_trained),
+            # nicht aus dem Struct-Array wie die anderen Einheitentypen -
+            # trotzdem als "unit_monk" mit in die Aufschluesselung, damit sie
+            # in der Truppen-Zusammensetzung neben Bogenschuetzen/Pikenieren
+            # auftauchen (frueher NUR als eigene Statistik-Zeile
+            # "monks_trained"; bei Moench-lastigen KIs fehlte die Einheit
+            # sonst komplett im Zusammensetzungs-Bild). UNIT_BREAKDOWN_ORDER
+            # im Frontend hat den Platz dafuer schon lange vorgesehen.
+            "units": {
+                **{k: values.get(k) for k in UNIT_TYPE_KEYS},
+                "unit_monk": get_monks_trained(i),
+            },
         }
         status_entry = attack_status.get(i)
         if status_entry is not None:

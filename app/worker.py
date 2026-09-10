@@ -95,53 +95,45 @@ class Worker:
         self._thread = None
         self._pm = None
         self._strength_tracker = strength_score.StrengthTracker()
-        # Für die (unvollständige, siehe _tick) Match-Neustart-Erkennung:
-        # ob im letzten Tick mindestens ein aktiver Spieler-Slot da war.
-        self._had_active_players = False
-        # Fuer den troops_total-Einbruch-Filter (siehe _debounce_troop_drops):
-        # slot -> zuletzt akzeptierter Wert bzw. Anzahl aufeinanderfolgender
-        # verdaechtiger Polls.
-        self._last_confirmed_troops = {}
-        self._pending_drop_counts = {}
+        # Match-Neustart-Erkennung (siehe _tick): Anzahl Ticks IN FOLGE
+        # ohne einen echt aktiven Spieler. Erst wenn danach wieder Spieler
+        # aktiv werden UND die Pause lang genug war (NEW_MATCH_INACTIVE_TICKS)
+        # gilt das als neues Match und die Tracker/besiegten Karten werden
+        # geleert. Ein kurzer Aussetzer (alle Slots glitchen 1-2 Ticks
+        # gleichzeitig auf "inaktiv") loest so KEINEN Reset mehr aus, der
+        # sonst legitim besiegte Karten mitten im Spiel wegraeumte
+        # (Nutzer 2026-09-10). Startwert hoch, damit der erste aktive Tick
+        # die Tracker sauber initialisiert.
+        self._inactive_streak = 999
+        # Stall-Erkennung: aendert sich bei KEINEM aktiven, nicht-besiegten
+        # Spieler laenger als STALL_SECONDS irgendein Kernwert, ist das Spiel
+        # vermutlich vorbei oder pausiert -> payload["stalled"] = True, das
+        # Frontend graut dann alles aus (Karten bleiben aber sichtbar).
+        self._last_activity_ts = 0.0
+        self._last_activity_sig = None
+        self._raw_activity_sig = None
         # Fuer den Verschwinden-Filter (siehe _debounce_active_slots): slot
         # -> zuletzt bestaetigte values-dict bzw. Anzahl aufeinanderfolgender
         # Polls, in denen der Slot faelschlich als inaktiv erkannt wurde.
         self._last_confirmed_active_values = {}
         self._pending_inactive_counts = {}
         # Fuer den Truppentyp-Aufschluesselung-Filter (siehe
-        # _debounce_unit_breakdown): slot -> zuletzt bestaetigtes
-        # units-dict bzw. Anzahl aufeinanderfolgender verdaechtiger Polls.
-        self._last_confirmed_units = {}
-        self._pending_unit_drop_counts = {}
-        # Fuer die reaktive "Greift an"-Anzeige (siehe _tick): slot ->
+        # _debounce_unit_breakdown): slot -> {unit_key -> Halte-Zustand}
+        # (siehe _hold_on_drop).
+        self._unit_hold_state = {}
+        # Fuer die reaktive "GREIFT AN"-Anzeige (siehe _tick): slot ->
         # zuletzt gesehener attackNumber-Wert (Lead 2, siehe
-        # [[project_aic_memory_field_investigation]]) bzw. ob "GREIFT AN"
-        # gerade aktiv ist. Kein fester Timer mehr (siehe _tick-Kommentar) -
-        # bleibt aktiv, bis troops_total spuerbar unter die Truppenzahl beim
-        # Angriff selbst faellt (Nutzer-Idee 2026-09-06, loest das Problem
-        # eines zu kurzen/zu langen festen Zeitfensters).
+        # [[project_aic_memory_field_investigation]]) bzw. ob es gerade
+        # aktiv ist, plus der Zeitpunkt der Erkennung - "GREIFT AN" bleibt
+        # danach fuer GREIFT_AN_SECONDS sichtbar, dann aus.
         self._last_attack_number = {}
         self._attacking_active = {}
-        # slot -> troops_total-Wert im Moment des zuletzt erkannten
-        # Angriffs (siehe _tick) - Ausstiegs-Referenz fuer "GREIFT AN",
-        # bewusst UNABHAENGIG von einer aufgeloesten Personality.
-        self._attack_dispatch_troops = {}
-        # Fuer _debounce_scalar_field() - je Feld ein eigenes Paar
-        # "letzter guter Wert"/"Verdachtszaehler" pro Slot. lord_hp war das
-        # erste (2026-09-06), population/population_capacity/
-        # siege_movable_total/monks_trained kamen am selben Tag dazu,
-        # nachdem der Nutzer meldete, dass auch diese Felder kurzzeitig
-        # verschwinden konnten.
-        self._last_confirmed_lord_hp = {}
-        self._pending_lord_hp_drop_counts = {}
-        self._last_confirmed_population = {}
-        self._pending_population_drop_counts = {}
-        self._last_confirmed_population_capacity = {}
-        self._pending_population_capacity_drop_counts = {}
-        self._last_confirmed_siege = {}
-        self._pending_siege_drop_counts = {}
-        self._last_confirmed_monks = {}
-        self._pending_monks_drop_counts = {}
+        self._attack_trigger_ts = {}
+        # Fuer _debounce_scalar_field() (siehe _DEBOUNCED_SCALAR_FIELDS):
+        # Feldname -> {slot -> Halte-Zustand} (siehe _hold_on_drop:
+        # {"disp": zuletzt angezeigter guter Wert, "since": monotonic-Start
+        # des aktuellen Einbruchs oder None}).
+        self._scalar_hold_state = {}
         # Slots, deren Burgherr als besiegt bestaetigt gilt (siehe
         # _debounce_active_slots) - Karte bleibt dafuer bestehen (Nutzer-
         # wunsch 2026-09-06) statt zu verschwinden, wird im Frontend
@@ -206,26 +198,17 @@ class Worker:
         res.reset_arab_unit_tracking()
         res.reset_team_detection()
         self._strength_tracker.reset()
-        self._had_active_players = False
-        self._last_confirmed_troops = {}
-        self._pending_drop_counts = {}
+        self._inactive_streak = 999
+        self._last_activity_ts = 0.0
+        self._last_activity_sig = None
+        self._raw_activity_sig = None
         self._last_confirmed_active_values = {}
         self._pending_inactive_counts = {}
-        self._last_confirmed_units = {}
-        self._pending_unit_drop_counts = {}
+        self._unit_hold_state = {}
         self._last_attack_number = {}
         self._attacking_active = {}
-        self._attack_dispatch_troops = {}
-        self._last_confirmed_lord_hp = {}
-        self._pending_lord_hp_drop_counts = {}
-        self._last_confirmed_population = {}
-        self._pending_population_drop_counts = {}
-        self._last_confirmed_population_capacity = {}
-        self._pending_population_capacity_drop_counts = {}
-        self._last_confirmed_siege = {}
-        self._pending_siege_drop_counts = {}
-        self._last_confirmed_monks = {}
-        self._pending_monks_drop_counts = {}
+        self._attack_trigger_ts = {}
+        self._scalar_hold_state = {}
         self._confirmed_defeated = set()
         self._last_win_prob_update_ts = 0.0
         self._cached_win_probs = {}
@@ -236,19 +219,85 @@ class Worker:
         self._side_win_prob_jump_pending = {}
         return True
 
-    # So viele aufeinanderfolgende Polls muss ein ploetzlicher
-    # troops_total-Einbruch bzw. ein Verschwinden anhalten, bevor es als
-    # echt akzeptiert wird.
-    GLITCH_CONFIRM_TICKS = 3
     ACTIVE_CONFIRM_TICKS = 3
-    # Die Truppentyp-Aufschluesselung (_debounce_unit_breakdown) glitcht
-    # etwas hartnaeckiger als der reine troops_total-Wert - der Nutzer
-    # meldete 2026-09-06 noch gelegentlich verschwindende Einheiten bei den
-    # 3 Ticks/1,5s von GLITCH_CONFIRM_TICKS. Eigene, laengere Schwelle statt
-    # den gemeinsamen Wert fuer alle Debounces hochzusetzen - 5 Ticks bei
-    # Standard-poll_interval_ms=500 sind 2,5s, im vom Nutzer gewuenschten
-    # 2-2,5s-Fenster.
-    UNIT_GLITCH_CONFIRM_TICKS = 5
+
+    # Glitch-Filter fuer die angezeigten Zahlenfelder: ein Rueckgang wird
+    # bis zu SCALAR_HOLD_SECONDS lang auf dem letzten guten Wert GEHALTEN.
+    # Erholt sich der Wert (steigt wieder auf >= den gehaltenen Stand)
+    # vorher, war es ein Aussetzer/Zwischenwert und wurde nie angezeigt;
+    # haelt der Rueckgang laenger an, gilt er als echt und kommt durch
+    # (dann eben mit dieser Verzoegerung). Ein Anstieg kommt immer sofort.
+    #
+    # Wall-Clock statt Tick-Zaehlung (Umstellung 2026-09-10): die alte
+    # Tick-Logik (GLITCH_CONFIRM_TICKS/UNIT_GLITCH_CONFIRM_TICKS) und der
+    # kurzzeitig versuchte Doppel-Lese-Ansatz haben die vom Nutzer
+    # gemeldeten Truppen-/Einheitentyp-Aussetzer NICHT zuverlaessig
+    # abgefangen: der Fehl-Read haelt hier teils >1 Frame an (also auch
+    # ueber zwei schnelle Reads hinweg gleich), und die Tick-Schwellen
+    # verschoben sich mit poll_interval_ms/Zensus-Entkopplung. Ein festes
+    # Zeitfenster ist unabhaengig davon.
+    #
+    # 2,0s (2026-09-10 von 1,5 erhoeht): der troops_total-Neu-Aufsummier-
+    # Sweep (siehe _GUARD_ALL_DROPS_FIELDS) dauert bei langsamer
+    # Spielgeschwindigkeit laenger - ein zu kurzes Fenster liesse dann kurz
+    # vor Ablauf einen Zwischenwert durch, der sofort danach wieder hoch
+    # springt (genau das Flackern, das wir killen wollen). Eine echte
+    # Aenderung ist dafuer bis zu 2s zu spaet sichtbar; der Nutzer fand
+    # 2026-09-10 fuer alle diese Felder ausdruecklich auch ~1s Verzoegerung
+    # ok ("da reicht auch eine Sekunde Refresh in der Anzeige").
+    SCALAR_HOLD_SECONDS = 2.0
+
+    # Felder, bei denen JEDER Rueckgang (nicht nur ein scharfer) bis zu
+    # SCALAR_HOLD_SECONDS gehalten wird. Grund (Nutzer-Beobachtung
+    # 2026-09-10, bei sehr langsamer Spielgeschwindigkeit im CE-Adressfeld
+    # sichtbar): troops_total wird spielintern NICHT atomar gesetzt,
+    # sondern die Einheiten werden neu aufsummiert - der Wert laeuft dabei
+    # sichtbar runter und wieder hoch und nimmt JEDEN Zwischenwert an, auch
+    # flache. Ein Schwellen-Check auf die Einbruchstiefe wuerde die flachen
+    # Zwischenwerte des Sweeps durchlassen. Da der Wert nur nach oben
+    # springen kann, wenn er echt ist, kostet "jeden Rueckgang halten"
+    # nichts ausser der ohnehin akzeptierten ~1,5s-Verzoegerung bei echten
+    # Verlusten. Die Einheitentyp-Aufschluesselung wird genauso behandelt
+    # (_debounce_unit_breakdown ruft mit guard_all_drops=True).
+    _GUARD_ALL_DROPS_FIELDS = {"troops_total"}
+
+    # Alle angezeigten Zahlenfelder, die vor kurzzeitigen Lesefehler-
+    # Aussetzern geschuetzt werden - (Feldname in values, healthy_min,
+    # glitch_max[, drop_fraction]), siehe _debounce_scalar_field().
+    #
+    # Seit 2026-09-10 deckt das ALLE Zahlenfelder ab, auch Gold/Holz/Stein/
+    # Eisen/Popularity/Steuersatz/Nahrung/Waffenlager, die frueher bewusst
+    # ausgespart waren ("koennen legitim auf 0 fallen"). Der Filter haelt
+    # den alten Wert ja nur SCALAR_HOLD_SECONDS lang fest - ein echter
+    # Absturz auf 0 kommt danach ganz normal durch, nur eben ~1,5s spaeter.
+    # drop_fraction optional (Standard None).
+    _DEBOUNCED_SCALAR_FIELDS = [
+        # troops_total: steht in _GUARD_ALL_DROPS_FIELDS - jeder Rueckgang
+        # wird gehalten (Neu-Aufsummier-Sweep, siehe dort). drop_fraction
+        # hier daher irrelevant.
+        ("troops_total", 3, 3),
+        # lord_hp: hoehere Schwelle (0.6), weil der Lord unter schwerem
+        # Beschuss legitim schneller HP verliert - >60% in einem Schritt
+        # schafft praktisch nur ein Fehl-Read (falsche/keine Zeile in der
+        # Objekttabelle). Ein echter Tod (HP -> 0) laeuft ueber den
+        # glitch_max=0-Fall und kommt nach ~1,5s durch. War laut Nutzer
+        # 2026-09-10 schon stabil - hier nichts verschaerft.
+        ("lord_hp", 0, 0, 0.6),
+        ("population", 3, 0),
+        ("population_capacity", 5, 0),
+        ("siege_movable_total", 0, 0),
+        ("monks_trained", 0, 0),
+        ("gold", 0, 0),
+        ("wood", 0, 0),
+        ("stone", 0, 0),
+        ("iron", 0, 0),
+        ("popularity_percent", 0, 0),
+        ("tax_rate", 0, 0),
+        ("bread", 0, 0), ("cheese", 0, 0), ("meat", 0, 0), ("apples", 0, 0),
+        ("ale", 0, 0), ("pitch", 0, 0), ("hops", 0, 0), ("wheat", 0, 0), ("flour", 0, 0),
+        ("bows", 0, 0), ("crossbows", 0, 0), ("spears", 0, 0), ("pikes", 0, 0),
+        ("maces", 0, 0), ("swords", 0, 0), ("leather_armor", 0, 0), ("metal_armor", 0, 0),
+    ]
 
     # Der Staerkeindex wirkte trotz der schon vorhandenen
     # sanften Balken-Animation noch "zu schnell"/unruhig, weil ein neues
@@ -270,6 +319,52 @@ class Worker:
     # _stabilize_percent().
     WIN_PROB_JUMP_THRESHOLD = 10  # Prozentpunkte
     WIN_PROB_JUMP_CONFIRM = 2  # aufeinanderfolgende Refresh-Zyklen
+
+    # "GREIFT AN" bleibt nach der Angriffs-Erkennung (attackNumber steigt)
+    # fuer diese feste Dauer sichtbar, dann aus. Zurueck zum einfachen
+    # Zeitfenster (Nutzer 2026-09-10): der zwischenzeitliche Truppen-
+    # Rueckgang-Check schaltete es oft schon nach ~1 Poll wieder ab (viel
+    # zu kurz zum Ablesen), und die urspruengliche 10s-Version fiel damals
+    # nur deshalb unangenehm auf, weil sie auf die inzwischen deaktivierte
+    # "ANGRIFF BEVORSTEHEND"-Vorstufe zurueckfiel - jetzt faellt sie
+    # einfach auf "kein Badge".
+    GREIFT_AN_SECONDS = 10.0
+
+    # So viele Ticks IN FOLGE muss "kein Spieler aktiv" angehalten haben,
+    # bevor ein spaeteres Wieder-Aktivwerden als NEUES Match gilt (Tracker/
+    # besiegte Karten leeren). ~3s bei Standard-poll_interval_ms=500 - ein
+    # echter Kartenuebergang dauert deutlich laenger, ein Lesefehler-
+    # Aussetzer nur 1-2 Ticks.
+    NEW_MATCH_INACTIVE_TICKS = 6
+    # Aendert sich bei keinem aktiven Spieler laenger als STALL_SECONDS
+    # IRGENDein Zahlenwert aus _STALL_SIG_FIELDS, gilt das Spiel als vorbei
+    # oder pausiert -> payload["stalled"]=True, das Frontend graut dann
+    # alles aus (Karten bleiben sichtbar). Die Signatur wird bewusst aus
+    # den ROHWERTEN gebildet (vor _hold_on_drop), sonst wuerde ein laufender
+    # Halte-Zeitraum die eingefrorenen Truppen-/Ressourcenwerte
+    # faelschlich als "nichts passiert" durchgehen lassen (Nutzer
+    # 2026-09-10: Overlay grau trotz laufendem Spiel). 8s statt 5s und ein
+    # breites Feld-Set, damit ein ruhiger Moment im Spiel (kein Kampf) das
+    # nicht faelschlich ausloest. 6,0s (2026-09-10 von 8 gesenkt, im Zuge
+    # der insgesamt kuerzeren Puffer) - das breite Roh-Feld-Set macht einen
+    # Fehlalarm bei laufendem Spiel trotzdem unwahrscheinlich.
+    STALL_SECONDS = 6.0
+    _STALL_SIG_FIELDS = (
+        "gold", "wood", "stone", "iron", "bread", "cheese", "meat",
+        "troops_total", "population", "population_capacity",
+        "popularity_percent", "lord_hp", "siege_movable_total",
+        "unit_archer", "unit_spearman", "unit_pikeman", "unit_swordsman",
+        "unit_knight", "unit_arab_archer",
+    )
+
+    # Halte-Fenster fuer die Truppentyp-Aufschluesselung
+    # (_debounce_unit_breakdown). Etwas laenger als SCALAR_HOLD_SECONDS,
+    # weil die Pro-Typ-Zaehler (Struct 0x1BE8..0x1C0C) beim Fehl-Read teils
+    # laenger zu niedrig stehen als der reine troops_total-Wert. 3,0s
+    # (2026-09-10 von 5,0 gesenkt - der Nutzer fand die 5s Nachlauf zu
+    # traege; 3s fangen den beobachteten "kurz weg"-Fall noch ab). Ein
+    # wirklich ausgestorbener Typ verschwindet erst nach dieser Zeit.
+    UNIT_HOLD_SECONDS = 3.0
 
     def _stabilize_percent(self, key, raw, displayed_by_key, pending_by_key):
         """Gibt den Wert zurueck, der tatsaechlich angezeigt werden soll -
@@ -353,78 +448,107 @@ class Worker:
             result.append((i, v))
         return result
 
-    def _debounce_scalar_field(self, all_values, field, last_good_by_slot, pending_by_slot, healthy_min, glitch_max):
-        """Generischer Glitch-Filter fuer EIN values-Feld: ein Sprung von
-        einem "gesunden" Wert (> healthy_min) auf einen verdaechtig
-        niedrigen (<= glitch_max) wird erst nach GLITCH_CONFIRM_TICKS
-        aufeinanderfolgenden Polls akzeptiert, davor bleibt der letzte gute
-        Wert eingefroren. Ersetzt seit 2026-09-06 die vorher fast
-        identischen, separat kopierten _debounce_troop_drops/_debounce_
-        lord_hp-Methoden - der Nutzer meldete, dass auch andere, spaeter
-        hinzugefuegte Felder (Bevoelkerung, Belagerung) denselben
-        kurzzeitigen Aussetzer zeigten, den troops_total/lord_hp schon
-        hatten - alle Betroffenen teilen sich jetzt diese eine Funktion
-        statt dass jedes Feld seine eigene Kopie braucht.
+    @staticmethod
+    def _hold_on_drop(new, st, healthy_min, glitch_max, drop_fraction, hold_seconds,
+                      guard_all_drops=False):
+        """Kern des Glitch-Filters fuer EINEN Wert. `st` ist ein
+        veraenderliches dict pro (Slot, Feld):
+          "disp"  - zuletzt als gut angezeigter Wert
+          "since" - monotonic-Zeitpunkt, seit dem der aktuelle Einbruch
+                    ununterbrochen anhaelt (None = kein Einbruch)
+        Rueckgabe: der anzuzeigende Wert.
+
+        Ein Wert, der steigt oder gleich bleibt, wird IMMER sofort
+        uebernommen (ein echter Wert kann nur nach oben springen; nach
+        oben "glitcht" hier nichts).
+
+        Ein Rueckgang wird bis zu hold_seconds lang unterdrueckt, "disp"
+        bleibt sichtbar. Erholt sich der Wert (>= disp) innerhalb des
+        Fensters, war es ein Aussetzer/Zwischenwert und wurde nie gezeigt.
+        Haelt der Rueckgang laenger an, gilt er als echt und "disp" zieht
+        nach.
+
+        Welche Rueckgaenge ueberhaupt gehalten werden:
+          guard_all_drops=True  -> jeder (troops_total & Einheitentypen -
+              der spielinterne Neu-Aufsummier-Sweep nimmt auch flache
+              Zwischenwerte an, siehe _GUARD_ALL_DROPS_FIELDS).
+          guard_all_drops=False -> nur "scharfe": auf <= glitch_max ODER,
+              falls drop_fraction gesetzt, um >= diesen Anteil von disp."""
+        disp = st.get("disp")
+        if new is None:
+            return disp  # kein frischer Messwert -> letzten guten Stand halten
+        if disp is None:
+            st["disp"] = new
+            st["since"] = None
+            return new
+        if new >= disp:
+            # Anstieg/Erholung -> immer sofort uebernehmen, ein evtl.
+            # laufender Sweep ist damit vorbei.
+            st["disp"] = new
+            st["since"] = None
+            return new
+        if guard_all_drops:
+            suspicious = disp > healthy_min
+        else:
+            suspicious = disp > healthy_min and (
+                new <= glitch_max
+                or (drop_fraction is not None and new <= disp * (1.0 - drop_fraction))
+            )
+        if not suspicious:
+            st["since"] = None
+            st["disp"] = new
+            return new
+        now = time.monotonic()
+        if st.get("since") is None:
+            st["since"] = now
+        if now - st["since"] >= hold_seconds:
+            st["disp"] = new  # Rueckgang haelt lange genug an -> als echt uebernehmen
+            st["since"] = None
+            return new
+        return disp
+
+    def _debounce_scalar_field(self, all_values, field, hold_state_by_slot,
+                               healthy_min, glitch_max, drop_fraction=None):
+        """Generischer Glitch-Filter fuer EIN values-Feld ueber alle aktiven
+        Slots - haelt einen scharfen Einbruch bis zu SCALAR_HOLD_SECONDS
+        lang auf dem letzten guten Wert (Details siehe _hold_on_drop und
+        den Kommentar bei SCALAR_HOLD_SECONDS).
 
         Muss VOR der Angriffsstatus-Berechnung und build_overlay_payload()
-        laufen (mutiert die values-dicts in all_values direkt in place,
-        dieselben Objekte werden dort weiterverwendet) - sonst wuerde z.B.
+        laufen (mutiert die values-dicts in all_values in place, dieselben
+        Objekte werden dort weiterverwendet) - sonst wuerde z.B.
         attack_status waehrend eines noch unbestaetigten troops_total-
-        Einbruchs kurz faelschlich auf "ruhig" fallen, obwohl der
-        angezeigte Truppenwert selbst schon korrigiert waere."""
+        Einbruchs kurz faelschlich auf "ruhig" fallen."""
+        guard_all_drops = field in self._GUARD_ALL_DROPS_FIELDS
         for i, values in all_values:
             if not res.is_active_slot(values):
                 continue
-            new = values.get(field)
-            last_good = last_good_by_slot.get(i)
-            looks_like_glitch = (
-                last_good is not None and last_good > healthy_min
-                and new is not None and new <= glitch_max
+            st = hold_state_by_slot.setdefault(i, {})
+            values[field] = self._hold_on_drop(
+                values.get(field), st, healthy_min, glitch_max,
+                drop_fraction, self.SCALAR_HOLD_SECONDS, guard_all_drops,
             )
-            if looks_like_glitch:
-                count = pending_by_slot.get(i, 0) + 1
-                pending_by_slot[i] = count
-                if count < self.GLITCH_CONFIRM_TICKS:
-                    values[field] = last_good
-                    continue
-            else:
-                pending_by_slot[i] = 0
-            last_good_by_slot[i] = new
 
     def _debounce_unit_breakdown(self, all_values):
-        """Wie _debounce_troop_drops, aber fuer die Truppentyp-Werte
+        """Wie _debounce_scalar_field, aber pro Truppentyp-Wert
         (UNIT_TYPE_KEYS in reader.py, z.B. unit_archer/unit_knight/...).
 
-        PRO EINZELNEM TYP geprueft (nicht nur an der Summe aller Typen, wie
-        bis 2026-09-06) - der urspruengliche Lesefehler kann ALLE Typen
-        gleichzeitig auf 0 werfen (dafuer war die Summen-Pruefung gedacht),
-        aber der Nutzer meldete auch danach noch gelegentlich einzelne
-        verschwindende Einheiten - ein Glitch, der nur EINEN Typ betrifft
-        waehrend der Rest der Aufschluesselung stabil bleibt, faellt bei
-        einer reinen Summen-Pruefung durchs Raster (die Summe aendert sich
-        ja kaum, wenn nur ein kleiner Posten kurz auf 0 faellt). Haelt pro
-        Typ eine eigene "letzter guter Wert"/Verdachtszaehler-Historie."""
+        Pro EINZELNEM Typ geprueft: der Lesefehler kann alle Typen
+        gleichzeitig einbrechen lassen, aber auch nur einen - das faellt
+        bei einer reinen Summen-Pruefung durchs Raster. guard_all_drops=True
+        wie bei troops_total (derselbe Neu-Aufsummier-Sweep, siehe
+        _GUARD_ALL_DROPS_FIELDS): jeder Rueckgang eines Typs wird bis zu
+        UNIT_HOLD_SECONDS gehalten, nur ein Anstieg kommt sofort durch."""
         for i, values in all_values:
             if not res.is_active_slot(values):
                 continue
-            last_good = self._last_confirmed_units.setdefault(i, {})
-            pending = self._pending_unit_drop_counts.setdefault(i, {})
+            slot_state = self._unit_hold_state.setdefault(i, {})
             for k in res.UNIT_TYPE_KEYS:
-                new = values.get(k)
-                prev_good = last_good.get(k)
-                looks_like_glitch = (
-                    prev_good is not None and prev_good > 2
-                    and (new is None or new <= 0)
+                st = slot_state.setdefault(k, {})
+                values[k] = self._hold_on_drop(
+                    values.get(k), st, 0, 0, None,
+                    self.UNIT_HOLD_SECONDS, True,
                 )
-                if looks_like_glitch:
-                    count = pending.get(k, 0) + 1
-                    pending[k] = count
-                    if count < self.UNIT_GLITCH_CONFIRM_TICKS:
-                        values[k] = prev_good
-                        continue
-                else:
-                    pending[k] = 0
-                last_good[k] = new
 
     def _tick(self):
         if not self._ensure_connected():
@@ -450,34 +574,27 @@ class Worker:
             self.state.set_blocked()
             return
 
+        # Stall-Signatur JETZT festhalten - aus den Rohwerten, bevor
+        # _debounce_active_slots/_hold_on_drop irgendetwas einfrieren.
+        self._raw_activity_sig = tuple(
+            (i,) + tuple(v.get(k) for k in self._STALL_SIG_FIELDS)
+            for i, v in all_values
+            if res.is_active_slot(v)
+        )
+
         all_values = self._debounce_active_slots(all_values)
-        # Reine Struktur-Felder, die praktisch nie spontan auf (nahe) 0
-        # fallen koennen, solange der Slot noch echt aktiv ist - ein
-        # kurzzeitiger Sprung dorthin ist so gut wie immer derselbe
-        # Objekttabellen-/Struct-Lesefehler wie beim urspruenglich
-        # gefundenen troops_total-Glitch, nicht der echte Wert. Bewusst
-        # NICHT auf Gold/Holz/Ressourcen/Popularity ausgeweitet - die
-        # koennen ganz legitim auf 0 fallen (z.B. Gold komplett in Truppen
-        # investiert), ein Freeze dort wuerde echte Aenderungen verschlucken.
-        self._debounce_scalar_field(
-            all_values, "troops_total", self._last_confirmed_troops, self._pending_drop_counts, 5, 1
-        )
-        self._debounce_scalar_field(
-            all_values, "lord_hp", self._last_confirmed_lord_hp, self._pending_lord_hp_drop_counts, 0, 0
-        )
-        self._debounce_scalar_field(
-            all_values, "population", self._last_confirmed_population, self._pending_population_drop_counts, 3, 0
-        )
-        self._debounce_scalar_field(
-            all_values, "population_capacity", self._last_confirmed_population_capacity,
-            self._pending_population_capacity_drop_counts, 5, 0
-        )
-        self._debounce_scalar_field(
-            all_values, "siege_movable_total", self._last_confirmed_siege, self._pending_siege_drop_counts, 0, 0
-        )
-        self._debounce_scalar_field(
-            all_values, "monks_trained", self._last_confirmed_monks, self._pending_monks_drop_counts, 0, 0
-        )
+        # Alle angezeigten Zahlenfelder gegen kurzzeitige Lesefehler-
+        # Aussetzer (Sprung auf ~0, im naechsten Poll wieder da) abfedern -
+        # siehe _DEBOUNCED_SCALAR_FIELDS fuer die Liste und die Begruendung,
+        # warum inzwischen auch Gold/Ressourcen/Popularity/Waffen dabei sind.
+        for entry in self._DEBOUNCED_SCALAR_FIELDS:
+            field, healthy_min, glitch_max = entry[0], entry[1], entry[2]
+            drop_fraction = entry[3] if len(entry) > 3 else None
+            self._debounce_scalar_field(
+                all_values, field,
+                self._scalar_hold_state.setdefault(field, {}),
+                healthy_min, glitch_max, drop_fraction,
+            )
         self._debounce_unit_breakdown(all_values)
 
         # Seit 2026-09-06 live-first (siehe attack_monitor.py-Moduldoku) -
@@ -506,81 +623,46 @@ class Worker:
                 self._pm, i, name, troops, gold, self._aic_data
             )
             # Reaktive "GREIFT AN"-Anzeige (Nutzerwunsch 2026-09-06, als
-            # Alternative zur vorhersagebasierten "ANGRIFF BEVORSTEHEND"-
-            # Schwelle, die laut Nutzer trotz korrekter Berechnung zu früh
-            # anspringt): attackNumber (Lead 2, live bestätigt) steigt NUR
-            # genau dann, wenn die KI tatsächlich einen Angriff losschickt.
+            # Alternative zur vorhersagebasierten Schwelle, die laut Nutzer
+            # zu früh ansprang): attackNumber (Lead 2, live bestätigt)
+            # steigt NUR genau dann, wenn die KI tatsächlich einen Angriff
+            # losschickt. Bei so einem Anstieg wird "GREIFT AN" fuer
+            # GREIFT_AN_SECONDS eingeblendet und danach wieder aus.
             #
-            # KEIN festes Zeitfenster mehr (erste Version nutzte 10s hart -
-            # Nutzer meldete noch am selben Tag, dass ein laenger laufender
-            # Angriff/Belagerung dann faelschlich zurueck auf "ANGRIFF
-            # BEVORSTEHEND" faellt, waehrend der Kampf noch laeuft). Bleibt
-            # jetzt stattdessen aktiv, bis troops_total spuerbar (10%) UNTER
-            # die Schwelle faellt.
-            #
-            # Diese Schwelle ist die fuer den NAECHSTEN Angriff (result[
-            # "predicted_min"]) - NICHT die des letzten (zweite Version,
-            # selber Tag, kurz ausprobiert): die Schwelle des letzten
-            # Angriffs waechst nur um den festen Eskalationsschritt (+5/+7)
-            # pro Angriff, waehrend troops_total durch die normale
-            # Wirtschaft im Spielverlauf viel schneller waechst - irgendwann
-            # liegt troops_total dauerhaft ueber dieser laengst ueberholten
-            # alten Schwelle und "GREIFT AN" haengt permanent fest (vom
-            # Nutzer selbst noch am selben Tag entdeckt, zuerst bei Slot 0
-            # gesehen). Die naechste Schwelle waechst zusammen mit dem
-            # Eskalationszaehler UND wird bei jedem Angriff neu ausgerechnet,
-            # bleibt also relativ zur aktuellen Truppenzahl sinnvoll.
-            # `just_triggered` verhindert ein sofortiges Wieder-Ausschalten
-            # im selben Tick, in dem der Anstieg erkannt wird, falls
-            # troops_total zu diesem Zeitpunkt schon unter der Schwelle
-            # liegt (Truppen koennen schneller abgezogen sein, als wir
-            # pollen) - "GREIFT AN" soll dann trotzdem mindestens einmal
-            # sichtbar werden.
-            # Ausstiegs-Referenz ist NICHT mehr die berechnete Schwelle
-            # (base/predicted_min - braucht eine aufgeloeste Personality),
-            # sondern schlicht troops_total im Moment DIESES Angriffs
-            # selbst - loest gleich zwei Probleme, beide am selben Tag live
-            # gefunden: (1) fuer Spieler mit unaufloesbarem Namen (weder
-            # Namens-Match noch Live-Feld-Fallback, z.B. "Templer, Der
-            # Fromme") waren base/predicted_min IMMER None, wodurch die
-            # Ausstiegs-Pruefung nie True werden konnte - "GREIFT AN" blieb
-            # fuer diesen Spieler fuer immer an ("permanentes GREIFT AN nur
-            # bei Spieler 1/ID0" - kein Adressierungsproblem, sondern genau
-            # das). (2) selbst MIT aufgeloester Personality wurde die
-            # Schwelle aus einem frueheren Versuch schnell von der normal
-            # wachsenden Wirtschaft ueberholt und blieb dann dauerhaft
-            # unterschritten. Die hier verwendete Referenz (Truppenzahl bei
-            # Angriffs-Erkennung) ist dagegen IMMER aktuell und braucht gar
-            # keine Personality-Aufloesung - funktioniert dadurch jetzt auch
-            # bei Custom-KIs mit unbekanntem Namen.
+            # Bewusst ein einfaches festes Zeitfenster (mehrere andere
+            # Ausstiegs-Bedingungen wurden 2026-09-06/-10 durchprobiert und
+            # wieder verworfen: eine Schwelle relativ zu einer berechneten
+            # Angriffsgroesse braucht eine aufgeloeste Personality und blieb
+            # bei Custom-KIs fuer immer haengen; ein troops_total-Rueckgang-
+            # Check schaltete oft schon nach ~1 Poll wieder ab). Die
+            # urspruengliche 10s-Version fiel damals nur deshalb negativ
+            # auf, weil sie auf die inzwischen deaktivierte "ANGRIFF
+            # BEVORSTEHEND"-Vorstufe zurueckfiel - jetzt faellt sie auf
+            # "kein Badge". `just_triggered` haelt "GREIFT AN" fuer den
+            # Erkennungs-Tick selbst sicher an (der elapsed-Vergleich koennte
+            # sonst bei einem langsamen Tick theoretisch sofort True sein).
             attack_number = result.get("attack_number")
             just_triggered = False
             if attack_number is not None:
                 last = self._last_attack_number.get(i)
                 if last is not None and attack_number > last:
                     self._attacking_active[i] = True
-                    self._attack_dispatch_troops[i] = troops
+                    self._attack_trigger_ts[i] = time.monotonic()
                     just_triggered = True
                 self._last_attack_number[i] = attack_number
 
             if self._attacking_active.get(i):
-                dispatch_troops = self._attack_dispatch_troops.get(i)
-                if dispatch_troops is None:
-                    # Sollte praktisch nie vorkommen (wird ja im selben
-                    # Tick gesetzt, in dem "aktiv" auf True geht) - nur zur
+                trigger_ts = self._attack_trigger_ts.get(i)
+                if trigger_ts is None:
+                    # Sollte praktisch nie vorkommen (wird im selben Tick
+                    # gesetzt, in dem "aktiv" auf True geht) - nur zur
                     # Absicherung, damit es im Zweifel sauber ausschaltet
                     # statt haengen zu bleiben.
                     self._attacking_active[i] = False
+                elif not just_triggered and (time.monotonic() - trigger_ts) >= self.GREIFT_AN_SECONDS:
+                    self._attacking_active[i] = False
                 else:
-                    should_exit = (
-                        not just_triggered
-                        and troops is not None
-                        and troops < dispatch_troops * 0.9
-                    )
-                    if should_exit:
-                        self._attacking_active[i] = False
-                    else:
-                        result["status"] = "GREIFT AN"
+                    result["status"] = "GREIFT AN"
             attack_status[i] = result
 
         payload = res.build_overlay_payload(all_values, lord_labels, attack_status)
@@ -603,18 +685,20 @@ class Worker:
         has_active = any(
             res.is_active_slot(v) and not v.get("is_defeated") for _, v in all_values
         )
-        if has_active and not self._had_active_players:
+        # Nur ein Wieder-Aktivwerden NACH einer ausreichend langen Pause
+        # gilt als neues Match - ein kurzer gemeinsamer Aussetzer aller
+        # Slots (1-2 Ticks) darf die besiegten Karten NICHT wegraeumen.
+        is_new_match = has_active and self._inactive_streak >= self.NEW_MATCH_INACTIVE_TICKS
+        self._inactive_streak = 0 if has_active else self._inactive_streak + 1
+        if is_new_match:
             self._strength_tracker.reset()
             res.reset_team_detection()
-            # sonst wuerden die niedrigen Start-Truppenzahlen des neuen
-            # Matches faelschlich gegen die hohen Endstand-Werte des
-            # vorherigen Matches als "Einbruch" gewertet und fuer die ersten
-            # GLITCH_CONFIRM_TICKS Polls unterdrueckt (siehe
-            # _debounce_troop_drops).
-            self._last_confirmed_troops = {}
-            self._pending_drop_counts = {}
-            self._last_confirmed_units = {}
-            self._pending_unit_drop_counts = {}
+            # sonst wuerden die niedrigen Start-Werte des neuen Matches
+            # faelschlich gegen die hohen Endstand-Werte des vorherigen als
+            # "Einbruch" gewertet und fuer SCALAR_HOLD_SECONDS unterdrueckt
+            # (siehe _debounce_scalar_field/_debounce_unit_breakdown).
+            self._scalar_hold_state = {}
+            self._unit_hold_state = {}
             # sonst koennte der hohe attackNumber-Endstand des alten
             # Matches faelschlich als "gerade gesunken" gegen den neuen
             # Match-Startwert (1) gewertet werden - kein echter Fehler
@@ -622,17 +706,7 @@ class Worker:
             # als auf den impliziten Selbstkorrektur-Effekt zu vertrauen.
             self._last_attack_number = {}
             self._attacking_active = {}
-            self._attack_dispatch_troops = {}
-            self._last_confirmed_lord_hp = {}
-            self._pending_lord_hp_drop_counts = {}
-            self._last_confirmed_population = {}
-            self._pending_population_drop_counts = {}
-            self._last_confirmed_population_capacity = {}
-            self._pending_population_capacity_drop_counts = {}
-            self._last_confirmed_siege = {}
-            self._pending_siege_drop_counts = {}
-            self._last_confirmed_monks = {}
-            self._pending_monks_drop_counts = {}
+            self._attack_trigger_ts = {}
             # Eingefrorene "besiegt"-Karten des VORHERIGEN Matches muessen
             # jetzt weg, sonst wuerden sie als Geister-Spieler im neuen
             # Match weiter mitgeschleppt (deren echter Slot koennte im
@@ -650,7 +724,21 @@ class Worker:
             self._win_prob_jump_pending = {}
             self._side_win_prob_displayed = {}
             self._side_win_prob_jump_pending = {}
-        self._had_active_players = has_active
+            self._last_activity_ts = 0.0
+            self._last_activity_sig = None
+            self._raw_activity_sig = None
+
+        # Stall-Erkennung (siehe STALL_SECONDS/_STALL_SIG_FIELDS): die
+        # Signatur wurde oben AUS DEN ROHWERTEN gebildet (vor _hold_on_drop),
+        # damit ein laufender Halte-Zeitraum die eingefrorenen Werte nicht
+        # faelschlich als "nichts aendert sich" durchgehen laesst.
+        now = time.monotonic()
+        sig = self._raw_activity_sig
+        if sig != self._last_activity_sig or not sig:
+            self._last_activity_sig = sig
+            self._last_activity_ts = now
+        stalled = bool(sig) and (now - self._last_activity_ts) > self.STALL_SECONDS
+        payload["stalled"] = stalled
 
         res.poll_team_detection(all_values)
 

@@ -13,6 +13,7 @@
     --right-offset: 110px;
     --left-offset: 6px;
     --row-gap: 4px;
+    --card-opacity: 1;
     --border-color: #c6a15b;
     --icon-size: 16px;
     /* --line-width = feste GESAMTBREITE einer Werte-Zeile (aus "Breite pro
@@ -150,11 +151,11 @@
     font-weight: bold;
     font-size: 13px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-    /* --transition-ms wird per JS auf 90% von POLL_MS gesetzt (siehe
-       TRANSITION_MS) - der Balken bewegt sich fliessend zum neuen Zielwert
-       statt bei jedem Poll zu springen, ist aber kurz VOR dem naechsten
-       Poll fertig, damit nie eine sichtbare Pause entsteht. */
-    transition: flex-grow var(--transition-ms, 450ms) linear;
+    /* --transition-ms wird per JS auf das Staerkeindex-Refresh-Intervall
+       gesetzt (siehe WIN_BAR_TRANSITION_MS) - die Balkengrenze gleitet so
+       durchgehend zum naechsten Zielwert und steht nie kurz still. Nur die
+       Verschiebung, nicht der Farbwechsel. */
+    transition: flex-grow var(--transition-ms, 2000ms) linear;
   }
 
   /* Leuchten an jeder Nahtstelle - siehe ausführlicher Kommentar bei
@@ -253,6 +254,16 @@
     border-radius: 4px;
     padding: 5px 10px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+    opacity: var(--card-opacity);
+    /* HART fixierte Kartenbreite (content-box): --card-width wird per JS
+       aus --line-width + ggf. der Burgherr-HP-Spalte errechnet (siehe
+       applyLayout). Ohne das bestimmt das breiteste Kind die Kartenbreite -
+       und wenn die Burgherr-HP kurz auf 0/"-" fiel, aenderte sich dadurch
+       (per Video vom Nutzer belegt, 2026-09-10) die Kartenbreite und alle
+       Karten verschoben sich. Zu breiter Inhalt ragt jetzt lieber
+       (unsichtbar, da an der Kante) heraus als die Karte zu dehnen. */
+    width: var(--card-width, var(--line-width));
+    box-sizing: content-box;
   }
 
   .row-top {
@@ -364,12 +375,23 @@
   }
 
   /* Besiegter Lord: Karte bleibt bestehen statt zu verschwinden (siehe
-     worker.py::_debounce_active_slots), wird stattdessen ausgegraut
-     (Nutzerwunsch 2026-09-06). filter statt nur opacity, damit auch die
-     Icons/Farben selbst entsättigt wirken, nicht nur transparenter. */
+     worker.py::_debounce_active_slots), wird stattdessen in Grautöne
+     umgewandelt (Nutzerwunsch 2026-09-06/-10). grayscale(1) mappt jede
+     Farbe auf ihren Helligkeits-Grauwert (helle Farbe -> helles Grau,
+     dunkle -> dunkles Grau). KEINE zusätzliche Transparenz mehr - die
+     Karte bleibt so deckend wie --card-opacity vorgibt (Standard 1),
+     transparent wird sie nur, wenn der Nutzer das per Regler festgelegt
+     hat. */
   .player-row.defeated {
-    filter: grayscale(0.85);
-    opacity: 0.55;
+    filter: grayscale(1);
+  }
+
+  /* Spiel vorbei oder pausiert (siehe worker.py Stall-Erkennung,
+     payload.stalled): alles ausgrauen, aber NICHTS ausblenden. */
+  body.stalled #board-left,
+  body.stalled #board-right,
+  body.stalled #win-bar {
+    filter: grayscale(1);
   }
 
   /* Burgherr-HP als eigene senkrechte Saeule ganz links in .row-top (der
@@ -518,12 +540,19 @@
     gap: 6px;
     padding-top: 2px;
     border-top: 1px solid rgba(198, 161, 91, 0.35);
-    /* Feste Höhe, IMMER reserviert (auch wenn show_troop_breakdown gerade
-       aus ist oder ein Spieler keine Truppen hat) - genau wie bei den
-       Werte-Zeilen soll das Ein-/Ausschalten dieses einen Hakens die
-       Kartenhöhe nicht verschieben. Mehr Truppentypen als hineinpassen
-       werden abgeschnitten statt die Zeile zu vergrößern. */
+    /* Feste Höhe UND feste Breite (= --line-width, wie .stats-line), IMMER
+       reserviert. Ohne die Breiten-Fixierung wuerde diese Zeile so breit
+       wie ihr Inhalt (11 Einheiten-Icons + Zahlen) - und weil die Karte
+       flex-direction:column ist, waere sie das breiteste Kind und wuerde
+       die ganze Kartenbreite bestimmen. Die Zahlen aendern sich staendig
+       (Truppen sterben/werden trainiert -> andere Stellenzahl), dadurch
+       wackelte die Kartenbreite und -position sichtbar hin und her (vom
+       Nutzer in OBS aufgenommen, 2026-09-10). Mehr Truppentypen/breiterer
+       Inhalt als hineinpasst wird abgeschnitten statt die Zeile zu
+       vergroessern. */
     height: calc(var(--icon-size) + 3px);
+    width: var(--line-width);
+    flex-shrink: 0;
     overflow: hidden;
   }
 
@@ -581,12 +610,19 @@
   <script>
     const DATA_URL = "/overlay.json";
     const CONFIG_URL = "/overlay-config.json";
-    const POLL_MS = 500;
+    const POLL_MS = 400;
     const CONFIG_POLL_MS = 200;
     // 90% von POLL_MS - der Stärkeindex-Balken (siehe
     // renderWinBar) erreicht den Zielwert kurz VOR dem naechsten Poll.
-    const TRANSITION_MS = Math.round(POLL_MS * 0.9);
-    document.documentElement.style.setProperty("--transition-ms", TRANSITION_MS + "ms");
+    // Der Staerkeindex bekommt nur alle worker.WIN_PROB_REFRESH_S Sekunden
+    // ein neues Ziel (nicht bei jedem Poll). Die Uebergangsdauer fuers
+    // Verschieben der Balkengrenzen wird genau auf dieses Intervall gelegt,
+    // damit der Balken durchgehend gleitet statt kurz zu springen und dann
+    // stillzustehen (Nutzerwunsch 2026-09-10 "als waere sie staendig in
+    // Bewegung"). Muss zu worker.WIN_PROB_REFRESH_S passen. Betrifft NUR die
+    // Balken-Verschiebung, nicht den harten Farbwechsel.
+    const WIN_BAR_TRANSITION_MS = 2000;
+    document.documentElement.style.setProperty("--transition-ms", WIN_BAR_TRANSITION_MS + "ms");
 
     // Feste Reihenfolge fuer die Truppen-Aufschluesselung (.breakdown) -
     // kaempfende Europaeer vor kaempfenden Arabern vor Moenchen vor der
@@ -899,10 +935,17 @@
       const pc = (cfg.player_colors || {})[String(p.slot)] || {};
       const theme = (cfg.layout || {}).theme || "rgb";
       const parts = [];
-      if (pc.border_color) parts.push(`border-color:${pc.border_color}`);
+      // Waehrend eines Angriffs bewusst KEINE individuelle Rahmen-/
+      // Hintergrundfarbe inline setzen - eine Inline-Farbe wuerde die
+      // .player-row.attacking-CSS ueberschreiben, sodass Rahmen und
+      // Hintergrund uneinheitlich reagieren (Nutzer 2026-09-10: nur der
+      // Hintergrund wechselte auf den Angriffs-Ton, der Rahmen blieb die
+      // eingestellte Farbe). Ohne die Inline-Farben uebernimmt die
+      // Angriffs-CSS Rahmen UND Hintergrund gleichmaessig.
+      if (!isAttacking && pc.border_color) parts.push(`border-color:${pc.border_color}`);
 
       if (theme === "rgb") {
-        if (pc.bg_color) parts.push(`background-color:${pc.bg_color}`);
+        if (!isAttacking && pc.bg_color) parts.push(`background-color:${pc.bg_color}`);
         // Individuelles Hintergrundbild: wird immer versucht zu laden: falls
         // für diesen Slot nie eines hochgeladen wurde, liefert der Server
         // 404 und der Browser zeigt einfach nichts (kein kaputtes Bild-Icon,
@@ -1112,14 +1155,22 @@
         });
         lastWinBarIndKeys = keys;
       }
+      // Bei genau 2 Seiten ist win_probability_percent eine echte 1v1-
+      // Chance (summiert mit der Gegenseite auf ~100%). Bei 3+ Seiten waere
+      // es "diese Seite gegen alle anderen zusammen" - ein Wert, der fuer
+      // alle klein ist und sich zu nichts Sinnvollem summiert; dort
+      // stattdessen share_percent zeigen (Anteil an der Gesamtstaerke,
+      // summiert IMMER auf 100%), wie im segmentierten Modus.
+      const indUseShare = sides.length > 2;
       sides.forEach((s) => {
         const refs = winBarIndElements.get(s.key);
         if (!refs) return;
         if (refs.label.textContent !== s.label) refs.label.textContent = s.label;
-        const widthStr = `${s.win_probability_percent}%`;
+        const value = indUseShare ? s.share_percent : s.win_probability_percent;
+        const widthStr = `${value}%`;
         if (refs.fill.style.width !== widthStr) refs.fill.style.width = widthStr;
         refs.fill.style.background = winBarColorForSide(s);
-        const pctText = `${s.win_probability_percent}%`;
+        const pctText = `${Math.round(value)}%`;
         if (refs.pct.textContent !== pctText) refs.pct.textContent = pctText;
       });
     }
@@ -1325,6 +1376,9 @@
         emptyMsg.style.display = "block";
         return;
       }
+      // Spiel vorbei/pausiert (worker.py Stall-Erkennung): alles ausgrauen,
+      // Karten bleiben aber stehen.
+      document.body.classList.toggle("stalled", !!(data && data.stalled));
       let players = (data && data.players) || [];
 
       if (players.length === 0) {
@@ -1415,6 +1469,9 @@
       if (layout.row_gap_px !== undefined) {
         root.setProperty("--row-gap", layout.row_gap_px + "px");
       }
+      if (layout.card_opacity_percent !== undefined) {
+        root.setProperty("--card-opacity", (layout.card_opacity_percent ?? 100) / 100);
+      }
       if (layout.border_color) {
         root.setProperty("--border-color", layout.border_color);
       }
@@ -1428,6 +1485,11 @@
         root.setProperty("--line-width", layout.stat_width_px + "px");
       }
       root.setProperty("--items-per-line", Math.max(1, parseInt(layout.stats_per_line, 10) || 6));
+      // Feste Kartenbreite = Werte-Zeilenbreite + ggf. Burgherr-HP-Spalte
+      // (.lord-hp-col 24px + .row-top gap 8px). Siehe .player-row CSS.
+      const lineW = parseInt(layout.stat_width_px, 10) || 312;
+      const lordHpExtra = (cfg.display || {}).show_lord_hp ? 32 : 0;
+      root.setProperty("--card-width", (lineW + lordHpExtra) + "px");
       if (layout.you_color) {
         root.setProperty("--you-color", layout.you_color);
       }
